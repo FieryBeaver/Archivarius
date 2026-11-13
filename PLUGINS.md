@@ -50,11 +50,16 @@ window.parent.postMessage({ type: 'archivarius:ready' }, '*')
 
 | Message | Shape |
 |---|---|
-| init | `{ type: 'archivarius:init', data, canEdit, theme }` |
+| init | `{ type: 'archivarius:init', data, canEdit, role, theme }` |
 
 - `data` — whatever you last sent with `set-data`, or `null` for a fresh block.
 - `canEdit` — `boolean`. When `false`, render read-only: hide/disable controls
   and don't send `set-data` (it would be ignored anyway).
+- `role` — the viewer's project role: `'owner'`, `'editor'`, `'viewer'`, or
+  `null` (older hosts don't send it — treat missing as `'viewer'` when gating
+  content). Use it to adapt what you show (e.g. a GM-only panel for owners).
+  While a GM uses "player preview", `role` is the previewed role. This is a
+  UI hint, not security: anyone in the project can read the block's `data`.
 - `theme` — an object of the world's resolved theme colors, keyed by token
   name (e.g. `bg`, `panel`, `panel-2`, `border`, `text`, `muted`, `accent`,
   `accent-2`, `danger`) with CSS color strings as values. See Theming.

@@ -11,7 +11,7 @@ import EmptyState from './EmptyState'
 import ErrorBoundary from './ErrorBoundary'
 import QuickSwitcher from './QuickSwitcher'
 import Sidebar from './sidebar/Sidebar'
-import { SearchGlyph, SidebarGlyph } from './UiIcons'
+import { EyeGlyph, SearchGlyph, SidebarGlyph } from './UiIcons'
 import { useIsMobile } from './useMediaQuery'
 import './ProjectLayout.css'
 
@@ -114,6 +114,8 @@ export default function ProjectLayout() {
   const closePreview = usePanelStore((s) => s.closePreview)
   const load = usePages((s) => s.load)
   const pageTitle = usePages((s) => (pageId ? s.pages.find((p) => p.id === pageId)?.title : undefined))
+  const previewingRole = usePages((s) => s.viewAs)
+  const setViewAs = usePages((s) => s.setViewAs)
   const isMobile = useIsMobile()
 
   // Mobile drawer: remembers the route it was opened on, so any navigation closes it.
@@ -210,6 +212,16 @@ export default function ProjectLayout() {
         </button>
       )}
       <div className="drawer-scrim" aria-hidden onClick={closeDrawer} />
+
+      {previewingRole && (
+        <div className="role-preview-banner" role="status">
+          <EyeGlyph />
+          <span className="role-preview-text">
+            Player preview<span className="role-preview-detail"> — what a {previewingRole} sees</span>
+          </span>
+          <button type="button" className="role-preview-exit" onClick={() => setViewAs(null)}>Exit</button>
+        </div>
+      )}
 
       <main className="layout-main">
         <Outlet />

@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { PageKind } from '../../lib/types'
-import { pagePath, useCanEdit, usePages } from '../../state/pages'
-import { GearGlyph, SearchGlyph, SidebarGlyph } from '../UiIcons'
+import { canEditRole, pagePath, useCanEdit, usePages } from '../../state/pages'
+import { EyeGlyph, GearGlyph, SearchGlyph, SidebarGlyph } from '../UiIcons'
 import KindPicker from './KindPicker'
 import PageTree from './PageTree'
 import './Sidebar.css'
@@ -31,6 +31,10 @@ export default function Sidebar({ projectId, projectName, inert, onNavigate, onS
   const isEmpty = usePages((s) => s.pages.length === 0)
   const create = usePages((s) => s.create)
   const canEdit = useCanEdit()
+  // The preview toggle follows the real role, so it stays available while previewing.
+  const canPreviewRole = usePages((s) => canEditRole(s.role))
+  const previewing = usePages((s) => s.viewAs !== null)
+  const setViewAs = usePages((s) => s.setViewAs)
   const [pickerAnchor, setPickerAnchor] = useState<DOMRect | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
@@ -59,6 +63,15 @@ export default function Sidebar({ projectId, projectName, inert, onNavigate, onS
           <button type="button" className="sidebar-icon-btn" aria-label="Search pages"
             title={`Search pages (${isMac ? '⌘' : 'Ctrl+'}K)`} onClick={onSearch}>
             <SearchGlyph />
+          </button>
+        )}
+        {canPreviewRole && (
+          <button type="button" className={`sidebar-icon-btn${previewing ? ' active' : ''}`}
+            aria-pressed={previewing}
+            aria-label={previewing ? 'Exit player preview' : 'Preview as player'}
+            title={previewing ? 'Exit player preview' : 'Preview as player — see what viewers see'}
+            onClick={() => setViewAs(previewing ? null : 'viewer')}>
+            <EyeGlyph />
           </button>
         )}
         {onCollapse && (

@@ -4,7 +4,7 @@ import * as db from '../lib/db'
 import { PageIcon } from '../lib/icons'
 import type { Page, PageKind } from '../lib/types'
 import { usePanelStore } from '../state/panel'
-import { pagePath } from '../state/pages'
+import { hidesSecrets, pagePath, usePages } from '../state/pages'
 import ErrorBoundary from './ErrorBoundary'
 import LockIcon from './LockIcon'
 import { CloseGlyph } from './UiIcons'
@@ -23,6 +23,7 @@ type Loaded = { id: string; page: Page | null }
 export default function ContextPanel({ projectId, isMobile }: { projectId: string; isMobile: boolean }) {
   const pageId = usePanelStore((s) => s.previewPageId)
   const closePreview = usePanelStore((s) => s.closePreview)
+  const hideSecrets = usePages(hidesSecrets)
   const navigate = useNavigate()
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -52,7 +53,9 @@ export default function ContextPanel({ projectId, isMobile }: { projectId: strin
   }, [pageId, isMobile])
 
   if (!pageId) return null
-  const page = loaded?.id === pageId ? loaded.page : undefined
+  let page = loaded?.id === pageId ? loaded.page : undefined
+  // While previewing as a viewer, a secret page previews as it would for them: not at all.
+  if (page?.is_secret && hideSecrets) page = null
 
   function open() {
     if (!pageId) return

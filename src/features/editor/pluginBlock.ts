@@ -2,7 +2,7 @@ import type { Node as PMNode } from '@tiptap/pm/model'
 import { Node, mergeAttributes, type Editor } from '@tiptap/react'
 import * as db from '../../lib/db'
 import type { Plugin } from '../../lib/types'
-import { usePages } from '../../state/pages'
+import { effectiveRole, usePages } from '../../state/pages'
 import { usePanelStore } from '../../state/panel'
 import { glyphElement } from './blockIcons'
 
@@ -203,7 +203,15 @@ function createPluginView(
 
   function sendInit() {
     knownData = dataKey(node.attrs.data)
-    post({ type: 'archivarius:init', data: node.attrs.data ?? null, canEdit: canEdit(), theme: readTheme(dom) })
+    post({
+      type: 'archivarius:init',
+      data: node.attrs.data ?? null,
+      canEdit: canEdit(),
+      // v0.7: the viewer's project role ('owner' | 'editor' | 'viewer' | null), so plugins
+      // can adapt (e.g. a GM-only panel). Follows the preview role while "view as player" is on.
+      role: effectiveRole(usePages.getState()),
+      theme: readTheme(dom),
+    })
   }
 
   function onMessage(event: MessageEvent) {

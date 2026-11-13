@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import * as db from '../lib/db'
 import type { Page } from '../lib/types'
 import { useAuth } from './auth'
-import { usePages } from './pages'
+import { effectiveRole, usePages } from './pages'
 
 /** Cache of explicit editors (user ids) per restricted page. */
 interface PageEditorsState {
@@ -44,7 +44,7 @@ export const usePageEditors = create<PageEditorsState>((set) => ({
  * Refetches the editor list whenever the page (or its restriction) changes.
  */
 export function useCanEditPage(page: Pick<Page, 'id' | 'edit_access'> | undefined): boolean {
-  const role = usePages((s) => s.role)
+  const role = usePages(effectiveRole)
   const userId = useAuth((s) => s.session?.user.id)
   const restricted = page?.edit_access === 'restricted'
   const pageId = page?.id

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { pageIconOf, renderIcon } from '../lib/icons'
 import type { Page } from '../lib/types'
 import { useCanEditPage } from '../state/pageEditors'
-import { usePages } from '../state/pages'
+import { effectiveRole, usePages } from '../state/pages'
 import Breadcrumbs from './Breadcrumbs'
 import EditAccessControl from './EditAccessControl'
 import IconPicker from './IconPicker'
@@ -13,7 +13,7 @@ import Popover from './Popover'
 export default function PageTitle({ page }: { page: Page }) {
   const update = usePages((s) => s.update)
   const canEdit = useCanEditPage(page)
-  const isOwner = usePages((s) => s.role === 'owner')
+  const isOwner = usePages((s) => effectiveRole(s) === 'owner')
   const [value, setValue] = useState(page.title)
   const [error, setError] = useState<string | null>(null)
   const [iconAnchor, setIconAnchor] = useState<DOMRect | null>(null)

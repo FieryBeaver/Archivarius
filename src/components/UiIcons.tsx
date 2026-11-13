@@ -34,3 +34,8 @@ export const ShieldGlyph = () => (
 export const CloseGlyph = () => (
   <Svg><path d="M4 4l8 8M12 4l-8 8" /></Svg>
 )
+
+/** Eye: preview the world as a lower role ("view as player"). */
+export const EyeGlyph = () => (
+  <Svg><path d="M1.8 8s2.3-4.2 6.2-4.2S14.2 8 14.2 8s-2.3 4.2-6.2 4.2S1.8 8 1.8 8Z" /><circle cx="8" cy="8" r="1.9" /></Svg>
+)

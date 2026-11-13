@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { create } from 'zustand'
 import * as db from '../lib/db'
 import type { Page, PageKind, Role } from '../lib/types'
@@ -14,8 +15,15 @@ interface PagesState {
   expanded: Record<string, boolean>
   /** The signed-in user's role in the loaded project (null = unknown / not a member). */
   role: Role | null
+  /**
+   * Preview role (v0.7): owners/editors can temporarily see the world as a lower
+   * role. null = off. Client-side only — it hides what the client knows is
+   * role-gated (secret pages/blocks, editing UI); RLS stays the real boundary.
+   */
+  viewAs: Role | null
 
   load(projectId: string): Promise<void>
+  setViewAs(role: Role | null): void
   create(parentId: string | null, kind: PageKind): Promise<Page>
   /** Optimistic update; reverts and rethrows on failure. */
   update(id: string, attrs: Partial<Page>): Promise<void>
@@ -33,10 +41,11 @@ export const usePages = create<PagesState>((set, get) => ({
   error: null,
   expanded: {},
   role: null,
+  viewAs: null,
 
   async load(projectId) {
     if (get().projectId !== projectId) {
-      set({ projectId, pages: [], expanded: {}, role: null, status: 'loading', error: null })
+      set({ projectId, pages: [], expanded: {}, role: null, viewAs: null, status: 'loading', error: null })
     }
     try {
       const [pages, role] = await Promise.all([
@@ -97,6 +106,10 @@ export const usePages = create<PagesState>((set, get) => ({
     if (ids.every((a) => get().expanded[a])) return
     set((s) => ({ expanded: { ...s.expanded, ...Object.fromEntries(ids.map((a) => [a, true])) } }))
   },
+
+  setViewAs(role) {
+    set({ viewAs: role })
+  },
 }))
 
 export function pagePath(projectId: string, pageId: string): string {
@@ -108,7 +121,34 @@ export function canEditRole(role: Role | null): boolean {
   return role === 'owner' || role === 'editor'
 }
 
-/** Whether the signed-in user may edit the loaded project. */
+/** The role every capability check should use: the preview role while previewing. */
+export function effectiveRole(s: Pick<PagesState, 'role' | 'viewAs'>): Role | null {
+  return s.viewAs ?? s.role
+}
+
+/** The effective role in the loaded project (the preview role while previewing). */
+export function useRole(): Role | null {
+  return usePages(effectiveRole)
+}
+
+/** Whether a role preview ("view as player") is active. */
+export function useIsPreviewingRole(): boolean {
+  return usePages((s) => s.viewAs !== null)
+}
+
+/** Whether the signed-in user may edit the loaded project (false while previewing a lower role). */
 export function useCanEdit(): boolean {
-  return usePages((s) => canEditRole(s.role))
+  return usePages((s) => canEditRole(effectiveRole(s)))
+}
+
+/** Secret pages are hidden while previewing as a viewer, mirroring their RLS rule. */
+export function hidesSecrets(s: Pick<PagesState, 'viewAs'>): boolean {
+  return s.viewAs === 'viewer'
+}
+
+/** The loaded pages, minus secret ones while previewing as a viewer. */
+export function useVisiblePages(): Page[] {
+  const pages = usePages((s) => s.pages)
+  const hide = usePages(hidesSecrets)
+  return useMemo(() => (hide ? pages.filter((p) => !p.is_secret) : pages), [pages, hide])
 }

@@ -205,6 +205,54 @@
 .layout.sidebar-collapsed .page-view.kind-map .page-header,
 .layout.sidebar-collapsed .page-view.kind-timeline .page-header { padding-left: 60px; }
 
+/* ---------- player preview banner ---------- */
+
+/* Floating pill: visible on every page without reflowing the layout. */
+.role-preview-banner {
+  position: fixed;
+  z-index: 60;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  padding: 5px 6px 5px 14px;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: var(--surface-float);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  box-shadow: var(--shadow-2);
+  animation: wk-float-in var(--t-fast) var(--ease);
+}
+.role-preview-banner > svg { flex-shrink: 0; width: 15px; height: 15px; color: var(--accent); }
+.role-preview-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.role-preview-detail { color: var(--muted); }
+
+.role-preview-exit {
+  flex-shrink: 0;
+  padding: 3px 12px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: none;
+  border-radius: 999px;
+}
+.role-preview-exit:hover { background: var(--accent-line); color: var(--text); }
+
+@media (max-width: 768px) {
+  /* Below the mobile top bar, and clear of the FABs at the bottom. */
+  .role-preview-banner { top: 56px; }
+  .role-preview-detail { display: none; }
+}
+@media (pointer: coarse) {
+  .role-preview-exit { padding: 8px 16px; }
+  .role-preview-banner { padding: 6px 6px 6px 16px; }
+}
+
 .layout-toast {
   position: fixed;
   z-index: 70;

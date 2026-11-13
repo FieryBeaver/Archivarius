@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import * as db from '../lib/db'
 import type { Page } from '../lib/types'
 import { PageIcon } from '../lib/icons'
-import { pagePath, usePages } from '../state/pages'
+import { hidesSecrets, pagePath, usePages } from '../state/pages'
 import LockIcon from './LockIcon'
 
 type Backlink = Pick<Page, 'id' | 'title' | 'kind'>
@@ -16,17 +16,20 @@ interface Props {
 /** Backlinks ("Mentioned in") column. Renders nothing when it has nothing to show. */
 export default function BacklinksPanel({ projectId, pageId }: Props) {
   const navigate = useNavigate()
-  const [backlinks, setBacklinks] = useState<Backlink[]>([])
+  const [rows, setRows] = useState<Backlink[]>([])
   // Backlink rows carry no icon / secrecy; take those from the loaded tree when available.
   const pages = usePages((s) => s.pages)
+  // A viewer's RLS never returns mentions from secret pages; mirror that while previewing.
+  const hideSecrets = usePages(hidesSecrets)
+  const backlinks = hideSecrets ? rows.filter((b) => !pages.find((p) => p.id === b.id)?.is_secret) : rows
   // Only matters on mobile, where the panel sits below the content (the toggle is hidden on desktop).
   const [collapsed, setCollapsed] = useState(true)
 
   useEffect(() => {
     let live = true
     db.listBacklinks(pageId).then(
-      (rows) => live && setBacklinks(rows),
-      () => live && setBacklinks([]),
+      (loaded) => live && setRows(loaded),
+      () => live && setRows([]),
     )
     return () => { live = false }
   }, [pageId])

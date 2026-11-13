@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { PageIcon } from '../lib/icons'
 import type { Page } from '../lib/types'
-import { pagePath, usePages } from '../state/pages'
+import { pagePath, useVisiblePages } from '../state/pages'
 import LockIcon from './LockIcon'
 import './QuickSwitcher.css'
 
@@ -44,7 +44,7 @@ function parentPath(byId: Map<string, Page>, page: Page): string {
 /** Ctrl/Cmd+K page finder over the loaded pages store. */
 export default function QuickSwitcher({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
-  const pages = usePages((s) => s.pages)
+  const pages = useVisiblePages()
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const listRef = useRef<HTMLUListElement>(null)

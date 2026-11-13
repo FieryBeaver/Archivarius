@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import DocEditor from '../features/editor/DocEditor'
 import type { Page } from '../lib/types'
 import { useCanEditPage } from '../state/pageEditors'
-import { usePages } from '../state/pages'
+import { hidesSecrets, usePages } from '../state/pages'
 import EmptyState from './EmptyState'
 import ErrorBoundary from './ErrorBoundary'
 import PageTitle from './PageTitle'
@@ -29,6 +29,8 @@ export default function PageView() {
   const status = usePages((s) => s.status)
   const page = usePages((s) => s.pages.find((p) => p.id === pageId))
   const expandTo = usePages((s) => s.expandTo)
+  const hideSecrets = usePages(hidesSecrets)
+  const setViewAs = usePages((s) => s.setViewAs)
   // Per page: restricted pages are writable only by owners and listed page editors.
   const canEdit = useCanEditPage(page)
 
@@ -43,6 +45,11 @@ export default function PageView() {
   if (!page) {
     return <EmptyState glyph="✧" title="Page not found" message="This page has wandered off the map."
       actionLabel="Back to the world" onAction={() => navigate(`/project/${projectId}`)} />
+  }
+  if (page.is_secret && hideSecrets) {
+    return <EmptyState glyph="🔒" title="Hidden from players"
+      message="This page is a secret — players don't see it at all."
+      actionLabel="Exit player preview" onAction={() => setViewAs(null)} />
   }
 
   return (

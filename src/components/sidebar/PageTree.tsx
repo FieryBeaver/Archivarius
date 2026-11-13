@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Page, PageKind } from '../../lib/types'
 import { ancestorIds, buildTree, descendantIds, flattenTree } from '../../state/pageTree'
-import { pagePath, useCanEdit, usePages } from '../../state/pages'
+import { pagePath, useCanEdit, usePages, useVisiblePages } from '../../state/pages'
 import { dropPosition, getProjection } from './dnd'
 import TreeRow from './TreeRow'
 
@@ -40,7 +40,9 @@ interface PageTreeProps {
 export default function PageTree({ projectId, onNavigate, filter }: PageTreeProps) {
   const navigate = useNavigate()
   const { pageId } = useParams()
-  const { pages, expanded, create, update, remove, toggle } = usePages()
+  const { expanded, create, update, remove, toggle } = usePages()
+  // Secret pages drop out while previewing as a viewer (their non-secret children surface as roots, like RLS).
+  const pages = useVisiblePages()
   const canEdit = useCanEdit()
   const [drag, setDrag] = useState<DragState | null>(null)
   const [error, setError] = useState<string | null>(null)

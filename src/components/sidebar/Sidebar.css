@@ -58,6 +58,8 @@
 }
 .sidebar-icon-btn:hover { color: var(--text); background: var(--hover); }
 .sidebar-icon-btn svg { width: 16px; height: 16px; }
+.sidebar-icon-btn.active { color: var(--accent); background: var(--accent-soft); }
+.sidebar-icon-btn.active:hover { color: var(--accent); }
 
 /* The desktop collapse toggle has no meaning in the mobile drawer. */
 @media (max-width: 768px) {
