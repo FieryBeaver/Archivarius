@@ -516,6 +516,62 @@
 }
 .wks-preview-muted { margin-left: auto; font-size: var(--fs-xs); color: var(--muted); }
 
+/* ---------- plugins ---------- */
+
+.wks-plugin-upload {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s3);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.wks-plugin-file { display: flex; align-items: center; gap: var(--s3); min-width: 0; flex-wrap: wrap; }
+.wks-plugin-file > .wks-hint { flex: 1 1 140px; min-width: 0; }
+.wks-plugin-namerow { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.wks-plugin-name-input { flex: 1; width: auto; }
+.wks-plugin-iconbtn { flex-shrink: 0; color: var(--accent); }
+.wks-plugin-iconbtn.active { background: var(--accent-soft); }
+.wks-plugin-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  color: var(--accent);
+}
+.wks-plugin-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.wks-plugin-date { font-size: var(--fs-xs); color: var(--muted); }
+.wks-plugin-rename { flex: 1 1 100%; min-width: 0; display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.wks-plugin-rename .wks-input { flex: 1 1 160px; width: auto; }
+.wks-plugin .wks-member-controls { flex-wrap: wrap; justify-content: flex-end; }
+.wks-plugin-picker {
+  padding: var(--s3);
+  background: var(--surface-float);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.wks-plugin-picker .icon-picker { max-width: none; }
+.wks-plugins-empty {
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+  padding: var(--s4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+.wks-plugins-empty-icon { color: var(--accent); flex-shrink: 0; line-height: 1; }
+.wks-kbd {
+  padding: 0 5px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--chip-fg);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
+  border-radius: var(--radius-sm);
+}
+
 /* ---------- mobile: full screen, tabs on top ---------- */
 
 @media (max-width: 767px) {

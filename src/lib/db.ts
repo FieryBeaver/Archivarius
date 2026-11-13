@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import type {
-  AnyProjectExport, Member, MemberWithProfile, Mention, Page, PageKind, PageTab, Pin, Project, ProjectExport,
-  Region, Role, ThemeOverrides, WorldEvent,
+  AnyProjectExport, Member, MemberWithProfile, Mention, Page, PageKind, PageTab, Pin, Plugin, PluginExport,
+  Project, ProjectExport, Region, Role, ThemeOverrides, WorldEvent,
 } from './types'
 
 function ok<T>(data: T | null, error: { message: string } | null): T {
@@ -270,6 +270,101 @@ export function mapImageUrl(path: string): string {
   return supabase.storage.from('maps').getPublicUrl(path).data.publicUrl
 }
 
+// ---------- plugins (v0.6) ----------
+
+/** Max size of a plugin's HTML source (also enforced by the `plugins` bucket). */
+export const PLUGIN_MAX_BYTES = 256 * 1024
+
+type PluginSource = File | Blob | string
+
+/** Normalises a plugin source to an HTML Blob, enforcing PLUGIN_MAX_BYTES. */
+function pluginBlob(file: PluginSource): Blob {
+  const blob = typeof file === 'string' ? new Blob([file], { type: 'text/html' }) : file
+  if (blob.size > PLUGIN_MAX_BYTES) {
+    const kb = Math.ceil(blob.size / 1024)
+    throw new Error(`Plugin file is too large (${kb} KB). The limit is ${PLUGIN_MAX_BYTES / 1024} KB.`)
+  }
+  return blob
+}
+
+/** Uploads (or overwrites) a plugin's HTML. cacheControl 0 so a re-upload is never served stale. */
+async function uploadPluginSource(path: string, file: PluginSource, upsert: boolean): Promise<void> {
+  const { error } = await supabase.storage.from('plugins')
+    .upload(path, pluginBlob(file), { contentType: 'text/html', cacheControl: '0', upsert })
+  if (error) throw new Error(error.message)
+}
+
+export async function listPlugins(projectId: string): Promise<Plugin[]> {
+  const { data, error } = await supabase
+    .from('plugins').select().eq('project_id', projectId).order('created_at')
+  return ok(data, error)
+}
+
+/** Owner only (RLS). Uploads the HTML to plugins/<project_id>/<id>.html, then inserts the row. */
+export async function createPlugin(
+  projectId: string,
+  opts: { name: string; icon: string | null; file: PluginSource },
+): Promise<Plugin> {
+  const id = crypto.randomUUID()
+  const source_path = `${projectId}/${id}.html`
+  await uploadPluginSource(source_path, opts.file, false)
+  const { data, error } = await supabase
+    .from('plugins').insert({ id, project_id: projectId, name: opts.name, icon: opts.icon, source_path })
+    .select().single()
+  if (error) {
+    await supabase.storage.from('plugins').remove([source_path])
+    throw new Error(error.message)
+  }
+  return data as Plugin
+}
+
+/** Owner only (RLS). Optionally replaces the HTML source (same path, upsert). */
+export async function updatePlugin(
+  pluginId: string,
+  patch: { name?: string; icon?: string | null },
+  file?: PluginSource,
+): Promise<Plugin> {
+  let plugin: Plugin
+  if (Object.keys(patch).length) {
+    const { data, error } = await supabase.from('plugins').update(patch).eq('id', pluginId).select().single()
+    plugin = ok(data, error) as Plugin
+  } else {
+    const { data, error } = await supabase.from('plugins').select().eq('id', pluginId).single()
+    plugin = ok(data, error) as Plugin
+  }
+  if (file !== undefined) await uploadPluginSource(plugin.source_path, file, true)
+  return plugin
+}
+
+/**
+ * Owner only (RLS). Deletes the row and its storage object. Accepts the plugin
+ * or its id. pluginBlock nodes that reference it stay in documents and render
+ * as "plugin missing".
+ */
+export async function deletePlugin(plugin: Plugin | string): Promise<void> {
+  let p: Plugin
+  if (typeof plugin === 'string') {
+    const { data, error } = await supabase.from('plugins').select().eq('id', plugin).single()
+    p = ok(data, error) as Plugin
+  } else p = plugin
+  const { error } = await supabase.from('plugins').delete().eq('id', p.id)
+  if (error) throw new Error(error.message)
+  const rm = await supabase.storage.from('plugins').remove([p.source_path])
+  if (rm.error) throw new Error(rm.error.message)
+}
+
+/**
+ * Downloads a plugin's HTML. The bucket is private, so this goes through the
+ * authenticated download API (no public CDN URL); `cache: 'no-store'` plus the
+ * cacheControl 0 set on upload means a re-upload is visible immediately.
+ */
+export async function getPluginSource(plugin: Pick<Plugin, 'source_path'>): Promise<string> {
+  const { data, error } = await supabase.storage.from('plugins')
+    .download(plugin.source_path, {}, { cache: 'no-store' })
+  if (error) throw new Error(error.message)
+  return data.text()
+}
+
 // ---------- timeline events ----------
 
 export async function listEvents(timelinePageId: string): Promise<WorldEvent[]> {
@@ -323,24 +418,34 @@ async function insertBatched(table: string, rows: object[]): Promise<void> {
 
 /**
  * Full JSON export of a project. Contains only what the caller can read
- * (viewers don't get secret pages). Map images are not included.
+ * (viewers don't get secret pages). Map images are not included;
+ * plugins are, with their HTML source inlined.
  */
 export async function exportProject(projectId: string): Promise<ProjectExport> {
   const { data: proj, error } = await supabase.from('projects').select().eq('id', projectId).single()
   const project = ok(proj, error) as Project
   const pages = await listPages(projectId)
   const ids = pages.map((p) => p.id)
-  const [mentions, pins, regions, events] = await Promise.all([
+  const [mentions, pins, regions, events, pluginRows] = await Promise.all([
     selectIn<Mention>('mentions', 'from_page_id', ids),
     selectIn<Pin>('pins', 'map_page_id', ids),
     selectIn<Region>('regions', 'map_page_id', ids),
     selectIn<WorldEvent>('events', 'timeline_page_id', ids),
+    listPlugins(projectId),
   ])
+  // a plugin whose source object is gone is skipped rather than failing the whole export
+  const plugins: PluginExport[] = (await Promise.all(pluginRows.map(async (p) => {
+    try {
+      return { id: p.id, name: p.name, icon: p.icon, source: await getPluginSource(p) }
+    } catch {
+      return null
+    }
+  }))).filter((p): p is PluginExport => p !== null)
   return {
     format: 'archivarius-export',
     version: 2,
     project: { name: project.name, theme: project.theme ?? null },
-    pages, mentions, pins, regions, events,
+    pages, mentions, pins, regions, events, plugins,
   }
 }
 
@@ -356,7 +461,8 @@ export function isSupportedExport(data: unknown): data is AnyProjectExport {
  * Creates a new project from an export (v2, or legacy v1 WorldKeeper). All ids
  * are regenerated; references (parent_id, mentions incl. inside every tab,
  * pin/region/event targets) are remapped, dangling ones dropped/nulled.
- * map_image_path is cleared (images aren't exported). Page editors aren't
+ * map_image_path is cleared (images aren't exported). Plugins (v0.6, optional)
+ * are re-uploaded and pluginBlock pluginIds remapped. Page editors aren't
  * exported, so restricted pages are editable only by the importer (owner).
  */
 export async function importProject(input: AnyProjectExport, name?: string): Promise<Project> {
@@ -375,6 +481,15 @@ export async function importProject(input: AnyProjectExport, name?: string): Pro
   const idMap = new Map<string, string>()
   for (const p of data.pages ?? []) idMap.set(p.id, crypto.randomUUID())
   const remap = (id: string | null | undefined): string | null => (id ? idMap.get(id) ?? null : null)
+
+  // plugins first, so pluginBlock nodes can be remapped while pages are built
+  const pluginMap = new Map<string, string>()
+  for (const p of data.plugins ?? []) {
+    if (!p || typeof p.source !== 'string') continue
+    const created = await createPlugin(project.id, { name: p.name || 'Plugin', icon: p.icon ?? null, file: p.source })
+    pluginMap.set(p.id, created.id)
+  }
+  const remapContent = (content: unknown) => remapDocIds(content, idMap, pluginMap)
 
   // order pages so parents precede children (depth levels); orphans become roots
   const byId = new Map((data.pages ?? []).map((p) => [p.id, p]))
@@ -398,13 +513,13 @@ export async function importProject(input: AnyProjectExport, name?: string): Pro
         icon: p.icon,
         kind: p.kind,
         is_secret: p.is_secret,
-        content: remapContent(p.content, idMap),
+        content: remapContent(p.content),
         map_image_path: null,
         map_w: p.map_w,
         map_h: p.map_h,
         edit_access: p.edit_access === 'restricted' ? 'restricted' : 'inherit',
         tabs: Array.isArray(p.tabs)
-          ? p.tabs.map((t) => ({ ...t, content: remapContent(t.content, idMap) }))
+          ? p.tabs.map((t) => ({ ...t, content: remapContent(t.content) }))
           : null,
       },
       d: depth(p),
@@ -439,22 +554,35 @@ export async function importProject(input: AnyProjectExport, name?: string): Pro
   await insertBatched('events', (data.events ?? []).filter((e) => idMap.has(e.timeline_page_id)).map((e) => ({
     timeline_page_id: remap(e.timeline_page_id), position: e.position, sort_key: e.sort_key,
     display_date: e.display_date, era: e.era, title: e.title,
-    content: remapContent(e.content, idMap), target_page_id: remap(e.target_page_id),
+    content: remapContent(e.content), target_page_id: remap(e.target_page_id),
   })))
 
   return project
 }
 
-/** Deep-copies TipTap JSON, remapping mention node ids (attrs.id) to new page ids. */
-function remapContent(content: unknown, idMap: Map<string, string>): unknown {
-  if (Array.isArray(content)) return content.map((c) => remapContent(c, idMap))
+/**
+ * Deep-copies TipTap JSON, remapping mention node ids (attrs.id) to new page ids
+ * and pluginBlock plugin ids (attrs.pluginId) to new plugin ids. Unknown ids are
+ * left as-is (they render as missing). pluginBlock `data` is copied untouched.
+ */
+function remapDocIds(content: unknown, idMap: Map<string, string>, pluginMap: Map<string, string>): unknown {
+  if (Array.isArray(content)) return content.map((c) => remapDocIds(c, idMap, pluginMap))
   if (!content || typeof content !== 'object') return content
   const node = content as Record<string, unknown>
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(node)) out[k] = remapContent(v, idMap)
+  for (const [k, v] of Object.entries(node)) {
+    // never walk into plugin data: it is opaque user JSON, not TipTap
+    out[k] = node.type === 'pluginBlock' && k === 'attrs' ? v : remapDocIds(v, idMap, pluginMap)
+  }
   if (node.type === 'mention' && out.attrs && typeof out.attrs === 'object') {
     const attrs = out.attrs as Record<string, unknown>
     if (typeof attrs.id === 'string' && idMap.has(attrs.id)) out.attrs = { ...attrs, id: idMap.get(attrs.id) }
+  }
+  if (node.type === 'pluginBlock' && out.attrs && typeof out.attrs === 'object') {
+    const attrs = out.attrs as Record<string, unknown>
+    if (typeof attrs.pluginId === 'string' && pluginMap.has(attrs.pluginId)) {
+      out.attrs = { ...attrs, pluginId: pluginMap.get(attrs.pluginId) }
+    }
   }
   return out
 }

@@ -6,6 +6,7 @@ import type { Page, PageTab } from '../../lib/types'
 import { pagePath } from '../../state/pages'
 import { Callout, secretBlock } from './blocks'
 import { pageMention } from './mentionExtension'
+import { PluginBlock } from './pluginBlock'
 import { SlashCommand } from './slashCommand'
 import TabBar from './TabBar'
 import Toolbar from './Toolbar'
@@ -153,6 +154,7 @@ function TabDoc({ page, canEdit, status, initialContent, onChange }: TabDocProps
       pageMention(page.project_id, page.id),
       Callout,
       secretBlock(canEdit),
+      PluginBlock.configure({ projectId: page.project_id, canEdit }),
       ...(canEdit ? [SlashCommand] : []),
     ],
     content: (initialContent as JSONContent | null) ?? '',

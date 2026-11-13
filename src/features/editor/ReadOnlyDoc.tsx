@@ -5,11 +5,12 @@ import { useNavigate } from 'react-router-dom'
 import { pagePath, usePages } from '../../state/pages'
 import { Callout, secretBlock } from './blocks'
 import { pageMention } from './mentionExtension'
+import { PluginBlock } from './pluginBlock'
 import './editor.css'
 
 /**
  * Read-only render of TipTap JSON with the same schema as DocEditor (contract, v0.5).
- * Secret blocks are hidden as for viewers. Clicking a mention navigates to that page.
+ * Secret blocks are hidden as for viewers; plugin blocks render read-only. Clicking a mention navigates to that page.
  * Compact typography for narrow side panels.
  */
 export default function ReadOnlyDoc({ content }: { content: unknown }) {
@@ -17,7 +18,9 @@ export default function ReadOnlyDoc({ content }: { content: unknown }) {
   // Never editable, so the mention suggestion (which needs project/page ids) never fires.
   const [setup] = useState(() => ({
     editable: false,
-    extensions: [StarterKit, pageMention('', ''), Callout, secretBlock(false)],
+    extensions: [StarterKit, pageMention('', ''), Callout, secretBlock(false),
+      // Plugins resolve against the currently loaded project; always read-only here.
+      PluginBlock.configure({ projectId: null, canEdit: false })],
     content: (content as JSONContent | null) ?? '',
   }))
   const editor = useEditor(setup)

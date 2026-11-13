@@ -9,14 +9,16 @@ import { MembersTab } from './MembersTab'
 import { TransferTab } from './TransferTab'
 import { AboutTab } from './AboutTab'
 import { AppearanceTab } from './AppearanceTab'
+import { PluginsTab, DEFAULT_PLUGIN_ICON } from './PluginsTab'
 import './Settings.css'
 
-type TabId = 'general' | 'appearance' | 'members' | 'transfer' | 'about'
+type TabId = 'general' | 'appearance' | 'members' | 'plugins' | 'transfer' | 'about'
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: 'general', label: 'General', icon: 'gi:GiCastle' },
   { id: 'appearance', label: 'Appearance', icon: 'appearance' },
   { id: 'members', label: 'Members', icon: 'gi:GiThreeFriends' },
+  { id: 'plugins', label: 'Plugins', icon: DEFAULT_PLUGIN_ICON },
   { id: 'transfer', label: 'Import / Export', icon: 'gi:GiTiedScroll' },
   { id: 'about', label: 'About', icon: 'gi:GiOpenBook' },
 ]
@@ -105,6 +107,7 @@ export default function SettingsDialog(props: { project: Project; onClose: () =>
   if (tab === 'general') body = <GeneralTab ctx={ctx} />
   else if (tab === 'appearance') body = <AppearanceTab ctx={ctx} />
   else if (tab === 'members') body = <MembersTab ctx={ctx} />
+  else if (tab === 'plugins') body = <PluginsTab ctx={ctx} />
   else if (tab === 'transfer') body = <TransferTab ctx={ctx} />
   else body = <AboutTab />
 

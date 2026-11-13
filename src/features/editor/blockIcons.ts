@@ -15,6 +15,7 @@ export const BLOCK_ICONS = {
   danger: svg('<path d="M8.2 3h7.6L21 8.2v7.6L15.8 21H8.2L3 15.8V8.2Z"/><path d="m9.5 9.5 5 5"/><path d="m14.5 9.5-5 5"/>'),
   lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
   divider: svg('<path d="M4 12h16"/>'),
+  plugin: svg('<path d="M10 4h4v3a1.5 1.5 0 0 0 3 0V4h3v6h-3a1.5 1.5 0 0 0 0 3h3v7h-7v-3a1.5 1.5 0 0 0-3 0v3H4v-7h3a1.5 1.5 0 0 0 0-3H4V4h6Z"/>'),
 } as const
 
 export type BlockIconName = keyof typeof BLOCK_ICONS

@@ -3,6 +3,7 @@ import Suggestion from '@tiptap/suggestion'
 import type { BlockIconName } from './blockIcons'
 import { CALLOUT_LABELS, CALLOUT_VARIANTS } from './blocks'
 import { clampToViewport } from './mentionExtension'
+import { openPluginPicker } from './PluginPicker'
 import SlashList, { type SlashListHandle, type SlashListProps } from './SlashList'
 
 export interface SlashItem {
@@ -53,6 +54,13 @@ const SLASH_ITEMS: SlashItem[] = [
   {
     id: 'secret', title: 'Secret block', keywords: 'dm gm only hidden private spoiler', glyph: { icon: 'lock' },
     run: (e, r) => e.chain().focus().deleteRange(r).wrapIn('secretBlock').run(),
+  },
+  {
+    id: 'plugin', title: 'Plugin…', keywords: 'plugin widget embed custom sheet iframe', glyph: { icon: 'plugin' },
+    run: (e, r) => {
+      e.chain().focus().deleteRange(r).run()
+      openPluginPicker(e, e.state.selection.from)
+    },
   },
 ]
 

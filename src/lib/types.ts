@@ -121,6 +121,8 @@ export interface ProjectExport {
   pins: Pin[]
   regions: Region[]
   events: WorldEvent[]
+  /** v0.6: project plugins with their HTML source inlined. Absent in older exports. */
+  plugins?: PluginExport[]
 }
 
 /** Legacy v1 export (WorldKeeper). Pages lack edit_access/tabs; project has no theme. */
@@ -137,3 +139,23 @@ export interface ProjectExportV1 {
 
 /** Anything importProject accepts. */
 export type AnyProjectExport = ProjectExport | ProjectExportV1
+
+// ---------- v0.6 ----------
+
+/** A user-uploaded plugin: one HTML file in storage at `plugins/<project_id>/<id>.html`. */
+export interface Plugin {
+  id: string
+  project_id: string
+  name: string
+  icon: string | null
+  source_path: string
+  created_at: string
+}
+
+/** A plugin inside a ProjectExport (HTML inlined). */
+export interface PluginExport {
+  id: string
+  name: string
+  icon: string | null
+  source: string
+}
