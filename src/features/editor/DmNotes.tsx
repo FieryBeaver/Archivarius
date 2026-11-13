@@ -1,6 +1,6 @@
 import { EditorContent, useEditor, type JSONContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as db from '../../lib/db'
 import type { Page } from '../../lib/types'
 import { Callout, SecretBlock } from './blocks'
@@ -58,7 +58,7 @@ function DmNotesDoc({ page, canEdit, initialContent }: { page: Page; canEdit: bo
     content: (initialContent as JSONContent | null) ?? EMPTY_DOC,
   }))
 
-  const flush = () => {
+  const flush = useCallback(() => {
     clearTimeout(timer.current)
     const content = pending.current
     if (!content) return
@@ -69,9 +69,7 @@ function DmNotesDoc({ page, canEdit, initialContent }: { page: Page; canEdit: bo
         () => { if (!pending.current) setStatus('saved') },
         () => setStatus('error'),
       )
-  }
-  const flushRef = useRef(flush)
-  flushRef.current = flush
+  }, [page.id, page.project_id])
 
   const editor = useEditor({
     ...setup,
@@ -80,12 +78,12 @@ function DmNotesDoc({ page, canEdit, initialContent }: { page: Page; canEdit: bo
       pending.current = editor.getJSON()
       setStatus('saving')
       clearTimeout(timer.current)
-      timer.current = setTimeout(() => flushRef.current(), DEBOUNCE_MS)
+      timer.current = setTimeout(flush, DEBOUNCE_MS)
     },
   })
 
   // Flush pending notes when the tab unmounts (tab switch, page change).
-  useEffect(() => () => flushRef.current(), [])
+  useEffect(() => flush, [flush])
 
   return (
     <>

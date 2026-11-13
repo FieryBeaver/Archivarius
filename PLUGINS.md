@@ -6,6 +6,10 @@ initiative tracker — that lives inside a page as a block. You write it as
 then insert it into any page from the editor's `/` menu. Each block stores
 its own data (e.g. one character sheet per NPC page) inside the page document.
 
+A plugin can also fill a whole **page tab** (the tab strip's **+ → Plugin
+tab…**). The bridge below is identical; the tab's data is stored on the tab
+instead of a block. One plugin can power both without changes.
+
 ## The file
 
 - **One `.html` file**, max **256 KB**. Put your CSS in `<style>` and your
