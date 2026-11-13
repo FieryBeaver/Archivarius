@@ -1,0 +1,171 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; }
+  body {
+    font: 14px/1.4 system-ui, sans-serif; color: var(--text, #e7e4dc);
+    padding: 12px;
+  }
+  .sheet { background: var(--panel, #1d2026); border: 1px solid var(--border, #2e323b);
+    border-radius: 8px; padding: 12px; display: grid; gap: 12px; }
+  h3 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted, #9a958a); }
+  input { font: inherit; color: inherit; background: var(--bg, #16181d);
+    border: 1px solid var(--border, #2e323b); border-radius: 6px; padding: 4px 8px; width: 100%; }
+  input:focus { outline: none; border-color: var(--accent, #d4a953); }
+  input:disabled { opacity: .8; }
+  .name { font-size: 18px; font-weight: 600; }
+  .abilities { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .ab { text-align: center; background: var(--panel-2, #23262e); border-radius: 6px; padding: 6px 4px; }
+  .ab label { display: block; font-size: 11px; color: var(--muted, #9a958a); }
+  .ab input { text-align: center; padding: 2px; }
+  .ab .mod { font-size: 12px; color: var(--accent, #d4a953); }
+  .hp { display: flex; align-items: center; gap: 8px; }
+  .hp .val { font-size: 20px; font-weight: 600; min-width: 80px; text-align: center; }
+  .hp input { width: 64px; }
+  button { font: inherit; cursor: pointer; color: var(--accent, #d4a953); background: transparent;
+    border: 1px solid var(--border, #2e323b); border-radius: 6px; padding: 2px 10px; }
+  button:hover { border-color: var(--accent, #d4a953); }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  li { display: flex; gap: 6px; }
+  .add { display: flex; gap: 6px; margin-top: 6px; }
+  .readonly button, .readonly .add { display: none; }
+  @media (max-width: 420px) { .abilities { grid-template-columns: repeat(3, 1fr); } }
+</style>
+</head>
+<body>
+<div class="sheet" id="sheet">
+  <input class="name" id="name" placeholder="Character name">
+  <section><h3>Abilities</h3><div class="abilities" id="abilities"></div></section>
+  <section><h3>Hit points</h3>
+    <div class="hp">
+      <button id="hpMinus">−</button>
+      <span class="val" id="hpVal"></span>
+      <button id="hpPlus">+</button>
+      <span>max</span><input id="hpMax" type="number" min="1">
+    </div>
+  </section>
+  <section><h3>Inventory</h3>
+    <ul id="inv"></ul>
+    <div class="add"><input id="newItem" placeholder="Add item…"><button id="addItem">Add</button></div>
+  </section>
+</div>
+<script>
+  const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
+  const DEFAULTS = () => ({
+    v: 1, name: '', hp: 10, hpMax: 10, items: [],
+    abilities: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+  })
+  let state = DEFAULTS()
+  let canEdit = false
+  const $ = (id) => document.getElementById(id)
+  const send = (msg) => window.parent.postMessage(msg, '*')
+
+  // ---- persistence (debounced) ----
+  let saveTimer
+  function save() {
+    if (!canEdit) return
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => send({ type: 'archivarius:set-data', data: state }), 300)
+  }
+
+  // ---- theme ----
+  function applyTheme(theme) {
+    for (const [k, v] of Object.entries(theme || {})) {
+      if (typeof v === 'string') document.documentElement.style.setProperty('--' + k.replace(/^--/, ''), v)
+    }
+  }
+
+  // ---- render ----
+  const mod = (score) => { const m = Math.floor((score - 10) / 2); return (m >= 0 ? '+' : '') + m }
+  function render() {
+    $('sheet').classList.toggle('readonly', !canEdit)
+    document.querySelectorAll('input').forEach((i) => { i.disabled = !canEdit })
+    $('name').value = state.name
+    $('abilities').innerHTML = ''
+    for (const a of ABILITIES) {
+      const box = document.createElement('div')
+      box.className = 'ab'
+      box.innerHTML = '<label></label><input type="number" min="1" max="30"><div class="mod"></div>'
+      box.querySelector('label').textContent = a
+      const input = box.querySelector('input')
+      input.value = state.abilities[a]
+      input.disabled = !canEdit
+      box.querySelector('.mod').textContent = mod(state.abilities[a])
+      input.addEventListener('input', () => {
+        state.abilities[a] = Number(input.value) || 0
+        box.querySelector('.mod').textContent = mod(state.abilities[a])
+        save()
+      })
+      $('abilities').appendChild(box)
+    }
+    renderHp()
+    renderInventory()
+  }
+  function renderHp() {
+    $('hpVal').textContent = state.hp + ' / ' + state.hpMax
+    $('hpMax').value = state.hpMax
+  }
+  function renderInventory() {
+    $('inv').innerHTML = ''
+    state.items.forEach((item, i) => {
+      const li = document.createElement('li')
+      const input = document.createElement('input')
+      input.value = item
+      input.disabled = !canEdit
+      input.addEventListener('input', () => { state.items[i] = input.value; save() })
+      const del = document.createElement('button')
+      del.textContent = '×'
+      del.addEventListener('click', () => { state.items.splice(i, 1); renderInventory(); save() })
+      li.append(input, del)
+      $('inv').appendChild(li)
+    })
+  }
+
+  // ---- controls ----
+  $('name').addEventListener('input', (e) => { state.name = e.target.value; save() })
+  $('hpMinus').addEventListener('click', () => { state.hp = Math.max(0, state.hp - 1); renderHp(); save() })
+  $('hpPlus').addEventListener('click', () => { state.hp = Math.min(state.hpMax, state.hp + 1); renderHp(); save() })
+  $('hpMax').addEventListener('input', (e) => {
+    state.hpMax = Math.max(1, Number(e.target.value) || 1)
+    state.hp = Math.min(state.hp, state.hpMax)
+    renderHp(); save()
+  })
+  function addItem() {
+    const text = $('newItem').value.trim()
+    if (!text) return
+    state.items.push(text)
+    $('newItem').value = ''
+    renderInventory(); save()
+  }
+  $('addItem').addEventListener('click', addItem)
+  $('newItem').addEventListener('keydown', (e) => { if (e.key === 'Enter') addItem() })
+
+  // ---- sizing: report our height whenever it changes ----
+  new ResizeObserver(() => {
+    // measure body, not documentElement.scrollHeight (that never shrinks below the frame height)
+    send({ type: 'archivarius:resize', height: Math.ceil(document.body.getBoundingClientRect().height) })
+  }).observe(document.body)
+
+  // ---- bridge ----
+  window.addEventListener('message', (e) => {
+    const msg = e.data
+    if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return
+    if (!msg.type.startsWith('archivarius:')) return
+    if (msg.type === 'archivarius:init') {
+      canEdit = msg.canEdit === true
+      applyTheme(msg.theme)
+      const d = msg.data
+      state = d && typeof d === 'object' && d.v === 1
+        ? { ...DEFAULTS(), ...d, abilities: { ...DEFAULTS().abilities, ...d.abilities } }
+        : DEFAULTS()
+      render()
+    }
+  })
+  send({ type: 'archivarius:ready' })
+</script>
+</body>
+</html>

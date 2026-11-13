@@ -3,6 +3,7 @@ import * as db from '../../lib/db'
 import { renderIcon } from '../../lib/icons'
 import IconPicker from '../../components/IconPicker'
 import type { Plugin } from '../../lib/types'
+import { STARTER_PLUGINS, type StarterPlugin } from './defaultPlugins'
 import type { SettingsContext } from './SettingsDialog'
 import { ROLE_LABEL } from './roles'
 
@@ -90,6 +91,8 @@ export function PluginsTab({ ctx }: { ctx: SettingsContext }) {
 
       {isOwner && <UploadForm projectId={project.id} setBusy={setBusy} onUploaded={load} />}
 
+      {isOwner && <StarterPlugins projectId={project.id} plugins={plugins} setBusy={setBusy} onAdded={load} />}
+
       <div className="wks-field">
         <div className="wks-label">Plugins{plugins ? ` · ${plugins.length}` : ''}</div>
         {loadError && (
@@ -131,6 +134,68 @@ export function PluginsTab({ ctx }: { ctx: SettingsContext }) {
             </div>
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+/* ---------- starter plugins (v0.7) ---------- */
+
+function StarterPlugins(props: {
+  projectId: string
+  plugins: Plugin[] | null
+  setBusy(b: boolean): void
+  onAdded(): Promise<void>
+}) {
+  const [adding, setAdding] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const existingNames = new Set((props.plugins ?? []).map((p) => p.name.toLowerCase()))
+
+  const add = async (sp: StarterPlugin) => {
+    if (adding) return
+    setAdding(sp.key)
+    setError(null)
+    props.setBusy(true)
+    try {
+      await db.createPlugin(props.projectId, { name: sp.name, icon: sp.icon, file: sp.source })
+      await props.onAdded()
+    } catch (e) {
+      setError(errMsg(e, `Could not add ${sp.name}.`))
+    } finally {
+      setAdding(null)
+      props.setBusy(false)
+    }
+  }
+
+  return (
+    <div className="wks-field">
+      <div className="wks-label">Starter plugins</div>
+      <ul className="wks-members wks-plugins">
+        {STARTER_PLUGINS.map((sp) => {
+          const added = existingNames.has(sp.name.toLowerCase())
+          return (
+            <li key={sp.key} className="wks-member wks-plugin">
+              <div className="wks-member-main">
+                <span className="wks-plugin-icon" aria-hidden="true">{renderIcon(sp.icon, { size: 18 })}</span>
+                <div className="wks-plugin-meta">
+                  <div className="wks-member-email">{sp.name}</div>
+                  <div className="wks-plugin-date">{sp.blurb}</div>
+                </div>
+              </div>
+              <div className="wks-member-controls">
+                <button type="button" className="wks-btn" disabled={added || adding !== null}
+                  onClick={() => { void add(sp) }}>
+                  {added ? 'Added ✓' : adding === sp.key ? 'Adding…' : 'Add to world'}
+                </button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      {error && <p className="wks-error" role="alert">{error}</p>}
+      <div className="wks-hint">
+        Ready-made sheets, added like any uploaded plugin — rename, re-icon or replace them afterwards.
       </div>
     </div>
   )

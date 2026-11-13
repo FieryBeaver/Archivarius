@@ -1,0 +1,306 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!--
+  Daggerheart player sheet — an Archivarius starter plugin.
+  Original layout and wording; follows the game's sheet structure (traits,
+  Evasion, Armor, HP, Stress, Hope, experiences, weapons, domain cards).
+  Daggerheart is a trademark of Darrington Press; this sheet is fan-made.
+-->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; }
+  body { font: 13px/1.45 system-ui, sans-serif; color: var(--text, #e7e4dc); padding: 10px; }
+  .sheet { display: grid; gap: 12px; background: var(--panel, #1d2026);
+    border: 1px solid var(--border, #2e323b); border-radius: 10px; padding: 14px; }
+  h3 { margin: 0 0 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--muted, #9a958a); font-weight: 600; }
+  input, textarea { font: inherit; color: inherit; background: var(--bg, #16181d);
+    border: 1px solid var(--border, #2e323b); border-radius: 6px; padding: 4px 8px; width: 100%; }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent, #d4a953); }
+  input:disabled, textarea:disabled { opacity: .85; }
+  textarea { resize: vertical; min-height: 44px; }
+  button { font: inherit; cursor: pointer; color: var(--accent, #d4a953); background: transparent;
+    border: 1px solid var(--border, #2e323b); border-radius: 6px; padding: 2px 9px; }
+  button:hover { border-color: var(--accent, #d4a953); }
+  button:disabled { opacity: .4; cursor: default; }
+
+  .head { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 6px; }
+  .head .wide { grid-column: 1 / -1; display: grid; grid-template-columns: 2fr 1fr; gap: 6px; }
+  .field label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted, #9a958a); margin-bottom: 2px; }
+
+  .traits { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .trait { text-align: center; background: var(--panel-2, #23262e); border-radius: 8px; padding: 6px 2px; }
+  .trait label { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted, #9a958a); }
+  .trait input { text-align: center; padding: 2px; font-size: 15px; font-weight: 600; background: transparent; border-color: transparent; }
+  .trait input:focus { border-color: var(--accent, #d4a953); }
+
+  .defense { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 6px; }
+  .stat { display: flex; align-items: center; gap: 8px; background: var(--panel-2, #23262e);
+    border-radius: 8px; padding: 6px 10px; }
+  .stat label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted, #9a958a); }
+  .stat input { width: 48px; text-align: center; font-weight: 600; }
+
+  .tracks { display: grid; gap: 8px; }
+  .track { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .track-label { min-width: 72px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted, #9a958a); }
+  .pips { display: flex; gap: 4px; flex-wrap: wrap; }
+  .pip { width: 18px; height: 18px; padding: 0; border-radius: 5px; border: 1.5px solid var(--border, #2e323b); }
+  .pip.marked { background: var(--accent, #d4a953); border-color: var(--accent, #d4a953); }
+  .pip.hope { border-radius: 50%; border-color: var(--accent-2, #6fa8dc); }
+  .pip.hope.marked { background: var(--accent-2, #6fa8dc); }
+  .pip.stress.marked { background: var(--danger, #c0564f); border-color: var(--danger, #c0564f); }
+  .pip.armorslot.marked { background: var(--muted, #9a958a); border-color: var(--muted, #9a958a); }
+  .maxer { display: flex; gap: 2px; align-items: center; }
+  .maxer button { padding: 0 6px; font-size: 12px; line-height: 1.4; }
+
+  .list { display: grid; gap: 4px; }
+  .row { display: flex; gap: 6px; align-items: center; }
+  .row .mod { width: 56px; text-align: center; }
+  .row .del { padding: 0 8px; }
+  .add { display: flex; gap: 6px; margin-top: 4px; }
+  .readonly .add, .readonly .del, .readonly .maxer { display: none; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .traits { grid-template-columns: repeat(3, 1fr); } .cols { grid-template-columns: 1fr; } .defense { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="sheet" id="sheet">
+  <section class="head">
+    <div class="field wide">
+      <div><label>Name</label><input id="name" placeholder="Character name"></div>
+      <div><label>Pronouns</label><input id="pronouns"></div>
+    </div>
+    <div class="field"><label>Heritage</label><input id="heritage" placeholder="Ancestry & community"></div>
+    <div class="field"><label>Class</label><input id="klass"></div>
+    <div class="field"><label>Level</label><input id="level" type="number" min="1" max="10"></div>
+  </section>
+
+  <section>
+    <h3>Traits</h3>
+    <div class="traits" id="traits"></div>
+  </section>
+
+  <section class="defense">
+    <div class="stat"><label>Evasion</label><input id="evasion" type="number"></div>
+    <div class="stat"><label>Armor</label><input id="armor" type="number"></div>
+    <div class="track"><span class="track-label">Armor slots</span>
+      <span class="pips" id="armorPips"></span><span class="maxer" id="armorMaxer"></span></div>
+  </section>
+
+  <section class="tracks">
+    <div class="track"><span class="track-label">Hit points</span>
+      <span class="pips" id="hpPips"></span><span class="maxer" id="hpMaxer"></span></div>
+    <div class="track"><span class="track-label">Stress</span>
+      <span class="pips" id="stressPips"></span><span class="maxer" id="stressMaxer"></span></div>
+    <div class="track"><span class="track-label">Hope</span>
+      <span class="pips" id="hopePips"></span></div>
+  </section>
+
+  <div class="cols">
+    <section>
+      <h3>Experiences</h3>
+      <div class="list" id="exp"></div>
+      <div class="add"><input id="newExp" placeholder="Add an experience…"><button id="addExp">Add</button></div>
+    </section>
+    <section>
+      <h3>Weapons</h3>
+      <div class="list" id="weapons"></div>
+      <div class="add"><input id="newWeapon" placeholder="Name · trait · range · damage"><button id="addWeapon">Add</button></div>
+    </section>
+  </div>
+
+  <section>
+    <h3>Domain cards</h3>
+    <div class="list" id="cards"></div>
+    <div class="add"><input id="newCard" placeholder="Card name · domain · level"><button id="addCard">Add</button></div>
+  </section>
+
+  <section>
+    <h3>Notes</h3>
+    <textarea id="notes" placeholder="Features, hopes, fears…"></textarea>
+  </section>
+</div>
+
+<script>
+  const TRAITS = ['Agility', 'Strength', 'Finesse', 'Instinct', 'Presence', 'Knowledge']
+  const HOPE_MAX = 6
+  const DEFAULTS = () => ({
+    v: 1, name: '', pronouns: '', heritage: '', klass: '', level: 1,
+    traits: { Agility: 0, Strength: 0, Finesse: 0, Instinct: 0, Presence: 0, Knowledge: 0 },
+    evasion: 10, armor: 0, armorUsed: 0, armorMax: 3,
+    hp: 0, hpMax: 6, stress: 0, stressMax: 6, hope: 2,
+    experiences: [], weapons: [], cards: [], notes: '',
+  })
+  let state = DEFAULTS()
+  let canEdit = false
+  const $ = (id) => document.getElementById(id)
+  const send = (msg) => window.parent.postMessage(msg, '*')
+
+  // ---- persistence (debounced, whole state) ----
+  let saveTimer
+  function save() {
+    if (!canEdit) return
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => send({ type: 'archivarius:set-data', data: state }), 300)
+  }
+
+  function applyTheme(theme) {
+    for (const [k, v] of Object.entries(theme || {})) {
+      if (typeof v === 'string') document.documentElement.style.setProperty('--' + k.replace(/^--/, ''), v)
+    }
+  }
+
+  // ---- small builders ----
+  function bindText(id, key, numeric) {
+    const el = $(id)
+    el.value = state[key]
+    el.addEventListener('input', () => {
+      state[key] = numeric ? (Number(el.value) || 0) : el.value
+      save()
+    })
+  }
+
+  function pipTrack(holder, count, marked, cls, onSet) {
+    holder.innerHTML = ''
+    for (let i = 0; i < count; i++) {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = 'pip ' + cls + (i < marked ? ' marked' : '')
+      b.title = (i + 1) + ' / ' + count
+      b.disabled = !canEdit
+      // Clicking pip N marks N pips; clicking the last marked pip clears it.
+      b.addEventListener('click', () => { onSet(i + 1 === marked ? i : i + 1); save() })
+      holder.appendChild(b)
+    }
+  }
+
+  function maxer(holder, get, set) {
+    holder.innerHTML = ''
+    const minus = document.createElement('button')
+    minus.type = 'button'; minus.textContent = '−'; minus.title = 'Fewer slots'
+    const plus = document.createElement('button')
+    plus.type = 'button'; plus.textContent = '+'; plus.title = 'More slots'
+    minus.addEventListener('click', () => { set(Math.max(1, get() - 1)); render(); save() })
+    plus.addEventListener('click', () => { set(Math.min(20, get() + 1)); render(); save() })
+    holder.append(minus, plus)
+  }
+
+  function rowList(holder, items, placeholderUpdate, onDelete) {
+    holder.innerHTML = ''
+    items.forEach((item, i) => {
+      const row = document.createElement('div')
+      row.className = 'row'
+      const input = document.createElement('input')
+      input.value = item
+      input.disabled = !canEdit
+      input.addEventListener('input', () => { placeholderUpdate(i, input.value); save() })
+      const del = document.createElement('button')
+      del.type = 'button'; del.className = 'del'; del.textContent = '×'
+      del.addEventListener('click', () => { onDelete(i); render(); save() })
+      row.append(input, del)
+      holder.appendChild(row)
+    })
+  }
+
+  function adder(inputId, btnId, push) {
+    const commit = () => {
+      const text = $(inputId).value.trim()
+      if (!text) return
+      push(text)
+      $(inputId).value = ''
+      render(); save()
+    }
+    $(btnId).addEventListener('click', commit)
+    $(inputId).addEventListener('keydown', (e) => { if (e.key === 'Enter') commit() })
+  }
+  adder('newExp', 'addExp', (t) => state.experiences.push(t))
+  adder('newWeapon', 'addWeapon', (t) => state.weapons.push(t))
+  adder('newCard', 'addCard', (t) => state.cards.push(t))
+
+  // ---- render ----
+  function render() {
+    $('sheet').classList.toggle('readonly', !canEdit)
+    bindlessPaint()
+    document.querySelectorAll('input, textarea').forEach((el) => { el.disabled = !canEdit })
+  }
+
+  function bindlessPaint() {
+    // traits
+    const traitsBox = $('traits')
+    traitsBox.innerHTML = ''
+    for (const t of TRAITS) {
+      const box = document.createElement('div')
+      box.className = 'trait'
+      const label = document.createElement('label')
+      label.textContent = t
+      const input = document.createElement('input')
+      input.type = 'number'; input.min = -5; input.max = 10
+      const v = Number(state.traits[t]) || 0
+      input.value = v
+      input.disabled = !canEdit
+      input.addEventListener('input', () => { state.traits[t] = Number(input.value) || 0; save() })
+      box.append(label, input)
+      traitsBox.appendChild(box)
+    }
+    // tracks
+    pipTrack($('hpPips'), state.hpMax, state.hp, '', (n) => { state.hp = n; bindlessPaint() })
+    pipTrack($('stressPips'), state.stressMax, state.stress, 'stress', (n) => { state.stress = n; bindlessPaint() })
+    pipTrack($('hopePips'), HOPE_MAX, state.hope, 'hope', (n) => { state.hope = n; bindlessPaint() })
+    pipTrack($('armorPips'), state.armorMax, state.armorUsed, 'armorslot', (n) => { state.armorUsed = n; bindlessPaint() })
+    maxer($('hpMaxer'), () => state.hpMax, (n) => { state.hpMax = n; state.hp = Math.min(state.hp, n) })
+    maxer($('stressMaxer'), () => state.stressMax, (n) => { state.stressMax = n; state.stress = Math.min(state.stress, n) })
+    maxer($('armorMaxer'), () => state.armorMax, (n) => { state.armorMax = n; state.armorUsed = Math.min(state.armorUsed, n) })
+    // lists
+    rowList($('exp'), state.experiences, (i, v) => { state.experiences[i] = v }, (i) => state.experiences.splice(i, 1))
+    rowList($('weapons'), state.weapons, (i, v) => { state.weapons[i] = v }, (i) => state.weapons.splice(i, 1))
+    rowList($('cards'), state.cards, (i, v) => { state.cards[i] = v }, (i) => state.cards.splice(i, 1))
+  }
+
+  function bindAll() {
+    bindText('name', 'name')
+    bindText('pronouns', 'pronouns')
+    bindText('heritage', 'heritage')
+    bindText('klass', 'klass')
+    bindText('level', 'level', true)
+    bindText('evasion', 'evasion', true)
+    bindText('armor', 'armor', true)
+    bindText('notes', 'notes')
+  }
+
+  function hydrateInputs() {
+    for (const id of ['name', 'pronouns', 'heritage', 'klass', 'level', 'evasion', 'armor', 'notes']) {
+      $(id).value = state[id]
+    }
+  }
+
+  // ---- sizing ----
+  new ResizeObserver(() => {
+    send({ type: 'archivarius:resize', height: Math.ceil(document.body.getBoundingClientRect().height) })
+  }).observe(document.body)
+
+  // ---- bridge ----
+  window.addEventListener('message', (e) => {
+    const msg = e.data
+    if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return
+    if (!msg.type.startsWith('archivarius:')) return
+    if (msg.type === 'archivarius:init') {
+      canEdit = msg.canEdit === true
+      applyTheme(msg.theme)
+      const d = msg.data
+      state = d && typeof d === 'object' && d.v === 1
+        ? { ...DEFAULTS(), ...d, traits: { ...DEFAULTS().traits, ...d.traits } }
+        : DEFAULTS()
+      hydrateInputs()
+      render()
+    }
+  })
+  bindAll()
+  send({ type: 'archivarius:ready' })
+</script>
+</body>
+</html>
