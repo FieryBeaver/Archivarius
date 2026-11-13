@@ -661,3 +661,43 @@ button.tl-chip:hover {
     font-size: 19px;
   }
 }
+
+/* ---------- mobile / touch ---------- */
+
+@media (max-width: 768px) {
+  /* The page column scrolls as a whole on mobile (backlinks follow the timeline),
+     so the timeline grows with its content instead of scrolling internally. */
+  .tl-root {
+    height: auto;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 560px) {
+  .tl-date { min-width: 0; overflow-wrap: anywhere; }
+  .tl-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .tl-form-actions { flex-wrap: wrap; }
+  .tl-era-label { letter-spacing: 0.12em; }
+}
+
+@media (pointer: coarse) {
+  .tl-root { --tl-gap: 40px; }
+
+  /* No hover on touch: insert slots stay visible as a dimmed "+" on the spine. */
+  .tl-slot-btn { opacity: 0.55; }
+  .tl-slot-btn:active { opacity: 1; }
+  .tl-slot-label { display: none; }
+  .tl-slot-plus { width: 28px; height: 28px; margin-left: calc(var(--tl-spine-x) - 14px); font-size: 18px; }
+
+  .tl-icon-btn,
+  .tl-btn-ghost,
+  .tl-btn-danger,
+  .tl-btn-primary,
+  .tl-toolbar-add,
+  .tl-end-btn { min-height: 40px; }
+  .tl-icon-btn { padding: 2px 12px; font-size: 13px; }
+  .tl-chip { min-height: 36px; }
+  .tl-picker-list li { min-height: 44px; }
+  .tl-form-hint { display: none; }
+  .tl-event:hover .tl-card { transform: none; box-shadow: none; }
+}

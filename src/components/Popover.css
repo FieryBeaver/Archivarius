@@ -24,3 +24,7 @@
 }
 .popover-item:hover { background: var(--panel); }
 .popover-item.danger { color: var(--danger); }
+
+@media (pointer: coarse) {
+  .popover-item { min-height: 44px; font-size: 15px; }
+}

@@ -47,6 +47,8 @@ export default function TreeRow(props: Props) {
       onDoubleClick={() => setRenaming(true)}
       onContextMenu={(e) => {
         e.preventDefault()
+        // A touch long-press is a drag (TouchSensor); don't also pop the menu mid-drag.
+        if (isDragging) return
         setPopup({ kind: 'menu', anchor: new DOMRect(e.clientX, e.clientY, 0, 0) })
       }}>
       <button className={`tree-chevron${row.childCount ? '' : ' hidden'}${expanded ? ' open' : ''}`}

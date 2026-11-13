@@ -16,6 +16,8 @@ interface Props {
 export default function ContextPanel({ projectId, pageId }: Props) {
   const navigate = useNavigate()
   const [backlinks, setBacklinks] = useState<Backlink[]>([])
+  // Only matters on mobile, where the panel sits below the content (the toggle is hidden on desktop).
+  const [collapsed, setCollapsed] = useState(true)
 
   useEffect(() => {
     let live = true
@@ -29,9 +31,12 @@ export default function ContextPanel({ projectId, pageId }: Props) {
   if (backlinks.length === 0) return null
 
   return (
-    <aside className="context-panel">
+    <aside className={`context-panel${collapsed ? ' collapsed' : ''}`}>
       <section className="context-section">
         <h3>Mentioned in</h3>
+        <button className="context-toggle" aria-expanded={!collapsed} onClick={() => setCollapsed((c) => !c)}>
+          Mentioned in<span className="context-toggle-count">({backlinks.length})</span>
+        </button>
         <ul className="context-list">
           {backlinks.map((b) => (
             <li key={b.id}>

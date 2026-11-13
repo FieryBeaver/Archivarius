@@ -1,5 +1,6 @@
 .login {
   min-height: 100%;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -55,3 +56,13 @@
   color: var(--accent-2);
 }
 .login-card .link-button:hover { text-decoration: underline; }
+
+@media (max-width: 480px) {
+  .login { padding: 16px; }
+  .login-card { padding: 28px 20px; }
+}
+
+@media (pointer: coarse) {
+  .login-card input, .login-card button { min-height: 44px; }
+  .login-card .link-button { min-height: 0; padding: 8px 4px; }
+}

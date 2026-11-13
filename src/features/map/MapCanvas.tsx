@@ -696,13 +696,15 @@ export default function MapCanvas({
     }
     if (anchor) {
       const pt = map.latLngToContainerPoint(anchor)
-      const placeLeft = pt.x + 24 + POPUP_W > W - 8
-      const left = clamp(placeLeft ? pt.x - 24 - POPUP_W : pt.x + 24, 8, Math.max(8, W - POPUP_W - 8))
+      // Narrow (phone) maps: shrink the popup to fit and let it overlap the anchor if it must.
+      const popupW = Math.min(POPUP_W, W - 16)
+      const placeLeft = pt.x + 24 + popupW > W - 8
+      const left = clamp(placeLeft ? pt.x - 24 - popupW : pt.x + 24, 8, Math.max(8, W - popupW - 8))
       const top = clamp(pt.y - 40, 8, Math.max(8, H - 120))
       const common = {
         projectId: page.project_id,
         mapPageId: page.id,
-        style: { left, top, width: POPUP_W, maxHeight: Math.max(160, H - top - 8) },
+        style: { left, top, width: popupW, maxHeight: Math.max(160, H - top - 8) },
         onDelete: removeSelected,
         onClose: () => setSelected(null),
         onOpenPage: openPage,
@@ -753,7 +755,9 @@ export default function MapCanvas({
             onClick={() => toggleMode('pin')}
             title="Add pin (click on the map)"
           >
-            <span aria-hidden>📍</span> Add pin
+            <span aria-hidden>📍</span>
+            <span className="wk-tool-label">Add pin</span>
+            <span className="wk-tool-label--short">Pin</span>
           </button>
           <button
             type="button"
@@ -762,7 +766,9 @@ export default function MapCanvas({
             onClick={() => toggleMode('draw')}
             title="Draw a region polygon"
           >
-            <span aria-hidden>⬠</span> Draw region
+            <span aria-hidden>⬠</span>
+            <span className="wk-tool-label">Draw region</span>
+            <span className="wk-tool-label--short">Region</span>
           </button>
           <button
             type="button"
@@ -774,7 +780,9 @@ export default function MapCanvas({
             }}
             title="Edit region shapes; clicks open the editor instead of following links"
           >
-            <span aria-hidden>✎</span> Edit shapes
+            <span aria-hidden>✎</span>
+            <span className="wk-tool-label">Edit shapes</span>
+            <span className="wk-tool-label--short">Shapes</span>
           </button>
         </div>
       )}
@@ -805,7 +813,12 @@ export default function MapCanvas({
             onClick={() => replaceInputRef.current?.click()}
             title="Replace the map image (pins and regions are kept)"
           >
-            {replacing ? 'Uploading…' : 'Replace map image'}
+            {replacing ? 'Uploading…' : (
+              <>
+                <span className="wk-tool-label">Replace map image</span>
+                <span className="wk-tool-label--short">Replace image</span>
+              </>
+            )}
           </button>
           <input
             ref={replaceInputRef}

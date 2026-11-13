@@ -580,3 +580,57 @@
 .wk-map .wk-region {
   transition: fill-opacity 0.12s ease;
 }
+
+/* ---------- mobile / touch ---------- */
+
+.wk-tool-label--short { display: none; }
+
+/* Pan/pinch: Leaflet sets touch-action on its own container; nothing here overrides it. */
+
+.wk-popup {
+  max-width: calc(100vw - 24px);
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 768px) {
+  .wk-map-toolbar { top: 8px; left: 8px; }
+  .wk-map-toolbar button { padding: 5px 8px; gap: 4px; }
+  .wk-tool-label { display: none; }
+  .wk-tool-label--short { display: inline; }
+
+  /* Below the toolbar, wrapping instead of running off-screen. */
+  .wk-map-hint {
+    top: 56px;
+    left: 8px;
+    right: 8px;
+    transform: none;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+    white-space: normal;
+    text-align: center;
+    border-radius: var(--radius);
+  }
+
+  .wk-map-corner { right: 8px; bottom: 8px; }
+  .wk-map-error { bottom: 64px; }
+}
+
+@media (pointer: coarse) {
+  .wk-map-toolbar button { min-height: 40px; }
+  .wk-map-replace { min-height: 40px; }
+  .wk-map-hint__esc { display: none; }
+  .wk-icon-btn { width: 40px; height: 40px; font-size: 20px; }
+  .wk-swatch { width: 32px; height: 32px; }
+  .wk-swatches { gap: 8px; }
+  .wk-popup__foot button { min-height: 40px; padding: 4px 14px; font-size: 14px; }
+  .wk-popup input[type='text'],
+  .wk-popup input[type='search'] { min-height: 40px; }
+  .wk-link__target,
+  .wk-link__result { min-height: 40px; }
+  .wk-map .leaflet-bar a {
+    width: 40px;
+    height: 40px;
+    line-height: 40px;
+  }
+}

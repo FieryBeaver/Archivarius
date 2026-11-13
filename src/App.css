@@ -45,3 +45,25 @@
   color: var(--muted);
 }
 .empty-state p { margin: 0; font-size: 16px; }
+
+/* ---------- touch / small screens ---------- */
+
+/* iOS Safari zooms into any focused field under 16px; keep inputs at 16px on phones
+   and touch devices. Big display inputs (page title, event title) keep their own size. */
+@media (max-width: 768px), (pointer: coarse) {
+  input:not(.page-title):not(.tl-form-title),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+.app-splash { height: 100dvh; }
+
+@media (pointer: coarse) {
+  .empty-state button { min-height: 44px; }
+}
+
+@media (max-width: 768px) {
+  .empty-state { padding: 48px 16px; }
+}

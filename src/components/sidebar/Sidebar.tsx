@@ -9,9 +9,13 @@ import './Sidebar.css'
 interface Props {
   projectId: string
   projectName: string
+  /** Hidden off-canvas (mobile drawer closed): keep it out of focus order and a11y tree. */
+  inert?: boolean
+  /** Called when the user picks a page, so a mobile drawer can close. */
+  onNavigate?: () => void
 }
 
-export default function Sidebar({ projectId, projectName }: Props) {
+export default function Sidebar({ projectId, projectName, inert, onNavigate }: Props) {
   const navigate = useNavigate()
   const status = usePages((s) => s.status)
   const loadError = usePages((s) => s.error)
@@ -24,16 +28,16 @@ export default function Sidebar({ projectId, projectName }: Props) {
     setPickerAnchor(null)
     setError(null)
     create(null, kind).then(
-      (page) => navigate(pagePath(projectId, page.id)),
+      (page) => { onNavigate?.(); navigate(pagePath(projectId, page.id)) },
       (e: Error) => setError(e.message),
     )
   }
 
   return (
-    <nav className="sidebar">
+    <nav className="sidebar" inert={inert}>
       <header className="sidebar-header">
         <Link to="/" className="sidebar-back" title="All worlds">‹</Link>
-        <Link to={`/project/${projectId}`} className="sidebar-project">{projectName}</Link>
+        <Link to={`/project/${projectId}`} className="sidebar-project" onClick={onNavigate}>{projectName}</Link>
       </header>
 
       <div className="sidebar-section">
@@ -47,7 +51,7 @@ export default function Sidebar({ projectId, projectName }: Props) {
         {error && <p className="error-text tree-error">{error}</p>}
         {status === 'error' && <p className="error-text tree-error">{loadError}</p>}
         {status === 'ready' && isEmpty && <p className="sidebar-empty">No pages yet — hit + to begin.</p>}
-        <PageTree projectId={projectId} />
+        <PageTree projectId={projectId} onNavigate={onNavigate} />
       </div>
     </nav>
   )

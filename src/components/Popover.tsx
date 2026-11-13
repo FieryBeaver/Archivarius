@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode, type SyntheticEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, type ReactNode, type SyntheticEvent } from 'react'
 import { createPortal } from 'react-dom'
 import './Popover.css'
 
@@ -16,6 +16,15 @@ const stop = (e: SyntheticEvent) => e.stopPropagation()
 
 export default function Popover({ anchor, onClose, children }: Props) {
   const ref = useRef<HTMLDivElement>(null)
+  const below = anchor.bottom + 4
+
+  // Flip above the anchor when there isn't room below (short phone viewports).
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const h = el.offsetHeight
+    if (below + h > window.innerHeight - 8) el.style.top = `${Math.max(8, anchor.top - 4 - h)}px`
+  }, [anchor, below])
 
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
@@ -35,7 +44,7 @@ export default function Popover({ anchor, onClose, children }: Props) {
   const left = Math.max(8, Math.min(anchor.left, window.innerWidth - WIDTH - 8))
 
   return createPortal(
-    <div ref={ref} className="popover" role="menu" style={{ top: anchor.bottom + 4, left, width: WIDTH }}
+    <div ref={ref} className="popover" role="menu" style={{ top: below, left, width: WIDTH }}
       onClick={stop} onPointerDown={stop} onDoubleClick={stop} onContextMenu={stop}>
       {children}
     </div>,

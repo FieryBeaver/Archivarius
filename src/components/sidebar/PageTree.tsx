@@ -1,5 +1,5 @@
 import {
-  DndContext, PointerSensor, closestCenter, useSensor, useSensors,
+  DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors,
   type DragEndEvent, type DragMoveEvent, type DragOverEvent, type DragStartEvent,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -17,20 +17,28 @@ interface DragState {
   offsetX: number
 }
 
-export default function PageTree({ projectId }: { projectId: string }) {
+export default function PageTree({ projectId, onNavigate }: { projectId: string; onNavigate?: () => void }) {
   const navigate = useNavigate()
   const { pageId } = useParams()
   const { pages, expanded, create, update, remove, toggle } = usePages()
   const [drag, setDrag] = useState<DragState | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  // Mouse drags start after a small move; touch drags need a 250ms press so swipes still scroll the tree.
+  // (PointerSensor would also claim touch pointers and turn every scroll into a drag.)
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  )
 
   const tree = useMemo(() => buildTree(pages), [pages])
   // While dragging, hide the dragged page's subtree so it can't be dropped into itself.
   const rows = useMemo(() => flattenTree(tree, expanded, drag?.activeId), [tree, expanded, drag?.activeId])
   const projection = drag ? getProjection(rows, drag.activeId, drag.overId, drag.offsetX) : null
 
-  const open = (id: string) => navigate(pagePath(projectId, id))
+  const open = (id: string) => {
+    onNavigate?.()
+    navigate(pagePath(projectId, id))
+  }
 
   function attempt(action: Promise<unknown>) {
     setError(null)

@@ -148,3 +148,27 @@
   border-radius: 4px;
 }
 .tree-action:hover { color: var(--text); background: var(--border); }
+
+/* ---------- touch ---------- */
+
+@media (pointer: coarse) {
+  .tree-row {
+    height: 44px;
+    font-size: 15px;
+    -webkit-touch-callout: none;
+  }
+  .tree-row:hover { background: transparent; }
+  .tree-row.selected, .tree-row.menu-open { background: var(--panel-2); }
+
+  .tree-chevron { width: 32px; height: 40px; font-size: 16px; }
+
+  .tree-rename { height: 36px; }
+
+  /* No hover on touch: row actions are always shown, dimmed until used. */
+  .tree-actions { display: flex; opacity: 0.6; }
+  .tree-row.selected .tree-actions, .tree-row.menu-open .tree-actions { opacity: 1; }
+  .tree-action { width: 36px; height: 40px; font-size: 18px; }
+
+  .sidebar-back { width: 40px; height: 40px; }
+  .sidebar-section { padding-top: 4px; padding-bottom: 4px; }
+}

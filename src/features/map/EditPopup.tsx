@@ -34,7 +34,8 @@ export default function EditPopup(props: Props): JSX.Element {
 
   // Focus the label field on open (the popup is keyed by item id).
   useEffect(() => {
-    labelRef.current?.focus({ preventScroll: true })
+    // Not on touch: focusing would pop the on-screen keyboard over the map on every tap.
+    if (window.matchMedia('(pointer: fine)').matches) labelRef.current?.focus({ preventScroll: true })
   }, [])
 
   const color = item.color ?? null

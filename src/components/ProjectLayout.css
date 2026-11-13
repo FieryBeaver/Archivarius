@@ -1,8 +1,14 @@
 .layout {
   display: flex;
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
 }
+
+/* Mobile-only chrome; hidden on desktop. */
+.mobile-topbar,
+.drawer-scrim,
+.context-toggle { display: none; }
 
 .layout-main {
   flex: 1;
@@ -19,6 +25,11 @@
   padding: 24px 16px;
   border-left: 1px solid var(--border);
   background: var(--panel);
+}
+
+.context-toggle-count {
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .context-section h3 {
@@ -54,4 +65,149 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .context-link { min-height: 40px; }
+}
+
+/* ---------- mobile: drawer sidebar, top bar, context below content ---------- */
+
+@media (max-width: 768px) {
+  .layout { flex-direction: column; }
+
+  .mobile-topbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 48px;
+    padding: 0 4px;
+    padding-top: env(safe-area-inset-top);
+    box-sizing: content-box;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mobile-topbar-btn {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    min-width: 44px;
+    height: 44px;
+    padding: 0 10px;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius);
+  }
+  .mobile-topbar-btn:hover { color: var(--text); background: var(--panel-2); text-decoration: none; }
+  .mobile-topbar-back { font-size: 14px; }
+
+  .hamburger,
+  .hamburger::before,
+  .hamburger::after {
+    display: block;
+    width: 18px;
+    height: 2px;
+    border-radius: 1px;
+    background: currentColor;
+  }
+  .hamburger { position: relative; }
+  .hamburger::before,
+  .hamburger::after { content: ''; position: absolute; left: 0; }
+  .hamburger::before { top: -6px; }
+  .hamburger::after { top: 6px; }
+
+  .mobile-topbar-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-display);
+    font-size: 17px;
+    text-align: center;
+  }
+
+  /* Sidebar becomes an off-canvas drawer over the content. */
+  .layout > .sidebar {
+    position: fixed;
+    z-index: 40;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(var(--sidebar-w), 85vw);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    transform: translateX(-100%);
+    transition: transform 0.22s ease, visibility 0s 0.22s;
+    visibility: hidden;
+    box-shadow: 0 0 32px color-mix(in srgb, var(--bg) 80%, transparent);
+  }
+  .layout.drawer-open > .sidebar {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.22s ease;
+  }
+
+  .drawer-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: color-mix(in srgb, var(--bg) 65%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  .layout.drawer-open .drawer-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .layout-main {
+    flex: 1;
+    min-height: 0;
+    overscroll-behavior: contain;
+  }
+
+  /* Backlinks: a collapsible section after the page content. */
+  .context-panel {
+    width: auto;
+    flex-shrink: 0;
+    overflow: visible;
+    padding: 4px 8px calc(8px + env(safe-area-inset-bottom));
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .context-section h3 { display: none; }
+  .context-toggle {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+  }
+  .context-toggle::after {
+    content: '›';
+    margin-left: auto;
+    font-size: 16px;
+    transition: transform 0.15s;
+  }
+  .context-toggle[aria-expanded='true']::after { transform: rotate(90deg); }
+  .context-panel.collapsed .context-list { display: none; }
+  .context-link { min-height: 40px; }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .layout > .sidebar,
+  .drawer-scrim { transition: none; }
 }
