@@ -1,6 +1,7 @@
 import type { PageKind } from '../../lib/types'
 import Popover from '../Popover'
-import { KIND_ICONS, KIND_LABELS } from '../pageIcon'
+import { DEFAULT_KIND_ICONS, renderIcon } from '../../lib/icons'
+import { KIND_LABELS } from '../pageIcon'
 
 const KINDS: PageKind[] = ['doc', 'map', 'timeline']
 
@@ -15,7 +16,7 @@ export default function KindPicker({ anchor, onPick, onClose }: Props) {
     <Popover anchor={anchor} onClose={onClose}>
       {KINDS.map((kind) => (
         <button key={kind} className="popover-item" role="menuitem" onClick={() => onPick(kind)}>
-          <span>{KIND_ICONS[kind]}</span>
+          <span>{renderIcon(DEFAULT_KIND_ICONS[kind])}</span>
           <span>{KIND_LABELS[kind]}</span>
         </button>
       ))}

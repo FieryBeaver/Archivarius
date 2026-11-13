@@ -1,5 +1,7 @@
-import { KIND_ICONS } from '../../components/pageIcon'
+import type { ReactNode } from 'react'
+import { DEFAULT_KIND_ICONS, renderIcon } from '../../lib/icons'
 import type { PageKind } from '../../lib/types'
+import { iconHtml } from './iconHtml'
 
 /** Preset swatches (user-facing data colors, not theme colors). */
 export const PRESET_COLORS = [
@@ -13,7 +15,12 @@ export const PRESET_COLORS = [
   '#d47fa6',
 ] as const
 
-/** Kind glyph — single source shared with the tree, mention list and pickers. */
-export function kindIcon(kind: PageKind): string {
-  return KIND_ICONS[kind] ?? KIND_ICONS.doc
+/** Kind glyph (shared icon system) for React contexts. */
+export function kindIcon(kind: PageKind, size = 16): ReactNode {
+  return renderIcon(DEFAULT_KIND_ICONS[kind] ?? DEFAULT_KIND_ICONS.doc, { size })
+}
+
+/** Kind glyph as an HTML string, for Leaflet/HTML-string contexts. */
+export function kindIconHtml(kind: PageKind, size = 16): string {
+  return iconHtml(DEFAULT_KIND_ICONS[kind] ?? DEFAULT_KIND_ICONS.doc, size)
 }

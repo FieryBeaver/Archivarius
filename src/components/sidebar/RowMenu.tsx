@@ -1,3 +1,4 @@
+import LockIcon from '../LockIcon'
 import Popover from '../Popover'
 
 interface Props {
@@ -20,7 +21,7 @@ export default function RowMenu({ anchor, isSecret, onRename, onToggleSecret, on
         <span>✎</span><span>Rename</span>
       </button>
       <button className="popover-item" role="menuitem" onClick={pick(onToggleSecret)}>
-        <span>{isSecret ? '🔓' : '🔒'}</span><span>{isSecret ? 'Make visible' : 'Mark as secret'}</span>
+        <span><LockIcon open={isSecret} /></span><span>{isSecret ? 'Make visible' : 'Mark as secret'}</span>
       </button>
       <div className="popover-sep" role="separator" />
       <button className="popover-item danger" role="menuitem" onClick={pick(onDelete)}>

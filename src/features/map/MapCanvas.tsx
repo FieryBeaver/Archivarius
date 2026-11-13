@@ -17,6 +17,7 @@ import {
 } from '../../lib/db'
 import type { Page, Pin, Region } from '../../lib/types'
 import EditPopup from './EditPopup'
+import { escapeHtml, pinHtml, safeColor } from './iconHtml'
 import {
   imageBounds,
   pointsKey,
@@ -65,18 +66,6 @@ function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) =>
-    c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;',
-  )
-}
-
-/** Only accept values the browser parses as a color (user data goes into inline styles). */
-function safeColor(c: string | null | undefined): string | null {
-  if (!c) return null
-  return typeof CSS !== 'undefined' && CSS.supports('color', c) ? c : null
-}
-
 /** Resolves a theme token to a concrete value (SVG presentation attributes can't use var()). */
 function themeToken(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -87,14 +76,9 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 function pinIcon(pin: Pin, selected: boolean): L.DivIcon {
-  const color = safeColor(pin.color) ?? 'var(--accent)'
-  const glyph = pin.icon
-    ? `<span class="wk-pin__glyph">${escapeHtml(pin.icon)}</span>`
-    : '<span class="wk-pin__dot"></span>'
-  const cls = `wk-pin${selected ? ' is-selected' : ''}${pin.target_page_id ? ' is-linked' : ''}`
   return L.divIcon({
     className: 'wk-pin-icon',
-    html: `<div class="${cls}" style="--pin-color:${color}"><div class="wk-pin__head">${glyph}</div></div>`,
+    html: pinHtml({ color: pin.color, icon: pin.icon, linked: !!pin.target_page_id, selected }),
     iconSize: [30, 34],
     iconAnchor: [15, 32],
     tooltipAnchor: [0, -30],

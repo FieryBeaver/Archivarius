@@ -4,6 +4,8 @@ interface Props {
   children: ReactNode
   /** Resets the boundary when this changes (e.g. the page id). */
   resetKey?: string
+  /** Custom fallback; defaults to an inline message with a retry button. */
+  fallback?: (error: Error, reset: () => void) => ReactNode
 }
 
 interface State {
@@ -25,6 +27,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.error) {
+      if (this.props.fallback) return this.props.fallback(this.state.error, () => this.setState({ error: null }))
       return (
         <div style={{ padding: '24px 32px', color: 'var(--muted)' }}>
           <p style={{ color: 'var(--danger)' }}>Something broke rendering this page.</p>

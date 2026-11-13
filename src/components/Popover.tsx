@@ -7,6 +7,11 @@ interface Props {
   anchor: DOMRect
   onClose: () => void
   children: ReactNode
+  /** Panel width in px (default 180, clamped to the viewport). */
+  width?: number
+  /** ARIA role of the panel (default "menu"). */
+  role?: string
+  className?: string
 }
 
 const WIDTH = 180
@@ -14,7 +19,7 @@ const WIDTH = 180
 // React events bubble through portals; keep popover interactions away from the tree row.
 const stop = (e: SyntheticEvent) => e.stopPropagation()
 
-export default function Popover({ anchor, onClose, children }: Props) {
+export default function Popover({ anchor, onClose, children, width = WIDTH, role = 'menu', className }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const below = anchor.bottom + 4
 
@@ -41,10 +46,11 @@ export default function Popover({ anchor, onClose, children }: Props) {
     }
   }, [onClose])
 
-  const left = Math.max(8, Math.min(anchor.left, window.innerWidth - WIDTH - 8))
+  const w = Math.min(width, window.innerWidth - 16)
+  const left = Math.max(8, Math.min(anchor.left, window.innerWidth - w - 8))
 
   return createPortal(
-    <div ref={ref} className="popover" role="menu" style={{ top: below, left, width: WIDTH }}
+    <div ref={ref} className={className ? `popover ${className}` : 'popover'} role={role} style={{ top: below, left, width: w }}
       onClick={stop} onPointerDown={stop} onDoubleClick={stop} onContextMenu={stop}>
       {children}
     </div>,

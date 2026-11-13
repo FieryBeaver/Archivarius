@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as db from '../../lib/db'
+import { pageIconOf } from '../../lib/icons'
 import type { Page, WorldEvent } from '../../lib/types'
 import EventCard from './EventCard'
 import EventForm from './EventForm'
@@ -28,6 +29,7 @@ export default function TimelineView({ page, canEdit }: { page: Page; canEdit: b
   const [form, setForm] = useState<FormState>(null)
   const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set())
   const [linkTitles, setLinkTitles] = useState<Record<string, string>>({})
+  const [linkIcons, setLinkIcons] = useState<Record<string, string>>({})
   const requested = useRef<Set<string>>(new Set())
 
   // ---- load / refetch on page change ----
@@ -63,14 +65,19 @@ export default function TimelineView({ page, canEdit }: { page: Page; canEdit: b
     Promise.all(
       missing.map((id) =>
         db.getPage(id).then(
-          (p) => [id, p.title || 'Untitled'] as const,
-          () => [id, ''] as const,
+          (p) => [id, p.title || 'Untitled', pageIconOf(p)] as const,
+          () => [id, '', ''] as const,
         ),
       ),
-    ).then((pairs) => {
+    ).then((rows) => {
       setLinkTitles((prev) => {
         const next = { ...prev }
-        for (const [id, title] of pairs) if (title) next[id] = title
+        for (const [id, title] of rows) if (title) next[id] = title
+        return next
+      })
+      setLinkIcons((prev) => {
+        const next = { ...prev }
+        for (const [id, , icon] of rows) if (icon) next[id] = icon
         return next
       })
     })
@@ -245,6 +252,7 @@ export default function TimelineView({ page, canEdit }: { page: Page; canEdit: b
         key={ev.id}
         event={ev}
         linkTitle={ev.target_page_id ? linkTitles[ev.target_page_id] : undefined}
+        linkIcon={ev.target_page_id ? linkIcons[ev.target_page_id] : undefined}
         canEdit={canEdit}
         pending={pendingIds.has(ev.id)}
         onOpenLink={openPage}

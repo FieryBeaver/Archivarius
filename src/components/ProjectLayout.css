@@ -64,20 +64,71 @@
 }
 .context-link:hover { background: var(--hover); color: var(--text); }
 .context-link:focus-visible { outline-offset: -2px; }
-.context-link span:last-child {
+.context-link-icon { flex-shrink: 0; width: 18px; text-align: center; color: var(--muted); }
+.context-link-title {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.context-link.secret .context-link-title { opacity: 0.75; }
+.context-link-lock { color: var(--muted); }
 
 @media (pointer: coarse) {
   .context-link { min-height: 40px; }
+}
+
+/* ---------- desktop sidebar collapse ---------- */
+
+.sidebar-reopen {
+  position: fixed;
+  z-index: 20;
+  top: 12px;
+  left: 12px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 16px;
+  color: var(--muted);
+  background: var(--surface-float);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  animation: wk-float-in var(--t-fast) var(--ease);
+}
+.sidebar-reopen:hover { color: var(--text); background: var(--surface-float); border-color: var(--border-strong); }
+
+/* Keep full-width headers clear of the floating reopen button. */
+.layout.sidebar-collapsed .page-view.kind-map .page-header,
+.layout.sidebar-collapsed .page-view.kind-timeline .page-header { padding-left: 60px; }
+
+.layout-toast {
+  position: fixed;
+  z-index: 70;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  max-width: calc(100vw - 32px);
+  padding: 8px 8px 8px 16px;
+  font-size: var(--fs-sm);
+  color: var(--danger);
+  background: var(--surface-float);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
 }
 
 /* ---------- mobile: drawer sidebar, top bar, context below content ---------- */
 
 @media (max-width: 768px) {
   .layout { flex-direction: column; }
+  .sidebar-reopen { display: none; }
 
   .mobile-topbar {
     flex-shrink: 0;

@@ -749,3 +749,16 @@ button.tl-chip:hover {
   .tl-form-hint { display: none; }
   .tl-event:hover .tl-card { transform: none; box-shadow: var(--shadow-1); border-color: var(--border); }
 }
+
+/* v0.4: link chip prefixed with the target page's icon */
+.tl-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tl-picker-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

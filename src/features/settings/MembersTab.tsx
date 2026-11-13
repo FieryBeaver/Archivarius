@@ -1,0 +1,242 @@
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import * as db from '../../lib/db'
+import { useAuth } from '../../state/auth'
+import type { MemberWithProfile, Role } from '../../lib/types'
+import type { SettingsContext } from './SettingsDialog'
+import { LAST_OWNER_TIP, ROLES, ROLE_LABEL } from './roles'
+
+const ROLE_ORDER: Record<Role, number> = { owner: 0, editor: 1, viewer: 2 }
+
+function sortMembers(list: MemberWithProfile[]): MemberWithProfile[] {
+  return [...list].sort(
+    (a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || (a.email ?? '').localeCompare(b.email ?? ''),
+  )
+}
+
+export function MembersTab({ ctx }: { ctx: SettingsContext }) {
+  const { project, role, setRole, close } = ctx
+  const isOwner = role === 'owner'
+  const me = useAuth((s) => s.session?.user.id ?? null)
+  const navigate = useNavigate()
+
+  const [members, setMembers] = useState<MemberWithProfile[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [rowError, setRowError] = useState<{ userId: string; message: string } | null>(null)
+  const [pending, setPending] = useState<Record<string, boolean>>({})
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const list = await db.listMembers(project.id)
+      setMembers(sortMembers(list))
+      setLoadError(null)
+    } catch (e) {
+      setLoadError((e as Error).message || 'Could not load members.')
+    }
+  }, [project.id])
+
+  useEffect(() => { void load() }, [load])
+
+  const ownerCount = members?.filter((m) => m.role === 'owner').length ?? 0
+  const isLastOwner = (m: MemberWithProfile) => m.role === 'owner' && ownerCount <= 1
+
+  const setPend = (id: string, v: boolean) =>
+    setPending((p) => { const n = { ...p }; if (v) n[id] = true; else delete n[id]; return n })
+
+  const changeRole = async (m: MemberWithProfile, next: Role) => {
+    if (!members || next === m.role || isLastOwner(m)) return
+    const prev = members
+    setRowError(null)
+    setMembers(sortMembers(members.map((x) => (x.user_id === m.user_id ? { ...x, role: next } : x))))
+    setPend(m.user_id, true)
+    try {
+      await db.updateMemberRole(project.id, m.user_id, next)
+      if (m.user_id === me) setRole(next)
+    } catch (e) {
+      setMembers(prev)
+      setRowError({ userId: m.user_id, message: (e as Error).message || 'Could not change role.' })
+    } finally {
+      setPend(m.user_id, false)
+    }
+  }
+
+  const remove = async (m: MemberWithProfile) => {
+    if (!members || isLastOwner(m)) return
+    const prev = members
+    setConfirmRemove(null)
+    setRowError(null)
+    setMembers(members.filter((x) => x.user_id !== m.user_id))
+    setPend(m.user_id, true)
+    try {
+      await db.removeMember(project.id, m.user_id)
+      if (m.user_id === me) {
+        close()
+        navigate('/')
+      }
+    } catch (e) {
+      setMembers(prev)
+      setRowError({ userId: m.user_id, message: (e as Error).message || 'Could not remove member.' })
+    } finally {
+      setPend(m.user_id, false)
+    }
+  }
+
+  return (
+    <div className="wks-stack">
+      {isOwner && <InviteRow projectId={project.id} onAdded={load} />}
+
+      <div className="wks-field">
+        <div className="wks-label">
+          Members{members ? ` · ${members.length}` : ''}
+        </div>
+        {loadError && (
+          <div className="wks-row-between">
+            <p className="wks-error" role="alert">{loadError}</p>
+            <button type="button" className="wks-btn" onClick={() => { void load() }}>Retry</button>
+          </div>
+        )}
+        {!members && !loadError && <div className="wks-hint">Loading members…</div>}
+        {members && (
+          <ul className="wks-members">
+            {members.map((m) => {
+              const lastOwner = isLastOwner(m)
+              const isMe = m.user_id === me
+              const busy = !!pending[m.user_id]
+              return (
+                <li key={m.user_id} className="wks-member">
+                  <div className="wks-member-main">
+                    <div className="wks-member-email" title={m.email}>
+                      {m.email || 'Unknown account'}
+                      {isMe && <span className="wks-you"> (you)</span>}
+                    </div>
+                    {!isOwner && <span className={`wks-badge wks-badge-${m.role}`}>{ROLE_LABEL[m.role]}</span>}
+                  </div>
+                  {isOwner && (
+                    <div className="wks-member-controls">
+                      {confirmRemove === m.user_id ? (
+                        <>
+                          <span className="wks-hint">{isMe ? 'Remove yourself?' : 'Remove?'}</span>
+                          <button type="button" className="btn-ghost wks-btn" onClick={() => setConfirmRemove(null)}>
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-danger wks-btn wks-btn-danger-solid"
+                            onClick={() => { void remove(m) }}
+                          >
+                            Remove
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="wks-tip" title={lastOwner ? LAST_OWNER_TIP : undefined}>
+                            <select
+                              className="wks-select"
+                              value={m.role}
+                              disabled={lastOwner || busy}
+                              aria-label={`Role for ${m.email}`}
+                              onChange={(e) => { void changeRole(m, e.target.value as Role) }}
+                            >
+                              {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                            </select>
+                          </span>
+                          <span className="wks-tip" title={lastOwner ? LAST_OWNER_TIP : undefined}>
+                            <button
+                              type="button"
+                              className="btn-danger wks-btn wks-icon-btn"
+                              disabled={lastOwner || busy}
+                              aria-label={`Remove ${m.email}`}
+                              title={lastOwner ? LAST_OWNER_TIP : 'Remove from world'}
+                              onClick={() => setConfirmRemove(m.user_id)}
+                            >
+                              <span aria-hidden="true">×</span>
+                            </button>
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {lastOwner && isOwner && <div className="wks-hint wks-member-note">{LAST_OWNER_TIP}.</div>}
+                  {rowError?.userId === m.user_id && (
+                    <p className="wks-error wks-member-note" role="alert">{rowError.message}</p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+
+      <p className="wks-hint">Viewers can read everything except DM-only pages.</p>
+    </div>
+  )
+}
+
+function InviteRow(props: { projectId: string; onAdded: () => Promise<void> }) {
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<Role>('editor')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [added, setAdded] = useState<string | null>(null)
+
+  const submit = async () => {
+    const value = email.trim()
+    if (!value || busy) return
+    if (!/^[^\s@]+@[^\s@]+$/.test(value)) {
+      setError('That does not look like an email address.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setAdded(null)
+    try {
+      await db.addMemberByEmail(props.projectId, value, role)
+      setEmail('')
+      setAdded(value)
+      await props.onAdded()
+    } catch (e) {
+      setError((e as Error).message || 'Could not add member.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="wks-field" onSubmit={(e) => { e.preventDefault(); void submit() }}>
+      <label className="wks-label" htmlFor="wks-invite-email">Add a member</label>
+      <div className="wks-invite">
+        <input
+          id="wks-invite-email"
+          className="wks-input wks-invite-email"
+          type="email"
+          inputMode="email"
+          autoComplete="off"
+          placeholder="friend@example.com"
+          value={email}
+          disabled={busy}
+          onChange={(e) => { setEmail(e.target.value); setError(null); setAdded(null) }}
+        />
+        <select
+          className="wks-select"
+          value={role}
+          disabled={busy}
+          aria-label="Role for new member"
+          onChange={(e) => setRole(e.target.value as Role)}
+        >
+          <option value="editor">Editor</option>
+          <option value="viewer">Viewer</option>
+          <option value="owner">Owner</option>
+        </select>
+        <button type="submit" className="btn-primary wks-btn" disabled={busy || !email.trim()}>
+          {busy ? 'Adding…' : 'Add'}
+        </button>
+      </div>
+      {error && <p className="wks-error" role="alert">{error}</p>}
+      {!error && added && <div className="wks-hint" aria-live="polite">Added {added}.</div>}
+      {!error && !added && (
+        <div className="wks-hint">They need a WorldKeeper account first.</div>
+      )}
+    </form>
+  )
+}

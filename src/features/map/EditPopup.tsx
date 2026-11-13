@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type JSX } from 'react'
 import type { Pin, Region } from '../../lib/types'
+import IconPicker from '../../components/IconPicker'
+import { renderIcon } from '../../lib/icons'
 import { PRESET_COLORS } from './constants'
+import { pinHtml } from './iconHtml'
 import PageLinkPicker from './PageLinkPicker'
 
 
@@ -30,6 +33,7 @@ interface CommonProps {
 export default function EditPopup(props: Props): JSX.Element {
   const { item, common } = props
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [pickingIcon, setPickingIcon] = useState(false)
   const labelRef = useRef<HTMLInputElement>(null)
 
   // Focus the label field on open (the popup is keyed by item id).
@@ -49,7 +53,9 @@ export default function EditPopup(props: Props): JSX.Element {
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           e.stopPropagation()
-          common.onClose()
+          // First Escape closes the icon picker, the next one closes the popup.
+          if (pickingIcon) setPickingIcon(false)
+          else common.onClose()
         }
       }}
     >
@@ -66,6 +72,59 @@ export default function EditPopup(props: Props): JSX.Element {
         </button>
       </div>
 
+      {props.kind === 'pin' && (
+        <div className="wk-pin-editor">
+          <div className="wk-pin-editor__row">
+            {/* Live preview: same markup as the map marker, so edits read immediately. */}
+            <div
+              className="wk-pin-preview"
+              aria-hidden
+              dangerouslySetInnerHTML={{
+                __html: pinHtml({
+                  color: props.item.color,
+                  icon: props.item.icon,
+                  linked: !!props.item.target_page_id,
+                }),
+              }}
+            />
+            <div className="wk-pin-editor__icon">
+              <span className="wk-field__label">Icon</span>
+              <span className="wk-pin-editor__current">
+                {props.item.icon ? (
+                  <>
+                    <span className="wk-pin-editor__glyph" aria-hidden>
+                      {renderIcon(props.item.icon, { size: 16 })}
+                    </span>
+                    <span className="wk-pin-editor__name">{iconName(props.item.icon)}</span>
+                  </>
+                ) : (
+                  <span className="wk-pin-editor__name is-empty">None</span>
+                )}
+              </span>
+            </div>
+            <button
+              type="button"
+              className={`wk-pin-editor__choose${pickingIcon ? ' is-active' : ''}`}
+              aria-expanded={pickingIcon}
+              onClick={() => setPickingIcon((v) => !v)}
+            >
+              {pickingIcon ? 'Done' : 'Choose icon'}
+            </button>
+          </div>
+          {pickingIcon && (
+            <div className="wk-pin-editor__picker">
+              <IconPicker
+                value={props.item.icon}
+                onSelect={(icon) => {
+                  props.onChange({ icon }, true)
+                  setPickingIcon(false)
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       <label className="wk-field">
         <span className="wk-field__label">Label</span>
         <input
@@ -79,20 +138,6 @@ export default function EditPopup(props: Props): JSX.Element {
           }}
         />
       </label>
-
-      {props.kind === 'pin' && (
-        <label className="wk-field">
-          <span className="wk-field__label">Icon</span>
-          <input
-            type="text"
-            className="wk-field__icon"
-            value={props.item.icon ?? ''}
-            placeholder="Emoji, e.g. 🏰"
-            maxLength={8}
-            onChange={(e) => props.onChange({ icon: e.target.value.trim() || null })}
-          />
-        </label>
-      )}
 
       <div className="wk-field">
         <span className="wk-field__label">Color</span>
@@ -175,4 +220,15 @@ export default function EditPopup(props: Props): JSX.Element {
       </div>
     </div>
   )
+}
+
+/** Human-readable name of an icon string: "gi:GiCastleRuins" -> "Castle ruins". */
+function iconName(icon: string): string {
+  if (!icon.startsWith('gi:')) return 'Emoji'
+  const words = icon
+    .slice(3)
+    .replace(/^Gi/, '')
+    .replace(/([a-z])([A-Z0-9])/g, '$1 $2')
+    .toLowerCase()
+  return words.charAt(0).toUpperCase() + words.slice(1)
 }

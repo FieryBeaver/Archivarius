@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type JSX } from 'react'
 import { getPage, searchPages } from '../../lib/db'
 import type { Page } from '../../lib/types'
-import { kindIcon } from './constants'
+import { PageIcon } from '../../lib/icons'
 
-type PageRef = Pick<Page, 'id' | 'title' | 'kind'>
+type PageRef = Pick<Page, 'id' | 'title' | 'kind'> & { icon?: string | null }
 
 interface Props {
   projectId: string
@@ -34,7 +34,7 @@ export default function PageLinkPicker({
     let cancelled = false
     getPage(value)
       .then((p) => {
-        if (!cancelled) setTarget({ id: p.id, title: p.title, kind: p.kind })
+        if (!cancelled) setTarget({ id: p.id, title: p.title, kind: p.kind, icon: p.icon })
       })
       .catch(() => {
         if (!cancelled) setTarget({ id: value, title: '(missing page)', kind: 'doc' })
@@ -81,7 +81,9 @@ export default function PageLinkPicker({
             title="Open linked page"
             onClick={() => onOpen?.(target.id)}
           >
-            <span aria-hidden>{kindIcon(target.kind)}</span>
+            <span className="wk-link__kind" aria-hidden>
+              <PageIcon page={{ kind: target.kind, icon: target.icon ?? null }} size={16} />
+            </span>
             <span className="wk-link__title">{target.title || 'Untitled'}</span>
           </button>
           <button
@@ -131,7 +133,9 @@ export default function PageLinkPicker({
                   pick(r)
                 }}
               >
-                <span aria-hidden>{kindIcon(r.kind)}</span>
+                <span className="wk-link__kind" aria-hidden>
+                  <PageIcon page={{ kind: r.kind, icon: r.icon ?? null }} size={16} />
+                </span>
                 <span className="wk-link__title">{r.title || 'Untitled'}</span>
               </button>
             </li>

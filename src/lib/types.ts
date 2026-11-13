@@ -69,3 +69,25 @@ export interface WorldEvent {
   content: unknown | null
   target_page_id: string | null
 }
+
+// ---------- v0.4 ----------
+
+export interface Profile {
+  id: string
+  email: string
+  created_at: string
+}
+
+export type MemberWithProfile = Member & { email: string }
+
+/** JSON export of a whole project (map images are NOT included in v1). */
+export interface ProjectExport {
+  format: 'worldkeeper-export'
+  version: 1
+  project: { name: string }
+  pages: Page[]
+  mentions: Mention[]
+  pins: Pin[]
+  regions: Region[]
+  events: WorldEvent[]
+}

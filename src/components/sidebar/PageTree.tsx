@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Page, PageKind } from '../../lib/types'
 import { buildTree, descendantIds, flattenTree } from '../../state/pageTree'
-import { pagePath, usePages } from '../../state/pages'
+import { pagePath, useCanEdit, usePages } from '../../state/pages'
 import { dropPosition, getProjection } from './dnd'
 import TreeRow from './TreeRow'
 
@@ -21,6 +21,7 @@ export default function PageTree({ projectId, onNavigate }: { projectId: string;
   const navigate = useNavigate()
   const { pageId } = useParams()
   const { pages, expanded, create, update, remove, toggle } = usePages()
+  const canEdit = useCanEdit()
   const [drag, setDrag] = useState<DragState | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Mouse drags start after a small move; touch drags need a 250ms press so swipes still scroll the tree.
@@ -86,6 +87,7 @@ export default function PageTree({ projectId, onNavigate }: { projectId: string;
               depth={row.id === drag?.activeId && projection ? projection.depth : row.depth}
               selected={row.id === pageId}
               expanded={!!expanded[row.id]}
+              canEdit={canEdit}
               onOpen={() => open(row.id)}
               onToggle={() => toggle(row.id)}
               onAddChild={(kind) => addChild(row.id, kind)}

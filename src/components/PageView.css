@@ -23,19 +23,102 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 24px;
-  font-size: 20px;
+  min-height: 28px;
+  margin-bottom: var(--s2);
 }
 
-.page-secret {
+/* ---------- breadcrumbs ---------- */
+
+.breadcrumbs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 200px;
+  height: 26px;
+  padding: 0 6px;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+}
+.crumb:hover { color: var(--text); background: var(--hover); }
+.crumb.secret .crumb-title { opacity: 0.75; }
+.crumb-icon { flex-shrink: 0; }
+.crumb-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crumb-lock { opacity: 0.7; }
+.crumb-sep { flex-shrink: 0; opacity: 0.55; }
+.crumb-gap { flex-shrink: 0; padding: 0 4px; cursor: default; }
+
+/* ---------- secret toggle ---------- */
+
+.page-secret-toggle {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
   font-size: var(--fs-label);
   font-weight: 600;
   letter-spacing: var(--ls-label);
   text-transform: uppercase;
-  padding: 2px 9px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
   color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  opacity: 0.7;
+}
+.page-secret-toggle:hover { opacity: 1; color: var(--text); border-color: var(--border); }
+.page-secret-toggle.on {
+  opacity: 1;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.page-secret-toggle.on:hover { color: var(--accent); border-color: var(--accent); }
+.page-secret-toggle.static { cursor: default; }
+
+/* ---------- icon + title ---------- */
+
+.page-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.page-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  font-size: 36px;
+  line-height: 1;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius);
+}
+.page-icon-btn:hover { background: var(--hover); }
+.page-icon-btn[aria-expanded='true'] { background: var(--pressed); }
+
+@media (pointer: coarse) {
+  .crumb { height: 36px; }
+  .page-secret-toggle { height: 36px; }
 }
 
 .page-title {
@@ -53,6 +136,8 @@
 .page-title:focus,
 .page-title:focus-visible { outline: none; box-shadow: none; }
 .page-title::placeholder { color: var(--muted); opacity: 0.6; }
+.page-title-row .page-title { flex: 1; min-width: 0; }
+.page-title-static { margin: 0; overflow-wrap: anywhere; }
 
 .page-body {
   flex: 1;
@@ -76,6 +161,9 @@
   }
   .page-view.kind-map .page-header { padding-top: 12px; }
   .page-title { font-size: 30px; }
+  .page-icon { width: 40px; height: 40px; font-size: 28px; }
+  .page-title-row { gap: var(--s2); }
+  .crumb { max-width: 120px; }
 
   /* Main scrolls as one column on mobile (context panel follows the content),
      so docs and timelines grow with their content. Maps keep filling the space. */

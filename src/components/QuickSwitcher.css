@@ -1,0 +1,110 @@
+.qs-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 14vh 16px 16px;
+  background: color-mix(in srgb, var(--bg) 65%, transparent);
+  animation: wk-fade-up var(--t-fast) var(--ease);
+}
+
+.qs-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: min(480px, 72vh);
+  overflow: hidden;
+  background: var(--surface-float);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  animation: wk-float-in var(--t-fast) var(--ease);
+}
+
+.qs-input {
+  flex-shrink: 0;
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  font-size: var(--fs-lg);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+.qs-input:focus { box-shadow: none !important; border-color: var(--border); }
+
+.qs-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--s1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.qs-label {
+  padding: 6px 10px 4px;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  color: var(--muted);
+}
+
+.qs-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.qs-item.active { background: var(--hover); color: var(--text); }
+.qs-item.active .qs-icon { color: var(--accent); }
+
+.qs-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.qs-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.qs-title, .qs-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qs-title { font-size: var(--fs-md); }
+.qs-path { font-size: var(--fs-xs); color: var(--muted); }
+.qs-item.secret .qs-title { opacity: 0.75; }
+.qs-lock { color: var(--muted); }
+
+.qs-empty {
+  margin: 0;
+  padding: 20px 16px;
+  font-size: var(--fs-sm);
+  font-style: italic;
+  color: var(--muted);
+}
+
+@media (pointer: coarse) {
+  .qs-item { min-height: 48px; }
+}
+
+@media (max-width: 768px) {
+  .qs-scrim { padding: calc(8px + env(safe-area-inset-top)) 8px 8px; }
+  .qs-panel { max-height: 70dvh; }
+}

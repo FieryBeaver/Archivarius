@@ -1,10 +1,13 @@
 import { useState } from 'react'
+import { renderIcon } from '../../lib/icons'
 import type { WorldEvent } from '../../lib/types'
 import { readEventText } from './eventUtils'
 
 interface Props {
   event: WorldEvent
   linkTitle: string | undefined
+  /** Target page's icon string (pageIconOf), once resolved. */
+  linkIcon?: string
   canEdit: boolean
   pending: boolean
   onOpenLink: (pageId: string) => void
@@ -12,7 +15,7 @@ interface Props {
   onDelete: () => void
 }
 
-export default function EventCard({ event, linkTitle, canEdit, pending, onOpenLink, onEdit, onDelete }: Props) {
+export default function EventCard({ event, linkTitle, linkIcon, canEdit, pending, onOpenLink, onEdit, onDelete }: Props) {
   const [confirming, setConfirming] = useState(false)
   const body = readEventText(event.content)
 
@@ -60,7 +63,10 @@ export default function EventCard({ event, linkTitle, canEdit, pending, onOpenLi
             className="tl-chip"
             onClick={() => event.target_page_id && onOpenLink(event.target_page_id)}
           >
-            <span aria-hidden="true">→</span> {linkTitle ?? 'open page'}
+            <span className="tl-chip-icon" aria-hidden="true">
+              {(linkIcon && renderIcon(linkIcon, { size: 14 })) || '→'}
+            </span>
+            {linkTitle ?? 'open page'}
           </button>
         )}
       </div>

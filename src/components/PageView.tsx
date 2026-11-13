@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import DocEditor from '../features/editor/DocEditor'
 import type { Page } from '../lib/types'
-import { usePages } from '../state/pages'
+import { useCanEdit, usePages } from '../state/pages'
 import EmptyState from './EmptyState'
 import ErrorBoundary from './ErrorBoundary'
 import PageTitle from './PageTitle'
@@ -11,14 +11,14 @@ import './PageView.css'
 const MapView = lazy(() => import('../features/map/MapView'))
 const TimelineView = lazy(() => import('../features/timeline/TimelineView'))
 
-function PageBody({ page }: { page: Page }) {
+function PageBody({ page, canEdit }: { page: Page; canEdit: boolean }) {
   switch (page.kind) {
     case 'doc':
-      return <DocEditor key={page.id} page={page} />
+      return <DocEditor key={page.id} page={page} canEdit={canEdit} />
     case 'map':
-      return <MapView key={page.id} page={page} canEdit />
+      return <MapView key={page.id} page={page} canEdit={canEdit} />
     case 'timeline':
-      return <TimelineView key={page.id} page={page} canEdit />
+      return <TimelineView key={page.id} page={page} canEdit={canEdit} />
   }
 }
 
@@ -28,6 +28,7 @@ export default function PageView() {
   const status = usePages((s) => s.status)
   const page = usePages((s) => s.pages.find((p) => p.id === pageId))
   const expandTo = usePages((s) => s.expandTo)
+  const canEdit = useCanEdit()
 
   // Reveal the page in the tree (re-run when it moves under a new parent).
   const foundId = page?.id
@@ -48,7 +49,7 @@ export default function PageView() {
       <div className="page-body">
         <ErrorBoundary resetKey={page.id}>
           <Suspense fallback={<div className="page-loading">Loading…</div>}>
-            <PageBody page={page} />
+            <PageBody page={page} canEdit={canEdit} />
           </Suspense>
         </ErrorBoundary>
       </div>

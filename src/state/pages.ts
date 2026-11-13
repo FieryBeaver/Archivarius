@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import * as db from '../lib/db'
-import type { Page, PageKind } from '../lib/types'
+import type { Page, PageKind, Role } from '../lib/types'
 import { ancestorIds, childrenOf, positionBetween } from './pageTree'
 
 type Status = 'idle' | 'loading' | 'ready' | 'error'
@@ -12,6 +12,8 @@ interface PagesState {
   error: string | null
   /** Expanded tree nodes, keyed by page id. */
   expanded: Record<string, boolean>
+  /** The signed-in user's role in the loaded project (null = unknown / not a member). */
+  role: Role | null
 
   load(projectId: string): Promise<void>
   create(parentId: string | null, kind: PageKind): Promise<Page>
@@ -30,14 +32,18 @@ export const usePages = create<PagesState>((set, get) => ({
   status: 'idle',
   error: null,
   expanded: {},
+  role: null,
 
   async load(projectId) {
     if (get().projectId !== projectId) {
-      set({ projectId, pages: [], expanded: {}, status: 'loading', error: null })
+      set({ projectId, pages: [], expanded: {}, role: null, status: 'loading', error: null })
     }
     try {
-      const pages = await db.listPages(projectId)
-      if (get().projectId === projectId) set({ pages, status: 'ready' })
+      const [pages, role] = await Promise.all([
+        db.listPages(projectId),
+        db.getMyRole(projectId).catch(() => null),
+      ])
+      if (get().projectId === projectId) set({ pages, role, status: 'ready' })
     } catch (e) {
       if (get().projectId === projectId) set({ status: 'error', error: (e as Error).message })
     }
@@ -95,4 +101,14 @@ export const usePages = create<PagesState>((set, get) => ({
 
 export function pagePath(projectId: string, pageId: string): string {
   return `/project/${projectId}/page/${pageId}`
+}
+
+/** Owners and editors can change content; viewers only read. */
+export function canEditRole(role: Role | null): boolean {
+  return role === 'owner' || role === 'editor'
+}
+
+/** Whether the signed-in user may edit the loaded project. */
+export function useCanEdit(): boolean {
+  return usePages((s) => canEditRole(s.role))
 }

@@ -714,3 +714,113 @@
     line-height: 40px;
   }
 }
+
+/* ---------- v0.4: icon system in pins / popup / link picker ---------- */
+
+/* Pin glyph: SVG in currentColor (light ink + soft shadow reads on any pin color). */
+.wk-pin__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.55));
+}
+
+.wk-pin__glyph svg {
+  display: block;
+}
+
+.wk-link__kind {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+}
+
+.wk-pin-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2, 8px);
+}
+
+.wk-pin-editor__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wk-pin-preview {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 44px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.wk-pin-preview .wk-pin {
+  transform: translateY(1px);
+}
+
+.wk-pin-editor__icon {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.wk-pin-editor__current {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text);
+}
+
+.wk-pin-editor__glyph {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.wk-pin-editor__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk-pin-editor__name.is-empty {
+  color: var(--muted);
+}
+
+.wk-pin-editor__choose {
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.wk-pin-editor__choose.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Embedded IconPicker panel: own scroll area inside the (viewport-capped) popup. */
+.wk-pin-editor__picker {
+  max-height: min(320px, 55vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--panel);
+  animation: wk-float-in var(--t-fast) var(--ease);
+}
+
+@media (pointer: coarse) {
+  .wk-pin-editor__choose { min-height: 44px; padding: 4px 14px; }
+}

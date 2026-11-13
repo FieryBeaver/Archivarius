@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import * as db from '../../lib/db'
-import { pageIcon } from '../../components/pageIcon'
+import { PageIcon } from '../../lib/icons'
 import type { Page } from '../../lib/types'
 
 type PageHit = Pick<Page, 'id' | 'title' | 'kind'>
@@ -96,7 +96,9 @@ export default function PageLinkPicker({ projectId, excludeId, value, onChange }
               }}
               onMouseEnter={() => setActive(i)}
             >
-              <span className="tl-picker-kind" aria-hidden="true">{pageIcon(h)}</span>
+              <span className="tl-picker-kind" aria-hidden="true">
+                <PageIcon page={{ kind: h.kind, icon: null }} size={16} />
+              </span>
               <span className="tl-picker-title">{h.title || 'Untitled'}</span>
             </li>
           ))}

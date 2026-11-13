@@ -2,7 +2,8 @@ import { useSortable } from '@dnd-kit/sortable'
 import { useState, type CSSProperties, type MouseEvent } from 'react'
 import type { PageKind } from '../../lib/types'
 import type { FlatNode } from '../../state/pageTree'
-import { pageIcon } from '../pageIcon'
+import { PageIcon } from '../../lib/icons'
+import LockIcon from '../LockIcon'
 import { INDENT } from './dnd'
 import KindPicker from './KindPicker'
 import RenameInput from './RenameInput'
@@ -14,6 +15,8 @@ interface Props {
   depth: number
   selected: boolean
   expanded: boolean
+  /** Viewers get a read-only row: no drag, rename, menu or add-child. */
+  canEdit: boolean
   onOpen: () => void
   onToggle: () => void
   onAddChild: (kind: PageKind) => void
@@ -27,8 +30,8 @@ type Popup = { kind: 'add' | 'menu'; anchor: DOMRect } | null
 const rectOf = (e: MouseEvent) => (e.currentTarget as HTMLElement).getBoundingClientRect()
 
 export default function TreeRow(props: Props) {
-  const { row, depth, selected, expanded } = props
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id })
+  const { row, depth, selected, expanded, canEdit } = props
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id, disabled: !canEdit })
   const [renaming, setRenaming] = useState(false)
   const [popup, setPopup] = useState<Popup>(null)
   const closePopup = () => setPopup(null)
@@ -39,14 +42,16 @@ export default function TreeRow(props: Props) {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     transition,
   } as CSSProperties
-  const className = ['tree-row', selected && 'selected', isDragging && 'dragging', popup && 'menu-open']
+  const className = ['tree-row', selected && 'selected', isDragging && 'dragging', popup && 'menu-open',
+    row.page.is_secret && 'secret']
     .filter(Boolean).join(' ')
 
   return (
     <div ref={setNodeRef} style={style} className={className} {...attributes} {...listeners}
       onClick={props.onOpen}
-      onDoubleClick={() => setRenaming(true)}
+      onDoubleClick={() => canEdit && setRenaming(true)}
       onContextMenu={(e) => {
+        if (!canEdit) return
         e.preventDefault()
         // A touch long-press is a drag (TouchSensor); don't also pop the menu mid-drag.
         if (isDragging) return
@@ -57,7 +62,7 @@ export default function TreeRow(props: Props) {
         onClick={(e) => { e.stopPropagation(); props.onToggle() }}>
         ›
       </button>
-      <span className="tree-icon">{pageIcon(row.page)}</span>
+      <span className="tree-icon"><PageIcon page={row.page} /></span>
 
       {renaming ? (
         <RenameInput initial={row.page.title}
@@ -69,14 +74,16 @@ export default function TreeRow(props: Props) {
         <span className="tree-title">{row.page.title || 'Untitled'}</span>
       )}
 
-      {row.page.is_secret && <span className="tree-secret" title="Secret">🔒</span>}
+      {row.page.is_secret && (
+        <span className="tree-secret" title="DM only — hidden from viewers"><LockIcon /></span>
+      )}
 
-      <span className="tree-actions">
+      {canEdit && <span className="tree-actions">
         <button className="tree-action" aria-label="Add child page"
           onClick={(e) => { e.stopPropagation(); setPopup({ kind: 'add', anchor: rectOf(e) }) }}>+</button>
         <button className="tree-action" aria-label="Page options"
           onClick={(e) => { e.stopPropagation(); setPopup({ kind: 'menu', anchor: rectOf(e) }) }}>⋯</button>
-      </span>
+      </span>}
 
       {popup?.kind === 'add' && (
         <KindPicker anchor={popup.anchor} onClose={closePopup}

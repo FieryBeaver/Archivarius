@@ -46,3 +46,6 @@
 @media (pointer: coarse) {
   .popover-item { min-height: 44px; font-size: 15px; }
 }
+
+/* Roomier variant for picker panels (IconPicker etc.). */
+.popover.popover-padded { padding: var(--s3); }

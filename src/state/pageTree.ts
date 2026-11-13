@@ -84,3 +84,9 @@ export function positionBetween(before?: Page, after?: Page): number {
   if (after) return after.position - 1
   return 1
 }
+
+/** Ancestor pages of `id`, root first (empty for a root page). */
+export function ancestorsOf(pages: Page[], id: string): Page[] {
+  const byId = new Map(pages.map((p) => [p.id, p]))
+  return ancestorIds(pages, id).reverse().flatMap((a) => byId.get(a) ?? [])
+}

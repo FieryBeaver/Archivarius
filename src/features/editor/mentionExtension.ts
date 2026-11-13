@@ -14,7 +14,7 @@ function liveLabel(id: unknown, fallback: unknown): string {
 type Middleware = NonNullable<NonNullable<SuggestionOptions['floatingUi']>['middleware']>[number]
 
 /** Keeps the suggestion list inside the viewport horizontally (caret near the right edge on phones). */
-const clampToViewport: Middleware = {
+export const clampToViewport: Middleware = {
   name: 'wkClampToViewport',
   fn: ({ x, rects }) => ({
     x: Math.max(8, Math.min(x, window.innerWidth - rects.floating.width - 8)),

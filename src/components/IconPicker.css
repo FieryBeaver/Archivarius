@@ -1,0 +1,90 @@
+/* IconPicker: content for a floating surface (the caller supplies the surface). */
+
+.icon-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  width: 100%;
+  min-width: 0;
+  max-width: 320px;
+}
+
+.icon-picker-search { width: 100%; height: var(--control-h); }
+
+.icon-picker-scroll {
+  max-height: 264px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 calc(-1 * var(--s1));
+  padding: 0 var(--s1);
+}
+
+.icon-picker-label {
+  margin: var(--s2) 0 var(--s1);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  color: var(--muted);
+}
+.icon-picker-scroll section:first-child .icon-picker-label { margin-top: 0; }
+
+.icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+  gap: 2px;
+}
+
+.icon-picker-cell {
+  display: grid;
+  place-items: center;
+  height: 32px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+}
+.icon-picker-cell:hover { color: var(--text); background: var(--hover); }
+.icon-picker-cell:focus-visible { outline-offset: -2px; }
+.icon-picker-cell.selected {
+  color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.icon-picker-empty {
+  margin: var(--s2) 0;
+  font-size: var(--fs-sm);
+  font-style: italic;
+  color: var(--muted);
+}
+
+.icon-picker-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--border);
+}
+
+.icon-picker-emoji { flex: 1 1 110px; min-width: 0; height: 30px; padding: 4px 8px; }
+
+.icon-picker-btn {
+  height: 30px;
+  padding: 0 10px;
+  font-size: var(--fs-sm);
+}
+.icon-picker-reset {
+  color: var(--muted);
+  border-color: transparent;
+}
+.icon-picker-reset:hover { color: var(--text); border-color: transparent; }
+
+@media (pointer: coarse) {
+  .icon-picker-grid { grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); }
+  .icon-picker-cell { height: 40px; font-size: 22px; }
+  .icon-picker-emoji, .icon-picker-btn { height: 40px; }
+}
