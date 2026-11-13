@@ -16,6 +16,7 @@ export const BLOCK_ICONS = {
   lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
   divider: svg('<path d="M4 12h16"/>'),
   plugin: svg('<path d="M10 4h4v3a1.5 1.5 0 0 0 3 0V4h3v6h-3a1.5 1.5 0 0 0 0 3h3v7h-7v-3a1.5 1.5 0 0 0-3 0v3H4v-7h3a1.5 1.5 0 0 0 0-3H4V4h6Z"/>'),
+  sliders: svg('<path d="M4 7h10"/><circle cx="17" cy="7" r="2.5"/><path d="M20 17H10"/><circle cx="7" cy="17" r="2.5"/>'),
 } as const
 
 export type BlockIconName = keyof typeof BLOCK_ICONS

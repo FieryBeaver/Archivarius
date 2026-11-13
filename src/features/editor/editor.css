@@ -350,6 +350,81 @@
 .plugin-block:hover .plugin-block-remove,
 .plugin-block.ProseMirror-selectednode .plugin-block-remove { opacity: 1; }
 .plugin-block-remove:hover { color: var(--danger); background: var(--danger-soft); }
+/* Role-gating chip in the header (visibleTo != 'all'). */
+.plugin-block-gate {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  font-size: var(--fs-xs);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.plugin-block-gate-glyph { display: inline-flex; font-size: 10px; }
+
+.plugin-block-settings {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+}
+.plugin-block:hover .plugin-block-settings,
+.plugin-block.ProseMirror-selectednode .plugin-block-settings { opacity: 1; }
+.plugin-block-settings:hover { color: var(--text); background: var(--hover); }
+.plugin-block-settings-glyph { display: inline-flex; }
+
+/* Block settings popover (plain DOM, portal to <body> like other popovers). */
+.plugin-settings-pop {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3);
+  background: var(--surface-float);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  animation: wk-float-in var(--t-fast) var(--ease);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+.plugin-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.plugin-settings-field select,
+.plugin-settings-field input {
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+.plugin-settings-field select:focus-visible,
+.plugin-settings-field input:focus-visible { border-color: var(--accent-line); outline: none; }
+.plugin-settings-hint { margin: 0; font-size: var(--fs-xs); line-height: 1.45; color: var(--muted); }
+
 .plugin-block-frame { display: block; width: 100%; border: 0; background: transparent; color-scheme: normal; }
 .plugin-block-status { padding: 12px; font-size: var(--fs-sm); color: var(--muted); }
 .doc-content .plugin-block-missing { background: transparent; border-style: dashed; }
@@ -576,6 +651,7 @@
   .editor-toolbar .editor-tool { opacity: 1; }
   .mention-option { min-height: 44px; font-size: 15px; }
   .plugin-block-remove { opacity: 1; width: 32px; height: 32px; }
+  .plugin-block-settings { opacity: 1; width: 32px; height: 32px; }
   .callout-icon { width: 32px; height: 32px; margin-top: -0.1em; }
   .doc-tab-btn { height: 40px; }
   .doc-tab-close { width: 28px; height: 28px; opacity: 0.6; }

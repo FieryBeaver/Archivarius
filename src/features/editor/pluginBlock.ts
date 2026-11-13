@@ -1,8 +1,8 @@
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { Node, mergeAttributes, type Editor } from '@tiptap/react'
 import * as db from '../../lib/db'
-import type { Plugin } from '../../lib/types'
-import { effectiveRole, usePages } from '../../state/pages'
+import type { Plugin, Role } from '../../lib/types'
+import { effectiveRole, usePages, visibilityRole } from '../../state/pages'
 import { usePanelStore } from '../../state/panel'
 import { glyphElement } from './blockIcons'
 
@@ -87,6 +87,32 @@ function parseDataAttr(raw: string | null): unknown {
   try { return JSON.parse(raw) } catch { return null }
 }
 
+// ---------- block visibility (v0.7, workstream 1A) ----------
+
+export const PLUGIN_VISIBILITIES = ['all', 'editors', 'owners'] as const
+export type PluginVisibility = (typeof PLUGIN_VISIBILITIES)[number]
+
+export const PLUGIN_VISIBILITY_LABELS: Record<PluginVisibility, string> = {
+  all: 'Everyone',
+  editors: 'Editors & owners',
+  owners: 'Owners only',
+}
+
+function asVisibility(v: unknown): PluginVisibility {
+  return PLUGIN_VISIBILITIES.includes(v as PluginVisibility) ? (v as PluginVisibility) : 'all'
+}
+
+/**
+ * Client-side gating, like secret blocks: the block's data still reaches every
+ * member via the page row. Content that players must never receive belongs in
+ * secret pages or DM notes (both RLS-enforced).
+ */
+function roleAllows(visibleTo: PluginVisibility, role: Role | null): boolean {
+  if (visibleTo === 'owners') return role === 'owner'
+  if (visibleTo === 'editors') return role === 'owner' || role === 'editor'
+  return true
+}
+
 // ---------- node ----------
 
 export interface PluginBlockOptions {
@@ -119,6 +145,19 @@ export const PluginBlock = Node.create<PluginBlockOptions>({
         parseHTML: (el) => parseDataAttr(el.getAttribute('data-plugin-data')),
         renderHTML: (attrs) => (attrs.data == null ? {} : { 'data-plugin-data': dataKey(attrs.data) }),
       },
+      /** v0.7: who sees the block ('all' | 'editors' | 'owners'). Client-side gating. */
+      visibleTo: {
+        default: 'all' as PluginVisibility,
+        parseHTML: (el) => asVisibility(el.getAttribute('data-plugin-visible-to')),
+        renderHTML: (attrs) =>
+          asVisibility(attrs.visibleTo) === 'all' ? {} : { 'data-plugin-visible-to': asVisibility(attrs.visibleTo) },
+      },
+      /** v0.7: optional custom header title (defaults to the plugin's name). */
+      title: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-plugin-title'),
+        renderHTML: (attrs) => (attrs.title ? { 'data-plugin-title': String(attrs.title) } : {}),
+      },
     }
   },
 
@@ -149,6 +188,7 @@ function createPluginView(
   let destroyed = false
   let iframe: HTMLIFrameElement | null = null
   let height = DEFAULT_HEIGHT
+  let pluginName = 'Plugin'
   // Last data the host knows the plugin has; avoids echoing init back after set-data.
   let knownData = dataKey(node.attrs.data)
 
@@ -162,10 +202,120 @@ function createPluginView(
   header.className = 'plugin-block-header'
   const title = document.createElement('span')
   title.className = 'plugin-block-title'
-  title.textContent = 'Plugin'
-  header.append(glyphElement('plugin', 'plugin-block-glyph'), title)
+  title.textContent = pluginName
+  const gate = document.createElement('span')
+  gate.className = 'plugin-block-gate'
+  gate.hidden = true
+  header.append(glyphElement('plugin', 'plugin-block-glyph'), title, gate)
+
+  /** Header text follows the custom title and visibility attrs. */
+  function paintHeader() {
+    title.textContent = (typeof node.attrs.title === 'string' && node.attrs.title) || pluginName
+    const vis = asVisibility(node.attrs.visibleTo)
+    gate.hidden = vis === 'all'
+    if (vis !== 'all') {
+      gate.replaceChildren(glyphElement('lock', 'plugin-block-gate-glyph'),
+        document.createTextNode(PLUGIN_VISIBILITY_LABELS[vis]))
+      gate.title = 'Hidden from anyone below this role (on their screen — not a security boundary)'
+    }
+  }
+
+  function setAttr(name: 'visibleTo' | 'title', value: string | null) {
+    const pos = getPos()
+    if (typeof pos !== 'number' || !editor.isEditable) return
+    const current = editor.state.doc.nodeAt(pos)
+    if (!current || current.type.name !== 'pluginBlock') return
+    editor.view.dispatch(editor.state.tr.setNodeAttribute(pos, name, value))
+  }
+
+  // ---- block settings popover (canEdit only) ----
+  let settingsPop: HTMLDivElement | null = null
+  let settingsBtn: HTMLButtonElement | null = null
+
+  function closeSettings() {
+    settingsPop?.remove()
+    settingsPop = null
+    document.removeEventListener('pointerdown', onDocDown, true)
+    document.removeEventListener('keydown', onPopKey)
+  }
+  function onDocDown(e: PointerEvent) {
+    const t = e.target as globalThis.Node | null
+    if (settingsPop && t && !settingsPop.contains(t) && !settingsBtn?.contains(t)) closeSettings()
+  }
+  function onPopKey(e: KeyboardEvent) {
+    if (e.key === 'Escape') closeSettings()
+  }
+
+  function openSettings() {
+    if (settingsPop) return closeSettings()
+    if (!settingsBtn) return
+    const pop = document.createElement('div')
+    pop.className = 'plugin-settings-pop'
+    pop.setAttribute('role', 'dialog')
+    pop.setAttribute('aria-label', 'Plugin block settings')
+
+    const visLabel = document.createElement('label')
+    visLabel.className = 'plugin-settings-field'
+    visLabel.append('Visible to')
+    const select = document.createElement('select')
+    const myRole = visibilityRole(usePages.getState())
+    for (const vis of PLUGIN_VISIBILITIES) {
+      const opt = document.createElement('option')
+      opt.value = vis
+      opt.textContent = PLUGIN_VISIBILITY_LABELS[vis]
+      // An editor picking "Owners only" would hide the block from themselves.
+      opt.disabled = vis === 'owners' && myRole !== 'owner'
+      select.append(opt)
+    }
+    select.value = asVisibility(node.attrs.visibleTo)
+    select.addEventListener('change', () => setAttr('visibleTo', asVisibility(select.value)))
+    visLabel.append(select)
+
+    const hint = document.createElement('p')
+    hint.className = 'plugin-settings-hint'
+    hint.textContent = 'Hides the block on lower-role screens. Data players must never receive belongs on a secret page or in DM notes.'
+
+    const titleLabel = document.createElement('label')
+    titleLabel.className = 'plugin-settings-field'
+    titleLabel.append('Title')
+    const input = document.createElement('input')
+    input.type = 'text'
+    input.maxLength = 60
+    input.placeholder = pluginName
+    input.value = typeof node.attrs.title === 'string' ? node.attrs.title : ''
+    const commitTitle = () => {
+      const clean = input.value.trim()
+      if (clean === ((node.attrs.title as string | null) ?? '')) return
+      setAttr('title', clean || null)
+    }
+    input.addEventListener('change', commitTitle)
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commitTitle(); closeSettings() } })
+    titleLabel.append(input)
+
+    pop.append(visLabel, hint, titleLabel)
+    document.body.append(pop)
+    const r = settingsBtn.getBoundingClientRect()
+    const w = Math.min(260, window.innerWidth - 16)
+    pop.style.width = `${w}px`
+    pop.style.left = `${Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8))}px`
+    pop.style.top = `${Math.min(r.bottom + 4, window.innerHeight - pop.offsetHeight - 8)}px`
+    document.addEventListener('pointerdown', onDocDown, true)
+    document.addEventListener('keydown', onPopKey)
+    settingsPop = pop
+  }
 
   if (canEdit()) {
+    const settings = document.createElement('button')
+    settings.type = 'button'
+    settings.className = 'plugin-block-settings'
+    settings.title = 'Block settings'
+    settings.setAttribute('aria-label', 'Plugin block settings')
+    settings.tabIndex = -1
+    settings.append(glyphElement('sliders', 'plugin-block-settings-glyph'))
+    settings.addEventListener('mousedown', (e) => e.preventDefault())
+    settings.addEventListener('click', openSettings)
+    settingsBtn = settings
+
     const remove = document.createElement('button')
     remove.type = 'button'
     remove.className = 'plugin-block-remove'
@@ -179,7 +329,7 @@ function createPluginView(
       if (typeof pos !== 'number' || !editor.isEditable) return
       editor.view.dispatch(editor.state.tr.delete(pos, pos + node.nodeSize))
     })
-    header.append(remove)
+    header.append(settings, remove)
   }
 
   const body = document.createElement('div')
@@ -264,7 +414,8 @@ function createPluginView(
       if (!plugin && !destroyed) plugin = (await loadPlugins(projectId, true)).find((p) => p.id === pluginId)
       if (destroyed) return
       if (!plugin) return showStatus('Plugin not found', true)
-      title.textContent = plugin.name
+      pluginName = plugin.name
+      paintHeader()
       const source = await loadSource(plugin)
       if (destroyed) return
       const frame = document.createElement('iframe')
@@ -281,21 +432,37 @@ function createPluginView(
       if (!destroyed) showStatus(`Couldn't load plugin: ${(e as Error).message}`, true)
     }
   }
-  void resolve()
+
+  // Resolve lazily: a block gated above the current role never loads its iframe.
+  let resolveStarted = false
+  function applyGate() {
+    const ok = roleAllows(asVisibility(node.attrs.visibleTo), visibilityRole(usePages.getState()))
+    dom.hidden = !ok
+    if (ok && !resolveStarted) {
+      resolveStarted = true
+      void resolve()
+    }
+  }
+  paintHeader()
+  applyGate()
 
   return {
     dom,
     update(updated: PMNode) {
       if (updated.type !== node.type || updated.attrs.pluginId !== node.attrs.pluginId) return false
       node = updated
+      paintHeader()
+      applyGate()
       // External change (undo/redo, collaborative reload): re-init the plugin with the new data.
       if (iframe && dataKey(node.attrs.data) !== knownData) sendInit()
       return true
     },
-    stopEvent: (e: Event) => (e.target as HTMLElement | null)?.closest?.('.plugin-block-remove') != null,
+    stopEvent: (e: Event) =>
+      (e.target as HTMLElement | null)?.closest?.('.plugin-block-remove, .plugin-block-settings') != null,
     ignoreMutation: () => true,
     destroy() {
       destroyed = true
+      closeSettings()
       window.removeEventListener('message', onMessage)
       iframe = null
     },
