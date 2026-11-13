@@ -17,6 +17,8 @@ interface Props {
   expanded: boolean
   /** Viewers get a read-only row: no drag, rename, menu or add-child. */
   canEdit: boolean
+  /** Reordering makes no sense in a filtered view; actions still work. */
+  dragDisabled?: boolean
   onOpen: () => void
   onToggle: () => void
   onAddChild: (kind: PageKind) => void
@@ -31,7 +33,8 @@ const rectOf = (e: MouseEvent) => (e.currentTarget as HTMLElement).getBoundingCl
 
 export default function TreeRow(props: Props) {
   const { row, depth, selected, expanded, canEdit } = props
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id, disabled: !canEdit })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: row.id, disabled: !canEdit || props.dragDisabled })
   const [renaming, setRenaming] = useState(false)
   const [popup, setPopup] = useState<Popup>(null)
   const closePopup = () => setPopup(null)

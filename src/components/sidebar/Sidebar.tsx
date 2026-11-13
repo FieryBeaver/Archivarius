@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { PageKind } from '../../lib/types'
 import { pagePath, useCanEdit, usePages } from '../../state/pages'
@@ -33,6 +33,13 @@ export default function Sidebar({ projectId, projectName, inert, onNavigate, onS
   const canEdit = useCanEdit()
   const [pickerAnchor, setPickerAnchor] = useState<DOMRect | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [filter, setFilter] = useState('')
+  const filterRef = useRef<HTMLInputElement>(null)
+
+  function clearFilter() {
+    setFilter('')
+    filterRef.current?.focus()
+  }
 
   function addRoot(kind: PageKind) {
     setPickerAnchor(null)
@@ -73,13 +80,29 @@ export default function Sidebar({ projectId, projectName, inert, onNavigate, onS
         <KindPicker anchor={pickerAnchor} onPick={addRoot} onClose={() => setPickerAnchor(null)} />
       )}
 
+      {(!isEmpty || filter) && (
+        <div className="tree-filter">
+          <SearchGlyph />
+          <input ref={filterRef} type="text" className="tree-filter-input"
+            placeholder="Filter pages…" aria-label="Filter pages by name"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape' && filter) { e.stopPropagation(); clearFilter() } }} />
+          {filter && (
+            <button type="button" className="tree-filter-clear" aria-label="Clear filter" onClick={clearFilter}>
+              ×
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="sidebar-body">
         {error && <p className="error-text tree-error">{error}</p>}
         {status === 'error' && <p className="error-text tree-error">{loadError}</p>}
         {status === 'ready' && isEmpty && (
           <p className="sidebar-empty">{canEdit ? 'No pages yet — hit + to begin.' : 'No pages yet.'}</p>
         )}
-        <PageTree projectId={projectId} onNavigate={onNavigate} />
+        <PageTree projectId={projectId} onNavigate={onNavigate} filter={filter} />
       </div>
 
       {onSettings && (

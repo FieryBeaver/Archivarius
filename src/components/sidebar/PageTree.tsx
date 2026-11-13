@@ -6,7 +6,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Page, PageKind } from '../../lib/types'
-import { buildTree, descendantIds, flattenTree } from '../../state/pageTree'
+import { ancestorIds, buildTree, descendantIds, flattenTree } from '../../state/pageTree'
 import { pagePath, useCanEdit, usePages } from '../../state/pages'
 import { dropPosition, getProjection } from './dnd'
 import TreeRow from './TreeRow'
@@ -17,7 +17,27 @@ interface DragState {
   offsetX: number
 }
 
-export default function PageTree({ projectId, onNavigate }: { projectId: string; onNavigate?: () => void }) {
+/** Pages whose name matches the query, plus their ancestors (so matches keep their place in the tree). */
+function filterPages(pages: Page[], query: string): Page[] {
+  const q = query.toLowerCase()
+  const visible = new Set<string>()
+  for (const p of pages) {
+    if ((p.title || 'Untitled').toLowerCase().includes(q)) {
+      visible.add(p.id)
+      for (const a of ancestorIds(pages, p.id)) visible.add(a)
+    }
+  }
+  return pages.filter((p) => visible.has(p.id))
+}
+
+interface PageTreeProps {
+  projectId: string
+  onNavigate?: () => void
+  /** Non-empty: show only pages whose name matches (plus ancestors), fully expanded, drag disabled. */
+  filter?: string
+}
+
+export default function PageTree({ projectId, onNavigate, filter }: PageTreeProps) {
   const navigate = useNavigate()
   const { pageId } = useParams()
   const { pages, expanded, create, update, remove, toggle } = usePages()
@@ -31,9 +51,18 @@ export default function PageTree({ projectId, onNavigate }: { projectId: string;
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   )
 
-  const tree = useMemo(() => buildTree(pages), [pages])
+  const query = filter?.trim().toLowerCase() ?? ''
+  const filtering = query.length > 0
+
+  const visiblePages = useMemo(() => (filtering ? filterPages(pages, query) : pages), [pages, filtering, query])
+  const tree = useMemo(() => buildTree(visiblePages), [visiblePages])
+  // Filter results are always fully expanded, so every match is in view.
+  const effExpanded = useMemo(
+    () => (filtering ? Object.fromEntries(visiblePages.map((p) => [p.id, true])) : expanded),
+    [filtering, visiblePages, expanded],
+  )
   // While dragging, hide the dragged page's subtree so it can't be dropped into itself.
-  const rows = useMemo(() => flattenTree(tree, expanded, drag?.activeId), [tree, expanded, drag?.activeId])
+  const rows = useMemo(() => flattenTree(tree, effExpanded, drag?.activeId), [tree, effExpanded, drag?.activeId])
   const projection = drag ? getProjection(rows, drag.activeId, drag.overId, drag.offsetX) : null
 
   const open = (id: string) => {
@@ -81,15 +110,17 @@ export default function PageTree({ projectId, onNavigate }: { projectId: string;
       onDragCancel={() => setDrag(null)}>
       <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
         {error && <p className="error-text tree-error">{error}</p>}
+        {filtering && rows.length === 0 && <p className="sidebar-empty">No pages match “{filter?.trim()}”.</p>}
         <div className="tree" role="tree">
           {rows.map((row) => (
             <TreeRow key={row.id} row={row}
               depth={row.id === drag?.activeId && projection ? projection.depth : row.depth}
               selected={row.id === pageId}
-              expanded={!!expanded[row.id]}
+              expanded={!!effExpanded[row.id]}
               canEdit={canEdit}
+              dragDisabled={filtering}
               onOpen={() => open(row.id)}
-              onToggle={() => toggle(row.id)}
+              onToggle={() => { if (!filtering) toggle(row.id) }}
               onAddChild={(kind) => addChild(row.id, kind)}
               onRename={(title) => attempt(update(row.id, { title }))}
               onToggleSecret={() => attempt(update(row.id, { is_secret: !row.page.is_secret }))}
