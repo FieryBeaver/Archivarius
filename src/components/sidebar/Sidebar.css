@@ -273,14 +273,13 @@
 }
 
 .tree-actions {
-  display: none;
+  display: flex;
   flex-shrink: 0;
   gap: 2px;
 }
-.tree-row:hover .tree-actions, .tree-row.menu-open .tree-actions { display: flex; }
 
 .tree-action {
-  display: grid;
+  display: none;
   place-items: center;
   width: 22px;
   height: 22px;
@@ -292,7 +291,13 @@
   border: none;
   border-radius: 4px;
 }
+.tree-row:hover .tree-action, .tree-row.menu-open .tree-action { display: grid; }
 .tree-action:hover { color: var(--text); background: var(--pressed); }
+
+/* The lock toggle: hover affordance normally, pinned visible while secret. */
+.tree-secret-toggle { font-size: 12px; }
+.tree-secret-toggle.on { display: grid; opacity: 0.8; }
+.tree-secret-toggle.on:hover { opacity: 1; }
 
 /* ---------- touch ---------- */
 
@@ -312,9 +317,10 @@
   .tree-rename { height: 36px; }
 
   /* No hover on touch: row actions are always shown, dimmed until used. */
-  .tree-actions { display: flex; opacity: 0.6; }
+  .tree-actions { opacity: 0.6; }
   .tree-row.selected .tree-actions, .tree-row.menu-open .tree-actions { opacity: 1; }
-  .tree-action { width: 36px; height: 40px; font-size: 18px; }
+  .tree-action { display: grid; width: 36px; height: 40px; font-size: 18px; }
+  .tree-secret-toggle { font-size: 14px; }
 
   .sidebar-back { width: 40px; height: 40px; }
   .sidebar-icon-btn { width: 40px; height: 40px; }
