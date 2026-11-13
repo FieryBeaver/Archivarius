@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Login from './components/Login'
 import PageView from './components/PageView'
+import PrivacyPage from './components/PrivacyPage'
 import ProjectHome from './components/ProjectHome'
 import ProjectLayout from './components/ProjectLayout'
 import ProjectList from './components/ProjectList'
@@ -15,11 +16,21 @@ export default function App() {
   useEffect(startAuthListener, [])
 
   if (loading) return <div className="app-splash">Archivarius</div>
-  if (!session) return <Login />
+
+  // /privacy is public (unauthenticated): OAuth consent screens require a reachable policy.
+  if (!session) {
+    return (
+      <Routes>
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    )
+  }
 
   return (
     <Routes>
       <Route path="/" element={<ProjectList />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/project/:projectId" element={<ProjectLayout />}>
         <Route index element={<ProjectHome />} />
         <Route path="page/:pageId" element={<PageView />} />

@@ -99,6 +99,7 @@ export default function Login() {
             {mode === 'signin' ? 'Create an account' : 'Sign in'}
           </button>
         </p>
+        <p className="login-legal"><a href="/privacy">Privacy policy</a></p>
       </form>
     </div>
   )
