@@ -258,8 +258,16 @@ export async function deleteRegion(id: string): Promise<void> {
 
 // ---------- map image upload ----------
 
+/** Max size of a map image (also enforced by the `maps` bucket, v0.7 migration). */
+export const MAP_IMAGE_MAX_BYTES = 10 * 1024 * 1024
+
 /** Uploads a map image and returns its storage path + public URL. */
 export async function uploadMapImage(projectId: string, file: File): Promise<{ path: string; url: string }> {
+  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file')
+  if (file.size > MAP_IMAGE_MAX_BYTES) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1)
+    throw new Error(`That image is ${mb} MB — the limit is ${MAP_IMAGE_MAX_BYTES / (1024 * 1024)} MB. Try a compressed JPEG or WebP.`)
+  }
   const path = `${projectId}/${crypto.randomUUID()}-${file.name.replace(/[^\w.-]/g, '_')}`
   const { error } = await supabase.storage.from('maps').upload(path, file)
   if (error) throw new Error(error.message)
