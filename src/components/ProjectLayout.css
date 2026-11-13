@@ -244,8 +244,8 @@
 .role-preview-exit:hover { background: var(--accent-line); color: var(--text); }
 
 @media (max-width: 768px) {
-  /* Below the mobile top bar, and clear of the FABs at the bottom. */
-  .role-preview-banner { top: 56px; }
+  /* The top bar and drawer own the top edge on phones; float above the bottom instead. */
+  .role-preview-banner { top: auto; bottom: calc(16px + env(safe-area-inset-bottom)); }
   .role-preview-detail { display: none; }
 }
 @media (pointer: coarse) {
