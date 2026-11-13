@@ -1,32 +1,46 @@
-# React + TypeScript + Vite
+# WorldKeeper
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A LegendKeeper-style worldbuilding app: pages in a tree, rich-text wiki with
+@mentions and backlinks, image maps with pins and regions, and calendar-free
+timelines. Everything is a page — no entity types, no required fields.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React + Vite + TypeScript
+- TipTap (editor), Leaflet + Geoman (maps), custom timeline
+- Supabase (Postgres + RLS, auth, storage) — local via Docker, cloud for prod
 
-## React Compiler
+## Run locally
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Requires Node 22+ (`nvm use 22`) and Docker.
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npx supabase start          # local Postgres+auth+storage; prints keys
+cp .env.example .env.local  # paste ANON_KEY printed by supabase start
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+- App: http://localhost:5173 — sign up with any email+password.
+- Supabase Studio (DB browser): http://127.0.0.1:54323
+- Emails (magic links) land in Mailpit: http://127.0.0.1:54324
+- Stop the stack: `npx supabase stop`
+
+Schema lives in `supabase/migrations/`; `supabase start` applies it automatically.
+
+## Deploy for free
+
+1. **Database/auth/storage:** create a free project at supabase.com, then
+   `npx supabase link --project-ref <ref> && npx supabase db push` to apply
+   the migrations. Create nothing by hand.
+2. **Frontend:** push this repo to GitHub → Cloudflare Pages → "connect to
+   git", build command `npm run build`, output `dist`, env vars
+   `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` from the Supabase dashboard.
+
+## Architecture
+
+See `CONTRACT.md` for internal boundaries. Short version:
+
+- `src/lib/db.ts` is the only place that talks to Supabase tables.
+- `src/features/editor|map|timeline` render a page by its `kind`.
+- Secrets/roles are enforced by Postgres RLS, not client code.

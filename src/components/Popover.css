@@ -1,0 +1,26 @@
+.popover {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.popover-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 14px;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius) - 2px);
+}
+.popover-item:hover { background: var(--panel); }
+.popover-item.danger { color: var(--danger); }

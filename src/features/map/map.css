@@ -1,0 +1,582 @@
+/* WorldKeeper — map feature. Theme tokens only; pin/region colors are user data. */
+
+/* ---------- layout ---------- */
+
+.wk-map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.wk-map__leaflet {
+  position: absolute;
+  inset: 0;
+}
+
+.wk-map .leaflet-container {
+  background: var(--bg);
+  font-family: var(--font);
+  outline: none;
+}
+
+.wk-map--place .leaflet-container,
+.wk-map--place .leaflet-interactive {
+  cursor: crosshair;
+}
+
+/* While placing pins or drawing, clicks must go through regions to the map. */
+.wk-map--place .wk-region,
+.wk-map--draw .wk-region {
+  pointer-events: none;
+}
+
+.wk-map-image {
+  image-rendering: auto;
+  box-shadow: 0 0 0 1px var(--border), 0 8px 40px color-mix(in srgb, var(--bg) 80%, transparent);
+}
+
+/* ---------- empty / upload ---------- */
+
+.wk-map-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.wk-map-empty__msg {
+  color: var(--muted);
+}
+
+.wk-map-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(440px, 100%);
+  padding: 48px 24px;
+  border: 1.5px dashed var(--border);
+  border-radius: calc(var(--radius) * 1.5);
+  background: var(--panel);
+  color: var(--text);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.wk-map-dropzone:hover,
+.wk-map-dropzone:focus-visible,
+.wk-map-dropzone.is-over {
+  border-color: var(--accent);
+  background: var(--panel-2);
+  outline: none;
+}
+
+.wk-map-dropzone.is-busy {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.wk-map-dropzone__icon {
+  font-size: 34px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.wk-map-dropzone__title {
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+.wk-map-dropzone__hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.wk-map-dropzone__error {
+  margin-top: 8px;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+/* ---------- overlays ---------- */
+
+.wk-map-toolbar,
+.wk-map-corner,
+.wk-map-hint,
+.wk-map-error,
+.wk-popup {
+  position: absolute;
+  z-index: 1000;
+}
+
+.wk-map-toolbar {
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--bg) 70%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.wk-map-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 13px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--text);
+}
+
+.wk-map-toolbar button:hover {
+  background: var(--panel-2);
+  border-color: transparent;
+}
+
+.wk-map-toolbar button.is-active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent);
+}
+
+.wk-map-hint {
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.wk-map-hint__esc {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.wk-map-corner {
+  right: 12px;
+  bottom: 12px;
+}
+
+.wk-map-replace {
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+}
+
+.wk-map-replace:hover {
+  color: var(--text);
+}
+
+.wk-map-replace:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.wk-map-error {
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(520px, calc(100% - 32px));
+  padding: 6px 6px 6px 12px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+}
+
+.wk-icon-btn {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  font-size: 16px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.wk-icon-btn:hover {
+  color: var(--text);
+  background: var(--panel-2);
+  border-color: transparent;
+}
+
+/* ---------- edit popup ---------- */
+
+.wk-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  overflow-y: auto;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 32px color-mix(in srgb, var(--bg) 85%, transparent);
+}
+
+.wk-popup__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wk-popup__kind {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wk-popup input[type='text'],
+.wk-popup input[type='search'] {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 13px;
+}
+
+.wk-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wk-field__label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.wk-field__value {
+  font-variant-numeric: tabular-nums;
+}
+
+.wk-field input[type='range'] {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  accent-color: var(--accent);
+}
+
+.wk-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wk-swatch {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 40%, transparent);
+  cursor: pointer;
+}
+
+.wk-swatch:hover {
+  border-color: var(--muted);
+}
+
+.wk-swatch.is-active {
+  border-color: var(--text);
+}
+
+.wk-swatch--default {
+  background: var(--accent);
+}
+
+.wk-swatch--default::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: var(--panel);
+}
+
+.wk-swatch--custom {
+  overflow: hidden;
+  background: conic-gradient(
+    from 0deg,
+    var(--danger),
+    var(--accent),
+    var(--accent-2),
+    var(--danger)
+  );
+}
+
+.wk-swatch--custom input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.wk-popup__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.wk-popup__foot button {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.wk-popup__confirm {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.wk-btn-danger {
+  color: var(--text);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.wk-btn-danger:hover {
+  border-color: var(--text);
+}
+
+.wk-btn-danger-ghost {
+  color: var(--danger);
+  background: transparent;
+  border-color: transparent;
+}
+
+.wk-btn-danger-ghost:hover {
+  border-color: var(--danger);
+}
+
+/* ---------- link picker ---------- */
+
+.wk-link {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wk-link__current {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wk-link__target {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--accent-2);
+  background: var(--panel-2);
+}
+
+.wk-link__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk-link__results {
+  list-style: none;
+  margin: 0;
+  padding: 3px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.wk-link__result {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 13px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.wk-link__result:hover,
+.wk-link__result.is-active {
+  background: var(--panel);
+  border-color: transparent;
+}
+
+.wk-link__result.is-active {
+  color: var(--accent);
+}
+
+.wk-link__empty {
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------- pins ---------- */
+
+.wk-pin-icon {
+  background: none;
+  border: none;
+}
+
+.wk-pin {
+  position: relative;
+  width: 30px;
+  height: 34px;
+  transition: transform 0.12s ease;
+  transform-origin: 50% 94%;
+}
+
+.wk-pin__head {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50% 50% 50% 0;
+  background: var(--pin-color, var(--accent));
+  border: 2px solid color-mix(in srgb, var(--bg) 55%, transparent);
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--bg) 75%, transparent);
+}
+
+.wk-pin__head > * {
+  transform: rotate(45deg);
+}
+
+.wk-pin__glyph {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.wk-pin__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.leaflet-marker-icon:hover .wk-pin,
+.wk-pin.is-selected {
+  transform: scale(1.15);
+}
+
+.wk-pin.is-selected .wk-pin__head {
+  border-color: var(--text);
+}
+
+.leaflet-dragging .wk-pin {
+  transform: scale(1.2) translateY(-2px);
+}
+
+/* ---------- tooltips & leaflet chrome ---------- */
+
+.wk-map .leaflet-tooltip.wk-tooltip {
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.wk-map .leaflet-tooltip-top.wk-tooltip::before {
+  border-top-color: var(--border);
+}
+
+.wk-map .leaflet-tooltip-bottom.wk-tooltip::before {
+  border-bottom-color: var(--border);
+}
+
+.wk-map .leaflet-tooltip-left.wk-tooltip::before {
+  border-left-color: var(--border);
+}
+
+.wk-map .leaflet-tooltip-right.wk-tooltip::before {
+  border-right-color: var(--border);
+}
+
+.wk-tip-link {
+  color: var(--accent-2);
+}
+
+.wk-map .leaflet-bar {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.wk-map .leaflet-bar a,
+.wk-map .leaflet-bar a:hover {
+  color: var(--text);
+  background: var(--panel);
+  border-bottom-color: var(--border);
+  text-decoration: none;
+}
+
+.wk-map .leaflet-bar a:hover {
+  background: var(--panel-2);
+}
+
+.wk-map .leaflet-bar a.leaflet-disabled {
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.wk-map .wk-region {
+  transition: fill-opacity 0.12s ease;
+}
