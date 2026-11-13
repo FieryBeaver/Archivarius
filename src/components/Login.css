@@ -61,6 +61,41 @@
 .login-card button { height: 42px; padding: 0 14px; }
 .login-card button[type='submit'] { margin-top: var(--s1); }
 
+/* Secondary OAuth button: base ghost+border button, full width, logo + label. */
+.login-card .login-oauth {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  border-color: var(--border-strong);
+  color: var(--text);
+  font-weight: 500;
+}
+.login-card .login-oauth:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-strong));
+}
+.login-oauth-logo { flex: none; display: block; }
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin: var(--s1) 0;
+  font-size: var(--fs-label);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .login-notice {
   margin: 0;
   font-size: var(--fs-sm);

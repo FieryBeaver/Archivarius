@@ -37,6 +37,19 @@ Schema lives in `supabase/migrations/`; `supabase start` applies it automaticall
    git", build command `npm run build`, output `dist`, env vars
    `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` from the Supabase dashboard.
 
+### Google sign-in setup
+
+"Continue with Google" needs the Google provider enabled in Supabase:
+
+1. In Google Cloud Console → APIs & Services → Credentials, create an OAuth
+   client ID (type "Web application") and add the authorized redirect URI
+   `https://<project-ref>.supabase.co/auth/v1/callback`.
+2. In the Supabase dashboard → Authentication → Providers → Google, enable it
+   and paste the client ID and secret.
+3. In Authentication → URL Configuration, add your site URL (e.g. the
+   Cloudflare Pages domain, plus `http://localhost:5173` for dev) to the
+   redirect allow list — the app redirects back to `window.location.origin`.
+
 ## Architecture
 
 See `CONTRACT.md` for internal boundaries. Short version:
