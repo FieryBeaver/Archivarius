@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { PageIcon } from '../lib/icons'
 import type { Page } from '../lib/types'
 import { ancestorsOf } from '../state/pageTree'
-import { pagePath, usePages } from '../state/pages'
+import { pagePath, useVisiblePages } from '../state/pages'
 import LockIcon from './LockIcon'
 
 /** Ancestor trail above the page title. Renders nothing for root pages. */
 export default function Breadcrumbs({ page }: { page: Page }) {
   const navigate = useNavigate()
-  const pages = usePages((s) => s.pages)
+  // Visible pages only: while secrets are hidden, a secret ancestor must not
+  // surface here (a real viewer never receives its row, so no crumb exists).
+  const pages = useVisiblePages()
   const ancestors = useMemo(() => ancestorsOf(pages, page.id), [pages, page.id])
   if (ancestors.length === 0) return null
 
