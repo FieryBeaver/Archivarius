@@ -37,6 +37,26 @@
 .popover-item.danger { color: var(--danger); }
 .popover-item.danger:hover { background: var(--danger-soft); color: var(--danger); }
 
+/* Two-line item: label + muted hint (view menu). */
+.popover-item-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 0;
+}
+.popover-item-label small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.popover-check {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 12px;
+}
+
 .popover-sep {
   height: 1px;
   margin: var(--s1) 2px;

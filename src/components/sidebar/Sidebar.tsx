@@ -5,6 +5,7 @@ import { canEditRole, pagePath, useCanEdit, usePages } from '../../state/pages'
 import { EyeGlyph, GearGlyph, SearchGlyph, SidebarGlyph } from '../UiIcons'
 import KindPicker from './KindPicker'
 import PageTree from './PageTree'
+import ViewMenu from './ViewMenu'
 import './Sidebar.css'
 
 interface Props {
@@ -31,10 +32,10 @@ export default function Sidebar({ projectId, projectName, inert, onNavigate, onS
   const isEmpty = usePages((s) => s.pages.length === 0)
   const create = usePages((s) => s.create)
   const canEdit = useCanEdit()
-  // The preview toggle follows the real role, so it stays available while previewing.
+  // The view menu follows the real role, so it stays available while previewing.
   const canPreviewRole = usePages((s) => canEditRole(s.role))
-  const previewing = usePages((s) => s.viewAs !== null)
-  const setViewAs = usePages((s) => s.setViewAs)
+  const viewActive = usePages((s) => s.viewAs !== null || s.hideSecrets)
+  const [viewAnchor, setViewAnchor] = useState<DOMRect | null>(null)
   const [pickerAnchor, setPickerAnchor] = useState<DOMRect | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
@@ -66,11 +67,10 @@ export default function Sidebar({ projectId, projectName, inert, onNavigate, onS
           </button>
         )}
         {canPreviewRole && (
-          <button type="button" className={`sidebar-icon-btn${previewing ? ' active' : ''}`}
-            aria-pressed={previewing}
-            aria-label={previewing ? 'Exit player preview' : 'Preview as player'}
-            title={previewing ? 'Exit player preview' : 'Preview as player — see what viewers see'}
-            onClick={() => setViewAs(previewing ? null : 'viewer')}>
+          <button type="button" className={`sidebar-icon-btn${viewActive ? ' active' : ''}`}
+            aria-haspopup="menu" aria-expanded={!!viewAnchor}
+            aria-label="View options" title="View options — hide secrets or preview as player"
+            onClick={(e) => setViewAnchor(viewAnchor ? null : e.currentTarget.getBoundingClientRect())}>
             <EyeGlyph />
           </button>
         )}
@@ -92,6 +92,7 @@ export default function Sidebar({ projectId, projectName, inert, onNavigate, onS
       {pickerAnchor && canEdit && (
         <KindPicker anchor={pickerAnchor} onPick={addRoot} onClose={() => setPickerAnchor(null)} />
       )}
+      {viewAnchor && <ViewMenu anchor={viewAnchor} onClose={() => setViewAnchor(null)} />}
 
       {(!isEmpty || filter) && (
         <div className="tree-filter">

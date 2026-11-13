@@ -21,9 +21,15 @@ interface PagesState {
    * role-gated (secret pages/blocks, editing UI); RLS stays the real boundary.
    */
   viewAs: Role | null
+  /**
+   * v0.7: owners/editors can hide secret & role-gated content while keeping
+   * their edit rights (e.g. screensharing with players). Client-side only.
+   */
+  hideSecrets: boolean
 
   load(projectId: string): Promise<void>
   setViewAs(role: Role | null): void
+  setHideSecrets(hide: boolean): void
   create(parentId: string | null, kind: PageKind): Promise<Page>
   /** Optimistic update; reverts and rethrows on failure. */
   update(id: string, attrs: Partial<Page>): Promise<void>
@@ -42,10 +48,14 @@ export const usePages = create<PagesState>((set, get) => ({
   expanded: {},
   role: null,
   viewAs: null,
+  hideSecrets: false,
 
   async load(projectId) {
     if (get().projectId !== projectId) {
-      set({ projectId, pages: [], expanded: {}, role: null, viewAs: null, status: 'loading', error: null })
+      set({
+        projectId, pages: [], expanded: {}, role: null, viewAs: null, hideSecrets: false,
+        status: 'loading', error: null,
+      })
     }
     try {
       const [pages, role] = await Promise.all([
@@ -110,6 +120,10 @@ export const usePages = create<PagesState>((set, get) => ({
   setViewAs(role) {
     set({ viewAs: role })
   },
+
+  setHideSecrets(hide) {
+    set({ hideSecrets: hide })
+  },
 }))
 
 export function pagePath(projectId: string, pageId: string): string {
@@ -141,9 +155,20 @@ export function useCanEdit(): boolean {
   return usePages((s) => canEditRole(effectiveRole(s)))
 }
 
-/** Secret pages are hidden while previewing as a viewer, mirroring their RLS rule. */
-export function hidesSecrets(s: Pick<PagesState, 'viewAs'>): boolean {
-  return s.viewAs === 'viewer'
+/**
+ * Whether secret pages/content are hidden right now: while previewing as a
+ * viewer (mirroring their RLS rule) or while the hide-secrets toggle is on.
+ */
+export function hidesSecrets(s: Pick<PagesState, 'viewAs' | 'hideSecrets'>): boolean {
+  return s.viewAs === 'viewer' || s.hideSecrets
+}
+
+/**
+ * The role content gating should check (plugin block visibility, gated tabs):
+ * the effective role, demoted to viewer while secrets are hidden.
+ */
+export function visibilityRole(s: Pick<PagesState, 'role' | 'viewAs' | 'hideSecrets'>): Role | null {
+  return s.hideSecrets ? 'viewer' : effectiveRole(s)
 }
 
 /** The loaded pages, minus secret ones while previewing as a viewer. */

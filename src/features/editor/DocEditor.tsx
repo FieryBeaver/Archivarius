@@ -3,7 +3,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { useCallback, useRef, useState, type MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Page, PageTab } from '../../lib/types'
-import { pagePath } from '../../state/pages'
+import { hidesSecrets, pagePath, usePages } from '../../state/pages'
 import { Callout, secretBlock } from './blocks'
 import { pageMention } from './mentionExtension'
 import { PluginBlock } from './pluginBlock'
@@ -18,6 +18,11 @@ interface DocEditorProps {
   canEdit: boolean
 }
 
+interface DocEditorInnerProps extends DocEditorProps {
+  /** Secret blocks render hidden (view menu / player preview). */
+  hideSecrets: boolean
+}
+
 const EMPTY_DOC: JSONContent = { type: 'doc', content: [{ type: 'paragraph' }] }
 
 function newTabId(): string {
@@ -26,10 +31,13 @@ function newTabId(): string {
 
 /**
  * Rich-text body of a 'doc' page. Mount with key={page.id}.
- * Remounts internally when canEdit changes, since the schema/node views depend on it.
+ * Remounts internally when canEdit or the hide-secrets view changes, since the
+ * schema/node views depend on them (pending edits flush on unmount).
  */
 export default function DocEditor({ page, canEdit }: DocEditorProps) {
-  return <DocEditorInner key={canEdit ? 'edit' : 'view'} page={page} canEdit={canEdit} />
+  const hideSecrets = usePages(hidesSecrets)
+  return <DocEditorInner key={`${canEdit ? 'edit' : 'view'}-${hideSecrets ? 'hidden' : 'shown'}`}
+    page={page} canEdit={canEdit} hideSecrets={hideSecrets} />
 }
 
 /**
@@ -38,7 +46,7 @@ export default function DocEditor({ page, canEdit }: DocEditorProps) {
  * `null` = legacy single doc in page.content; tabs are only materialized by the first
  * mutating tab action (adding a tab), so untouched pages are never rewritten.
  */
-function DocEditorInner({ page, canEdit }: DocEditorProps) {
+function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
   const { status, schedule, flush } = useAutosave(page.id)
   const [tabs, setTabs] = useState<PageTab[] | null>(() => (page.tabs?.length ? page.tabs : null))
   const tabsRef = useRef(tabs)
@@ -122,7 +130,7 @@ function DocEditorInner({ page, canEdit }: DocEditorProps) {
         <TabBar tabs={tabs ?? []} activeId={activeId} canEdit={canEdit} renamingId={renamingId}
           onSelect={select} onAdd={add} onStartRename={setRenamingId} onRename={rename} onDelete={remove} />
       )}
-      <TabDoc key={activeId ?? 'legacy'} page={page} canEdit={canEdit} status={status}
+      <TabDoc key={activeId ?? 'legacy'} page={page} canEdit={canEdit} hideSecrets={hideSecrets} status={status}
         initialContent={activeTab ? activeTab.content : page.content}
         onChange={onChange} />
     </div>
@@ -132,6 +140,7 @@ function DocEditorInner({ page, canEdit }: DocEditorProps) {
 interface TabDocProps {
   page: Page
   canEdit: boolean
+  hideSecrets: boolean
   status: SaveStatus
   initialContent: unknown
   onChange(json: JSONContent): void
@@ -142,7 +151,7 @@ interface TabDocProps {
  * a shared instance with setContent would let undo pull one tab's text into another.
  * `onChange` must be stable (it is captured by the editor's update handler).
  */
-function TabDoc({ page, canEdit, status, initialContent, onChange }: TabDocProps) {
+function TabDoc({ page, canEdit, hideSecrets, status, initialContent, onChange }: TabDocProps) {
   const navigate = useNavigate()
 
   // Created once per mount: new option identities on each render would make TipTap reconfigure.
@@ -153,7 +162,7 @@ function TabDoc({ page, canEdit, status, initialContent, onChange }: TabDocProps
       StarterKit,
       pageMention(page.project_id, page.id),
       Callout,
-      secretBlock(canEdit),
+      secretBlock(canEdit && !hideSecrets),
       PluginBlock.configure({ projectId: page.project_id, canEdit }),
       ...(canEdit ? [SlashCommand] : []),
     ],

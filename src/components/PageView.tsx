@@ -30,7 +30,9 @@ export default function PageView() {
   const page = usePages((s) => s.pages.find((p) => p.id === pageId))
   const expandTo = usePages((s) => s.expandTo)
   const hideSecrets = usePages(hidesSecrets)
+  const previewing = usePages((s) => s.viewAs !== null)
   const setViewAs = usePages((s) => s.setViewAs)
+  const setHideSecrets = usePages((s) => s.setHideSecrets)
   // Per page: restricted pages are writable only by owners and listed page editors.
   const canEdit = useCanEditPage(page)
 
@@ -47,9 +49,15 @@ export default function PageView() {
       actionLabel="Back to the world" onAction={() => navigate(`/project/${projectId}`)} />
   }
   if (page.is_secret && hideSecrets) {
-    return <EmptyState glyph="🔒" title="Hidden from players"
-      message="This page is a secret — players don't see it at all."
-      actionLabel="Exit player preview" onAction={() => setViewAs(null)} />
+    return previewing ? (
+      <EmptyState glyph="🔒" title="Hidden from players"
+        message="This page is a secret — players don't see it at all."
+        actionLabel="Exit player preview" onAction={() => setViewAs(null)} />
+    ) : (
+      <EmptyState glyph="🔒" title="Secrets are hidden"
+        message="This page is a secret, and secrets are hidden right now."
+        actionLabel="Show secrets" onAction={() => setHideSecrets(false)} />
+    )
   }
 
   return (
