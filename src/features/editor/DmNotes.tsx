@@ -5,6 +5,7 @@ import * as db from '../../lib/db'
 import type { Page } from '../../lib/types'
 import { Callout, SecretBlock } from './blocks'
 import { pageMention } from './mentionExtension'
+import { MoveBlock } from './moveBlock'
 import { PluginBlock } from './pluginBlock'
 import { SlashCommand } from './slashCommand'
 import Toolbar from './Toolbar'
@@ -52,7 +53,7 @@ function DmNotesDoc({ page, canEdit, initialContent }: { page: Page; canEdit: bo
       Callout,
       SecretBlock,
       PluginBlock.configure({ projectId: page.project_id, canEdit }),
-      ...(canEdit ? [SlashCommand] : []),
+      ...(canEdit ? [SlashCommand, MoveBlock] : []),
     ],
     content: (initialContent as JSONContent | null) ?? EMPTY_DOC,
   }))

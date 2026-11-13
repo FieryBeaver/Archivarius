@@ -251,6 +251,38 @@
 
 .callout-content { flex: 1; min-width: 0; }
 
+/* ---------- block drag handle (v0.7, 3A) ---------- */
+
+.block-drag-handle {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  align-self: stretch;
+  color: var(--muted);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease);
+}
+.block-drag-handle:active { cursor: grabbing; }
+.block-drag-handle-glyph { display: inline-flex; font-size: 13px; }
+.callout:hover > .block-drag-handle,
+.secret-block:hover .block-drag-handle,
+.plugin-block:hover .block-drag-handle,
+.plugin-block.ProseMirror-selectednode .block-drag-handle { opacity: 0.7; }
+.block-drag-handle:hover { opacity: 1 !important; }
+/* Read-only editors render no handles' affordance. */
+.doc-readonly .block-drag-handle { display: none; }
+/* The callout handle sits in the left padding; pull it closer to the border. */
+.doc-content .callout > .block-drag-handle { margin-left: -6px; margin-right: -4px; }
+.secret-block-header .block-drag-handle { width: 12px; margin-right: -2px; }
+.plugin-block-header .block-drag-handle { width: 12px; }
+
+@media (pointer: coarse) {
+  /* Touch has no hover: handles stay visible, dimmed. */
+  .block-drag-handle { opacity: 0.45; width: 22px; }
+}
+
 /* ---------- secret (DM-only) blocks ---------- */
 
 .doc-content .secret-block {

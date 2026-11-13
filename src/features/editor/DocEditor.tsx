@@ -9,6 +9,7 @@ import { Callout, secretBlock } from './blocks'
 import { BLOCK_ICONS } from './blockIcons'
 import DmNotes from './DmNotes'
 import { pageMention } from './mentionExtension'
+import { MoveBlock } from './moveBlock'
 import { PluginBlock } from './pluginBlock'
 import { PluginPicker } from './PluginPicker'
 import PluginTabView from './PluginTabView'
@@ -241,7 +242,7 @@ function TabDoc({ page, canEdit, hideSecrets, status, initialContent, onChange }
       Callout,
       secretBlock(canEdit && !hideSecrets),
       PluginBlock.configure({ projectId: page.project_id, canEdit }),
-      ...(canEdit ? [SlashCommand] : []),
+      ...(canEdit ? [SlashCommand, MoveBlock] : []),
     ],
     content: (initialContent as JSONContent | null) ?? '',
   }))

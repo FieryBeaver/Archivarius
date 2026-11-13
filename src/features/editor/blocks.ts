@@ -6,6 +6,26 @@ import { glyphElement } from './blockIcons'
  * only rewrites mention nodes, so page references must stay in mentions.
  */
 
+/**
+ * v0.7 (3A): a grab affordance for a draggable block. The wrapper only becomes
+ * `draggable` while the handle is pressed, so text drags inside the block keep
+ * selecting text (the tiptap data-drag-handle trick, done by hand).
+ */
+export function makeDragHandle(dom: HTMLElement, editable: () => boolean): HTMLSpanElement {
+  const handle = document.createElement('span')
+  handle.className = 'block-drag-handle'
+  handle.contentEditable = 'false'
+  handle.title = 'Drag to move · Alt+↑/↓'
+  handle.setAttribute('aria-hidden', 'true')
+  handle.append(glyphElement('grip', 'block-drag-handle-glyph'))
+  const arm = () => { if (editable()) dom.draggable = true }
+  const disarm = () => { dom.draggable = false }
+  handle.addEventListener('mousedown', arm)
+  handle.addEventListener('mouseup', disarm)
+  dom.addEventListener('dragend', disarm)
+  return handle
+}
+
 export const CALLOUT_VARIANTS = ['info', 'success', 'warning', 'danger'] as const
 export type CalloutVariant = (typeof CALLOUT_VARIANTS)[number]
 
@@ -26,6 +46,7 @@ export const Callout = Node.create({
   group: 'block',
   content: 'block+',
   defining: true,
+  draggable: true,
 
   addAttributes() {
     return {
@@ -58,7 +79,7 @@ export const Callout = Node.create({
       icon.contentEditable = 'false'
       const contentDOM = document.createElement('div')
       contentDOM.className = 'callout-content'
-      dom.append(icon, contentDOM)
+      dom.append(makeDragHandle(dom, () => editor.isEditable), icon, contentDOM)
 
       const paint = () => {
         const v = asVariant(node.attrs.variant)
@@ -112,6 +133,7 @@ export const SecretBlock = Node.create<SecretBlockOptions>({
   group: 'block',
   content: 'block+',
   defining: true,
+  draggable: true,
 
   addOptions() {
     return { visible: true }
@@ -129,7 +151,7 @@ export const SecretBlock = Node.create<SecretBlockOptions>({
 
   addNodeView() {
     const visible = this.options.visible
-    return () => {
+    return ({ editor }) => {
       if (!visible) {
         // No contentDOM: ProseMirror never renders the children.
         const dom = document.createElement('div')
@@ -143,7 +165,8 @@ export const SecretBlock = Node.create<SecretBlockOptions>({
       const header = document.createElement('div')
       header.className = 'secret-block-header'
       header.contentEditable = 'false'
-      header.append(glyphElement('lock', 'secret-block-glyph'), document.createTextNode('DM only'))
+      header.append(makeDragHandle(dom, () => editor.isEditable),
+        glyphElement('lock', 'secret-block-glyph'), document.createTextNode('DM only'))
       const contentDOM = document.createElement('div')
       contentDOM.className = 'secret-block-content'
       dom.append(header, contentDOM)

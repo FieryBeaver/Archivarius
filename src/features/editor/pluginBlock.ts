@@ -5,6 +5,7 @@ import type { Plugin, Role } from '../../lib/types'
 import { effectiveRole, usePages, visibilityRole } from '../../state/pages'
 import { usePanelStore } from '../../state/panel'
 import { glyphElement } from './blockIcons'
+import { makeDragHandle } from './blocks'
 
 /*
  * User-uploaded plugin blocks (CONTRACT.md v0.6, PLUGINS.md).
@@ -131,7 +132,8 @@ export const PluginBlock = Node.create<PluginBlockOptions>({
   group: 'block',
   atom: true,
   selectable: true,
-  draggable: false,
+  // v0.7 (3A): draggable via the header grip only (the node view arms dom.draggable).
+  draggable: true,
 
   addOptions() {
     return { projectId: null, canEdit: true }
@@ -210,6 +212,7 @@ function createPluginView(
   const gate = document.createElement('span')
   gate.className = 'plugin-block-gate'
   gate.hidden = true
+  if (canEdit()) header.append(makeDragHandle(dom, () => editor.isEditable))
   header.append(glyphElement('plugin', 'plugin-block-glyph'), title, gate)
 
   /** Header text follows the custom title and visibility attrs. */
