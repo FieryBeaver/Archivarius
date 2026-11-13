@@ -3,8 +3,9 @@ import StarterKit from '@tiptap/starter-kit'
 import { useCallback, useRef, useState, type MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Page, PageTab } from '../../lib/types'
-import { hidesSecrets, pagePath, usePages } from '../../state/pages'
+import { hidesSecrets, pagePath, usePages, visibilityRole } from '../../state/pages'
 import { Callout, secretBlock } from './blocks'
+import DmNotes from './DmNotes'
 import { pageMention } from './mentionExtension'
 import { PluginBlock } from './pluginBlock'
 import { SlashCommand } from './slashCommand'
@@ -55,6 +56,11 @@ function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   // Latest JSON of the legacy single doc, needed when its tabs get materialized.
   const legacyContent = useRef<unknown>(page.content)
+  // Pinned DM-notes tab: owner/editor only; gone while secrets are hidden or previewing
+  // (visibilityRole demotes to viewer, and this component remounts on those switches).
+  const vRole = usePages(visibilityRole)
+  const showDmNotes = vRole === 'owner' || vRole === 'editor'
+  const [dmOpen, setDmOpen] = useState(false)
 
   /** Structural change: re-render the strip and save the full array right away. */
   const commit = useCallback((next: PageTab[]) => {
@@ -82,13 +88,22 @@ function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
   }, [schedule])
 
   function select(id: string) {
-    if (id === activeRef.current) return
-    // Persist the outgoing tab before its editor unmounts.
+    if (id === activeRef.current && !dmOpen) return
+    // Persist the outgoing tab before its editor unmounts (DM notes flush on their own unmount).
     flush()
+    setDmOpen(false)
     setRenamingId(null)
     // Sync the strip state with the ref so the incoming tab mounts with its latest content.
     setTabs(tabsRef.current)
     activate(id)
+  }
+
+  function openDmNotes() {
+    if (dmOpen) return
+    flush()
+    setRenamingId(null)
+    setTabs(tabsRef.current)
+    setDmOpen(true)
   }
 
   function add() {
@@ -122,17 +137,22 @@ function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
 
   const activeTab = tabs?.find((t) => t.id === activeId) ?? null
   // Viewers only get a strip when there is something to switch between.
-  const showBar = canEdit || (tabs?.length ?? 0) > 1
+  const showBar = canEdit || (tabs?.length ?? 0) > 1 || showDmNotes
 
   return (
     <div className={`doc-editor${canEdit ? '' : ' doc-readonly'}`}>
       {showBar && (
-        <TabBar tabs={tabs ?? []} activeId={activeId} canEdit={canEdit} renamingId={renamingId}
-          onSelect={select} onAdd={add} onStartRename={setRenamingId} onRename={rename} onDelete={remove} />
+        <TabBar tabs={tabs ?? []} activeId={dmOpen ? null : activeId} canEdit={canEdit} renamingId={renamingId}
+          onSelect={select} onAdd={add} onStartRename={setRenamingId} onRename={rename} onDelete={remove}
+          dmNotes={showDmNotes ? { active: dmOpen, onSelect: openDmNotes } : undefined} />
       )}
-      <TabDoc key={activeId ?? 'legacy'} page={page} canEdit={canEdit} hideSecrets={hideSecrets} status={status}
-        initialContent={activeTab ? activeTab.content : page.content}
-        onChange={onChange} />
+      {dmOpen && showDmNotes ? (
+        <DmNotes key={`dm-${page.id}`} page={page} canEdit={showDmNotes} />
+      ) : (
+        <TabDoc key={activeId ?? 'legacy'} page={page} canEdit={canEdit} hideSecrets={hideSecrets} status={status}
+          initialContent={activeTab ? activeTab.content : page.content}
+          onChange={onChange} />
+      )}
     </div>
   )
 }

@@ -140,6 +140,19 @@ export interface ProjectExportV1 {
 /** Anything importProject accepts. */
 export type AnyProjectExport = ProjectExport | ProjectExportV1
 
+// ---------- v0.7 ----------
+
+/**
+ * Per-page DM notes. Unlike secret blocks (client-side hiding), these live in
+ * their own table and RLS hides them from viewer-role members server-side.
+ */
+export interface PageDmNotes {
+  page_id: string
+  project_id: string
+  content: unknown | null
+  updated_at: string
+}
+
 // ---------- v0.6 ----------
 
 /** A user-uploaded plugin: one HTML file in storage at `plugins/<project_id>/<id>.html`. */

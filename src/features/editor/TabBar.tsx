@@ -1,4 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
+import { BLOCK_ICONS } from './blockIcons'
 
 export interface TabItem {
   id: string
@@ -17,6 +18,8 @@ interface TabBarProps {
   /** title === null cancels the rename. */
   onRename(id: string, title: string | null): void
   onDelete(id: string): void
+  /** Pinned DM-notes tab (owners/editors only; absent for viewers & hidden secrets). */
+  dmNotes?: { active: boolean; onSelect(): void }
 }
 
 const MAX_TITLE = 60
@@ -42,7 +45,7 @@ function RenameInput({ tab, onDone }: { tab: TabItem; onDone(title: string | nul
 
 /** Document tab strip between the page header and the editor. */
 export default function TabBar({
-  tabs, activeId, canEdit, renamingId, onSelect, onAdd, onStartRename, onRename, onDelete,
+  tabs, activeId, canEdit, renamingId, onSelect, onAdd, onStartRename, onRename, onDelete, dmNotes,
 }: TabBarProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const deletable = canEdit && tabs.length > 1
@@ -85,6 +88,15 @@ export default function TabBar({
       {canEdit && (
         <button type="button" className="doc-tab-add" title="Add tab" aria-label="Add tab" onClick={onAdd}>
           {tabs.length ? '+' : '+ Add tab'}
+        </button>
+      )}
+      {dmNotes && (
+        <button type="button" role="tab" aria-selected={dmNotes.active}
+          className={`doc-tab-dm${dmNotes.active ? ' active' : ''}`}
+          title="DM notes — never shown to players (hidden server-side)"
+          onClick={() => { setConfirmId(null); dmNotes.onSelect() }}>
+          <span className="doc-tab-dm-glyph" aria-hidden dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.lock }} />
+          DM notes
         </button>
       )}
     </div>

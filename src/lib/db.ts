@@ -373,6 +373,31 @@ export async function getPluginSource(plugin: Pick<Plugin, 'source_path'>): Prom
   return data.text()
 }
 
+// ---------- DM notes (v0.7) ----------
+
+/**
+ * A page's DM notes, or null if none. RLS: only owner/editor members receive
+ * the row at all — for viewers this resolves to null server-side.
+ */
+export async function getDmNotes(pageId: string): Promise<unknown | null> {
+  const { data, error } = await supabase
+    .from('page_dm_notes').select('content').eq('page_id', pageId).maybeSingle()
+  const row = ok(data, error) as { content: unknown } | null
+  return row?.content ?? null
+}
+
+/**
+ * Upserts a page's DM notes (owner/editor only, RLS). Mentions inside DM notes
+ * are deliberately NOT synced to the mentions table: backlinks are visible to
+ * viewers and would leak that the note exists.
+ */
+export async function saveDmNotes(pageId: string, projectId: string, content: unknown): Promise<void> {
+  const { error } = await supabase
+    .from('page_dm_notes')
+    .upsert({ page_id: pageId, project_id: projectId, content }, { onConflict: 'page_id' })
+  if (error) throw new Error(error.message)
+}
+
 // ---------- timeline events ----------
 
 export async function listEvents(timelinePageId: string): Promise<WorldEvent[]> {
