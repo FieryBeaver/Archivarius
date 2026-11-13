@@ -1,0 +1,58 @@
+/* WorldKeeper theme tokens — feature code uses these variables, never raw colors. */
+:root {
+  --bg: #16181d;          /* app background */
+  --panel: #1d2026;       /* sidebar / panels */
+  --panel-2: #23262e;     /* hover / raised */
+  --border: #2e323b;
+  --text: #e7e4dc;
+  --muted: #9a958a;
+  --accent: #d4a953;      /* gold */
+  --accent-2: #6fa8dc;    /* link blue */
+  --danger: #c0564f;
+  --radius: 8px;
+  --sidebar-w: 280px;
+  --rightbar-w: 260px;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Spectral', Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+a { color: var(--accent-2); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+
+input, textarea, select {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+}
+input:focus, textarea:focus { outline: 1px solid var(--accent); }
+
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
