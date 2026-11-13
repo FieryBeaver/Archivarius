@@ -12,8 +12,8 @@ interface PluginPickerProps {
   onClose(): void
 }
 
-/** Plugin chooser opened from the slash menu's "Plugin…" item. Same surface as SlashList. */
-function PluginPicker({ projectId, onPick, onClose }: PluginPickerProps) {
+/** Plugin chooser: the slash menu's "Plugin…" item and the tab strip's "Plugin tab…" use it. */
+export function PluginPicker({ projectId, onPick, onClose }: PluginPickerProps) {
   const [plugins, setPlugins] = useState<Plugin[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')

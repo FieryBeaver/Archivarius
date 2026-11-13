@@ -13,7 +13,8 @@ interface TabBarProps {
   canEdit: boolean
   renamingId: string | null
   onSelect(id: string): void
-  onAdd(): void
+  /** Opens the add-tab menu anchored to the + button. */
+  onAdd(anchor: DOMRect): void
   onStartRename(id: string): void
   /** title === null cancels the rename. */
   onRename(id: string, title: string | null): void
@@ -86,7 +87,8 @@ export default function TabBar({
         })}
       </div>
       {canEdit && (
-        <button type="button" className="doc-tab-add" title="Add tab" aria-label="Add tab" onClick={onAdd}>
+        <button type="button" className="doc-tab-add" title="Add tab" aria-label="Add tab"
+          onClick={(e) => onAdd(e.currentTarget.getBoundingClientRect())}>
           {tabs.length ? '+' : '+ Add tab'}
         </button>
       )}

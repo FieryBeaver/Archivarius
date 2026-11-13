@@ -2,12 +2,16 @@ import { EditorContent, useEditor, type JSONContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useCallback, useRef, useState, type MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Page, PageTab } from '../../lib/types'
+import Popover from '../../components/Popover'
+import type { Page, PageTab, Plugin } from '../../lib/types'
 import { hidesSecrets, pagePath, usePages, visibilityRole } from '../../state/pages'
 import { Callout, secretBlock } from './blocks'
+import { BLOCK_ICONS } from './blockIcons'
 import DmNotes from './DmNotes'
 import { pageMention } from './mentionExtension'
 import { PluginBlock } from './pluginBlock'
+import { PluginPicker } from './PluginPicker'
+import PluginTabView from './PluginTabView'
 import { SlashCommand } from './slashCommand'
 import TabBar from './TabBar'
 import Toolbar from './Toolbar'
@@ -61,6 +65,8 @@ function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
   const vRole = usePages(visibilityRole)
   const showDmNotes = vRole === 'owner' || vRole === 'editor'
   const [dmOpen, setDmOpen] = useState(false)
+  // The tab strip's "+" menu: pick a document tab or a plugin tab.
+  const [addMenu, setAddMenu] = useState<{ anchor: DOMRect; mode: 'menu' | 'plugin' } | null>(null)
 
   /** Structural change: re-render the strip and save the full array right away. */
   const commit = useCallback((next: PageTab[]) => {
@@ -106,13 +112,38 @@ function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
     setDmOpen(true)
   }
 
+  /** Existing tabs, or the materialized legacy doc as tab one. */
+  function baseTabs(): PageTab[] {
+    return tabsRef.current ?? [{ id: newTabId(), title: 'Main', content: legacyContent.current ?? EMPTY_DOC }]
+  }
+
   function add() {
-    const base = tabsRef.current ?? [{ id: newTabId(), title: 'Main', content: legacyContent.current ?? EMPTY_DOC }]
     const tab: PageTab = { id: newTabId(), title: 'New tab', content: EMPTY_DOC }
-    commit([...base, tab])
+    commit([...baseTabs(), tab])
+    setDmOpen(false)
     activate(tab.id)
     setRenamingId(tab.id)
   }
+
+  /** v0.7 (2A): a tab hosting a plugin; its data lives in tab.plugin.data. */
+  function addPluginTab(plugin: Plugin) {
+    const tab: PageTab = {
+      id: newTabId(), title: plugin.name, content: EMPTY_DOC,
+      plugin: { pluginId: plugin.id, data: null },
+    }
+    commit([...baseTabs(), tab])
+    setDmOpen(false)
+    activate(tab.id)
+  }
+
+  /** Persist a plugin tab's data (same debounced tabs save as typing). */
+  const onPluginData = useCallback((tabId: string, data: unknown) => {
+    const current = tabsRef.current
+    if (!current) return
+    const next = current.map((t) => (t.id === tabId && t.plugin ? { ...t, plugin: { ...t.plugin, data } } : t))
+    tabsRef.current = next
+    schedule({ kind: 'tabs', tabs: next })
+  }, [schedule])
 
   function rename(id: string, title: string | null) {
     setRenamingId(null)
@@ -143,11 +174,37 @@ function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
     <div className={`doc-editor${canEdit ? '' : ' doc-readonly'}`}>
       {showBar && (
         <TabBar tabs={tabs ?? []} activeId={dmOpen ? null : activeId} canEdit={canEdit} renamingId={renamingId}
-          onSelect={select} onAdd={add} onStartRename={setRenamingId} onRename={rename} onDelete={remove}
+          onSelect={select} onAdd={(anchor) => setAddMenu({ anchor, mode: 'menu' })}
+          onStartRename={setRenamingId} onRename={rename} onDelete={remove}
           dmNotes={showDmNotes ? { active: dmOpen, onSelect: openDmNotes } : undefined} />
+      )}
+      {addMenu && (
+        <Popover anchor={addMenu.anchor} onClose={() => setAddMenu(null)}
+          width={addMenu.mode === 'plugin' ? 300 : 200}
+          className={addMenu.mode === 'plugin' ? 'tab-plugin-pick' : undefined}>
+          {addMenu.mode === 'menu' ? (
+            <>
+              <button className="popover-item" role="menuitem" onClick={() => { setAddMenu(null); add() }}>
+                <span>+</span><span>Document tab</span>
+              </button>
+              <button className="popover-item" role="menuitem"
+                onClick={() => setAddMenu({ anchor: addMenu.anchor, mode: 'plugin' })}>
+                <span aria-hidden dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.plugin }} /><span>Plugin tab…</span>
+              </button>
+            </>
+          ) : (
+            <PluginPicker projectId={page.project_id}
+              onPick={(p) => { setAddMenu(null); addPluginTab(p) }}
+              onClose={() => setAddMenu(null)} />
+          )}
+        </Popover>
       )}
       {dmOpen && showDmNotes ? (
         <DmNotes key={`dm-${page.id}`} page={page} canEdit={showDmNotes} />
+      ) : activeTab?.plugin ? (
+        <PluginTabView key={activeTab.id} page={page} pluginId={activeTab.plugin.pluginId}
+          data={activeTab.plugin.data} canEdit={canEdit}
+          onData={(data) => onPluginData(activeTab.id, data)} />
       ) : (
         <TabDoc key={activeId ?? 'legacy'} page={page} canEdit={canEdit} hideSecrets={hideSecrets} status={status}
           initialContent={activeTab ? activeTab.content : page.content}

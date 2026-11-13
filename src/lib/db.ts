@@ -552,7 +552,14 @@ export async function importProject(input: AnyProjectExport, name?: string): Pro
         map_h: p.map_h,
         edit_access: p.edit_access === 'restricted' ? 'restricted' : 'inherit',
         tabs: Array.isArray(p.tabs)
-          ? p.tabs.map((t) => ({ ...t, content: remapContent(t.content) }))
+          ? p.tabs.map((t) => {
+            const tab: PageTab = { ...t, content: remapContent(t.content) }
+            // v0.7 plugin tabs: point at the re-uploaded plugin (data copied untouched).
+            if (tab.plugin && typeof tab.plugin === 'object' && typeof tab.plugin.pluginId === 'string') {
+              tab.plugin = { ...tab.plugin, pluginId: pluginMap.get(tab.plugin.pluginId) ?? tab.plugin.pluginId }
+            }
+            return tab
+          })
           : null,
       },
       d: depth(p),

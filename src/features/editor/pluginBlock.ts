@@ -35,7 +35,8 @@ export function loadPlugins(projectId: string, fresh = false): Promise<Plugin[]>
   return cached(listCache, projectId, fresh, () => db.listPlugins(projectId))
 }
 
-function loadSource(plugin: Plugin): Promise<string> {
+/** A plugin's HTML source, cached briefly. Shared by block node views and plugin tabs. */
+export function loadSource(plugin: Plugin): Promise<string> {
   return cached(sourceCache, plugin.source_path, false, () => db.getPluginSource(plugin))
 }
 
@@ -53,12 +54,15 @@ export function invalidatePlugins(projectId?: string): void {
 // ---------- bridge helpers ----------
 
 export const PLUGIN_THEME_TOKENS = ['bg', 'panel', 'panel-2', 'border', 'text', 'muted', 'accent', 'accent-2', 'danger'] as const
-const MIN_HEIGHT = 40
-const MAX_HEIGHT = 2400
-const DEFAULT_HEIGHT = 120
+export const PLUGIN_MIN_HEIGHT = 40
+export const PLUGIN_MAX_HEIGHT = 2400
+export const PLUGIN_DEFAULT_HEIGHT = 120
+const MIN_HEIGHT = PLUGIN_MIN_HEIGHT
+const MAX_HEIGHT = PLUGIN_MAX_HEIGHT
+const DEFAULT_HEIGHT = PLUGIN_DEFAULT_HEIGHT
 
 /** Resolved theme colors keyed by token name without the leading "--". */
-function readTheme(el: Element): Record<string, string> {
+export function readTheme(el: Element): Record<string, string> {
   const style = getComputedStyle(el)
   const theme: Record<string, string> = {}
   for (const name of PLUGIN_THEME_TOKENS) {
@@ -69,7 +73,7 @@ function readTheme(el: Element): Record<string, string> {
 }
 
 /** JSON round-trip: drops anything not JSON-serializable. undefined/unserializable → null. */
-function cleanData(data: unknown): unknown {
+export function cleanData(data: unknown): unknown {
   try {
     const json = JSON.stringify(data)
     return json === undefined ? null : JSON.parse(json)

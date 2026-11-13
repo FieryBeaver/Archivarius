@@ -103,6 +103,11 @@ export interface PageTab {
   id: string
   title: string
   content: unknown
+  /**
+   * v0.7: when set, the tab hosts this plugin instead of a document; `content`
+   * stays an empty doc so the tabs[0]-mirrors-content invariant holds.
+   */
+  plugin?: { pluginId: string; data: unknown } | null
 }
 
 export interface PageEditor {
