@@ -171,3 +171,82 @@
   .page-view.kind-map { flex: 1 1 0; min-height: 420px; }
   .page-loading { padding: 16px; }
 }
+
+/* ---------- edit access (owner control + restricted indicator) ---------- */
+
+.page-access-toggle { margin-left: 0; }
+.page-access-toggle.on {
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent-2) 35%, transparent);
+}
+.page-access-toggle.on:hover { color: var(--accent-2); border-color: var(--accent-2); }
+.page-access-toggle[aria-expanded='true'] { opacity: 1; border-color: var(--border-strong); }
+
+/* Phones: the unrestricted owner pill collapses to its glyph to leave room for breadcrumbs. */
+@media (max-width: 480px) {
+  .page-access-toggle:not(.on) .page-access-label { display: none; }
+}
+
+.access-pop { gap: var(--s2); }
+.access-pop-label {
+  margin: 0;
+  padding: 0 2px;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.access-choices { display: flex; flex-direction: column; gap: 1px; }
+.access-choice { min-height: 44px; align-items: flex-start; padding: 6px 10px; }
+.access-choice > span:first-child { padding-top: 2px; color: var(--accent); }
+.access-choice-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.access-choice-title { color: var(--text); font-size: var(--fs-md); }
+.access-choice-hint { color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; }
+.access-choice[aria-checked='true'] { background: var(--accent-soft); }
+
+.access-members {
+  list-style: none;
+  margin: 0;
+  padding: var(--s2) 0 0;
+  border-top: 1px solid var(--border);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.access-member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--item-h);
+  padding: 0 8px;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.access-member:hover { background: var(--hover); color: var(--text); }
+.access-member.fixed { cursor: default; }
+.access-member.fixed:hover { background: transparent; color: var(--text-dim); }
+.access-member input {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+.access-member-email { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.access-member-role {
+  flex-shrink: 0;
+  font-size: var(--fs-label);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.access-note { margin: 0; padding: 0 2px; font-size: var(--fs-xs); color: var(--muted); line-height: 1.4; }
+.access-pop .error-text { margin: 0; font-size: var(--fs-xs); }
+
+@media (pointer: coarse) {
+  .access-member { min-height: 44px; }
+}

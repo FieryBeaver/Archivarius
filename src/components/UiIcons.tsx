@@ -25,3 +25,12 @@ export const GearGlyph = () => (
 export const SidebarGlyph = () => (
   <Svg><rect x="2" y="2.5" width="12" height="11" rx="1.8" /><path d="M6 2.5v11" /></Svg>
 )
+
+/** Shield: a page restricted to chosen editors. */
+export const ShieldGlyph = () => (
+  <Svg><path d="M8 1.8 13 3.6v4.1c0 3-2.1 5.4-5 6.5-2.9-1.1-5-3.5-5-6.5V3.6Z" /></Svg>
+)
+
+export const CloseGlyph = () => (
+  <Svg><path d="M4 4l8 8M12 4l-8 8" /></Svg>
+)

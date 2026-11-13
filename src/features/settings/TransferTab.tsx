@@ -24,10 +24,10 @@ function downloadJson(data: unknown, fileName: string) {
 
 /** Validate a parsed file; returns an error message or null. */
 function validate(data: unknown): string | null {
-  if (!data || typeof data !== 'object') return 'This file is not a WorldKeeper export.'
-  const d = data as Partial<ProjectExport>
-  if (d.format !== 'worldkeeper-export') return 'This file is not a WorldKeeper export.'
-  if (d.version !== 1) return `Unsupported export version (${String(d.version)}). This app reads version 1.`
+  if (!data || typeof data !== 'object') return 'This file is not an Archivarius export.'
+  const d = data as { format?: unknown; version?: unknown; pages?: unknown }
+  if (d.format !== 'archivarius-export' && d.format !== 'worldkeeper-export') return 'This file is not an Archivarius export.'
+  if (!db.isSupportedExport(data)) return `Unsupported export version (${String(d.version)}). This app reads versions 1 and 2.`
   if (!Array.isArray(d.pages)) return 'The export is damaged: it has no page list.'
   return null
 }
@@ -52,7 +52,7 @@ export function TransferTab({ ctx }: { ctx: SettingsContext }) {
     setExportedAt(null)
     try {
       const data = await db.exportProject(project.id)
-      const fileName = `${safeFileName(name)}.worldkeeper.json`
+      const fileName = `${safeFileName(name)}.archivarius.json`
       downloadJson(data, fileName)
       setExportedAt(`${fileName} · ${data.pages.length} page${data.pages.length === 1 ? '' : 's'}`)
     } catch (e) {
@@ -138,7 +138,7 @@ export function TransferTab({ ctx }: { ctx: SettingsContext }) {
 
       <div className="wks-field">
         <div className="wks-label">Import</div>
-        <div className="wks-hint">Creates a new world from a WorldKeeper export. This world is not changed.</div>
+        <div className="wks-hint">Creates a new world from an Archivarius (or older WorldKeeper) export. This world is not changed.</div>
         <input
           ref={fileRef}
           className="wks-file-input"

@@ -1,4 +1,4 @@
-# WorldKeeper
+# Archivarius
 
 A LegendKeeper-style worldbuilding app: pages in a tree, rich-text wiki with
 @mentions and backlinks, image maps with pins and regions, and calendar-free

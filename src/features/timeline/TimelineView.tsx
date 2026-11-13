@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import * as db from '../../lib/db'
 import { pageIconOf } from '../../lib/icons'
 import type { Page, WorldEvent } from '../../lib/types'
+import { usePanelStore } from '../../state/panel'
 import EventCard from './EventCard'
 import EventForm from './EventForm'
 import type { EventDraft } from './EventForm'
@@ -98,6 +99,7 @@ export default function TimelineView({ page, canEdit }: { page: Page; canEdit: b
     (id: string) => nav(`/project/${page.project_id}/page/${id}`),
     [nav, page.project_id],
   )
+  const previewPage = useCallback((id: string) => usePanelStore.getState().openPreview(id), [])
 
   const markPending = (id: string, on: boolean) =>
     setPendingIds((prev) => {
@@ -256,6 +258,7 @@ export default function TimelineView({ page, canEdit }: { page: Page; canEdit: b
         canEdit={canEdit}
         pending={pendingIds.has(ev.id)}
         onOpenLink={openPage}
+        onPreview={previewPage}
         onEdit={() => setForm({ mode: 'edit', id: ev.id })}
         onDelete={() => void handleDelete(ev)}
       />

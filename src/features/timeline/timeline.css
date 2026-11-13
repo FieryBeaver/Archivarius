@@ -219,6 +219,14 @@
   box-shadow: var(--shadow-2);
 }
 
+.tl-card.is-linked {
+  cursor: pointer;
+}
+
+.tl-event:hover .tl-card.is-linked {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
 .tl-card-head {
   display: flex;
   align-items: center;

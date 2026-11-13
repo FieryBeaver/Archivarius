@@ -235,7 +235,7 @@ function InviteRow(props: { projectId: string; onAdded: () => Promise<void> }) {
       {error && <p className="wks-error" role="alert">{error}</p>}
       {!error && added && <div className="wks-hint" aria-live="polite">Added {added}.</div>}
       {!error && !added && (
-        <div className="wks-hint">They need a WorldKeeper account first.</div>
+        <div className="wks-hint">They need an Archivarius account first.</div>
       )}
     </form>
   )

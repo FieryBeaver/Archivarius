@@ -2,7 +2,8 @@ import { lazy, Suspense, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import DocEditor from '../features/editor/DocEditor'
 import type { Page } from '../lib/types'
-import { useCanEdit, usePages } from '../state/pages'
+import { useCanEditPage } from '../state/pageEditors'
+import { usePages } from '../state/pages'
 import EmptyState from './EmptyState'
 import ErrorBoundary from './ErrorBoundary'
 import PageTitle from './PageTitle'
@@ -28,7 +29,8 @@ export default function PageView() {
   const status = usePages((s) => s.status)
   const page = usePages((s) => s.pages.find((p) => p.id === pageId))
   const expandTo = usePages((s) => s.expandTo)
-  const canEdit = useCanEdit()
+  // Per page: restricted pages are writable only by owners and listed page editors.
+  const canEdit = useCanEditPage(page)
 
   // Reveal the page in the tree (re-run when it moves under a new parent).
   const foundId = page?.id

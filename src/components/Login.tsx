@@ -61,7 +61,7 @@ export default function Login() {
     <div className="login">
       <form className="login-card" onSubmit={submit}>
         <span className="login-mark" aria-hidden="true">✦</span>
-        <h1 className="login-title">WorldKeeper</h1>
+        <h1 className="login-title">Archivarius</h1>
         <p className="login-sub">{mode === 'signin' ? 'Welcome back, worldbuilder.' : 'Start a new world.'}</p>
 
         <button type="button" className="login-oauth" disabled={busy} onClick={signInWithGoogle}>

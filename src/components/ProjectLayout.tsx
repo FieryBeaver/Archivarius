@@ -1,8 +1,11 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { Link, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import * as db from '../lib/db'
-import type { Project } from '../lib/types'
+import type { Project, ThemeOverrides } from '../lib/types'
 import { usePages } from '../state/pages'
+import { usePanelStore } from '../state/panel'
+import { useProjectRefresh } from '../state/project'
+import BacklinksPanel from './BacklinksPanel'
 import ContextPanel from './ContextPanel'
 import EmptyState from './EmptyState'
 import ErrorBoundary from './ErrorBoundary'
@@ -46,13 +49,69 @@ function useProject(projectId: string, version: number): Project | null | undefi
   return result?.id === projectId ? result.project : undefined
 }
 
+/** ThemeOverrides key -> CSS custom property. Missing keys fall back to the stylesheet. */
+const THEME_VARS: [keyof ThemeOverrides, string][] = [
+  ['accent', '--accent'], ['accent2', '--accent-2'], ['bg', '--bg'], ['panel', '--panel'],
+  ['panel2', '--panel-2'], ['border', '--border'], ['text', '--text'], ['muted', '--muted'],
+]
+
+function themeVars(theme: ThemeOverrides | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [key, cssVar] of THEME_VARS) {
+    const value = theme?.[key]
+    if (typeof value === 'string' && value.trim()) out[cssVar] = value.trim()
+  }
+  // Tokens the stylesheet defines as literals: derive them from the overridden bases so the
+  // sidebar, floating surfaces and secondary text follow a light/dark theme too.
+  // (--accent-soft/--accent-line/chips are already color-mix()es of --accent on :root.)
+  if (out['--bg'] || out['--panel-2']) out['--sidebar-bg'] = 'color-mix(in srgb, var(--bg) 85%, var(--panel-2))'
+  if (out['--panel'] || out['--panel-2']) out['--surface-float'] = 'color-mix(in srgb, var(--panel) 60%, var(--panel-2))'
+  if (out['--text'] || out['--muted']) out['--text-dim'] = 'color-mix(in srgb, var(--text) 72%, var(--muted))'
+  if (out['--border'] || out['--text']) out['--border-strong'] = 'color-mix(in srgb, var(--border) 78%, var(--text))'
+  return out
+}
+
+/** True for a light #rgb/#rrggbb colour (anything unparseable counts as dark, the default). */
+function isLight(color: string | undefined): boolean {
+  const m = color?.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)
+  if (!m) return false
+  const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1]
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.5
+}
+
+/**
+ * Mirror the world theme onto <html> while the project is open. Popovers, dialogs and menus
+ * portal to <body>, outside the layout root, and derived tints (--accent-soft, chips, focus
+ * glow…) are computed on :root — both only follow the theme when it is set there too.
+ */
+function useRootTheme(vars: Record<string, string>) {
+  const key = JSON.stringify(vars)
+  useEffect(() => {
+    const parsed = JSON.parse(key) as Record<string, string>
+    // Native controls/scrollbars: the stylesheet says dark; flip for a light background.
+    if (isLight(parsed['--bg'])) parsed['color-scheme'] = 'light'
+    const entries = Object.entries(parsed)
+    const root = document.documentElement.style
+    for (const [name, value] of entries) root.setProperty(name, value)
+    return () => {
+      for (const [name] of entries) root.removeProperty(name)
+    }
+  }, [key])
+}
+
 export default function ProjectLayout() {
   const { projectId = '', pageId } = useParams()
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  // Bumped after the settings dialog closes, so a rename shows up.
-  const [projectVersion, setProjectVersion] = useState(0)
+  // Bumped after the settings dialog closes (or via refreshProject()), so renames and theme edits show up.
+  const projectVersion = useProjectRefresh((s) => s.version)
+  const refreshProject = useProjectRefresh((s) => s.refreshProject)
   const project = useProject(projectId, projectVersion)
+  const theme = themeVars(project?.theme)
+  useRootTheme(theme)
+  const previewOpen = usePanelStore((s) => s.previewPageId !== null)
+  const closePreview = usePanelStore((s) => s.closePreview)
   const load = usePages((s) => s.load)
   const pageTitle = usePages((s) => (pageId ? s.pages.find((p) => p.id === pageId)?.title : undefined))
   const isMobile = useIsMobile()
@@ -79,8 +138,8 @@ export default function ProjectLayout() {
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false)
-    setProjectVersion((v) => v + 1)
-  }, [])
+    refreshProject()
+  }, [refreshProject])
 
   // Ctrl+K / Cmd+K anywhere (capture phase, so editors don't swallow it).
   useEffect(() => {
@@ -100,6 +159,12 @@ export default function ProjectLayout() {
     load(projectId)
   }, [projectId, load])
 
+  // A preview belongs to the world it was opened in.
+  useEffect(() => {
+    closePreview()
+    return closePreview
+  }, [projectId, closePreview])
+
   useEffect(() => {
     if (!drawerOpen) return
     const onKey = (e: KeyboardEvent) => {
@@ -114,10 +179,11 @@ export default function ProjectLayout() {
       actionLabel="Back to your worlds" onAction={() => navigate('/')} />
   }
 
-  const context = pageId && <ContextPanel key={pageId} projectId={projectId} pageId={pageId} />
+  const backlinks = pageId && <BacklinksPanel key={pageId} projectId={projectId} pageId={pageId} />
 
   return (
-    <div className={`layout${drawerOpen ? ' drawer-open' : ''}${sidebarHidden ? ' sidebar-collapsed' : ''}`}>
+    <div className={`layout${drawerOpen ? ' drawer-open' : ''}${sidebarHidden ? ' sidebar-collapsed' : ''}`}
+      style={theme as CSSProperties}>
       <header className="mobile-topbar">
         <button className="mobile-topbar-btn" aria-label="Open pages" aria-expanded={drawerOpen}
           onClick={() => setDrawerPath(pathname)}>
@@ -147,9 +213,11 @@ export default function ProjectLayout() {
 
       <main className="layout-main">
         <Outlet />
-        {isMobile && context}
+        {isMobile && backlinks}
       </main>
-      {!isMobile && context}
+      {/* Desktop: the preview takes the right column's place while open. */}
+      {!isMobile && !previewOpen && backlinks}
+      <ContextPanel projectId={projectId} isMobile={isMobile} />
 
       {switcherOpen && <QuickSwitcher onClose={() => setSwitcherOpen(false)} />}
       {settingsOpen && project && (

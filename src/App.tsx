@@ -14,7 +14,7 @@ export default function App() {
 
   useEffect(startAuthListener, [])
 
-  if (loading) return <div className="app-splash">WorldKeeper</div>
+  if (loading) return <div className="app-splash">Archivarius</div>
   if (!session) return <Login />
 
   return (

@@ -16,6 +16,7 @@ import {
   updateRegion,
 } from '../../lib/db'
 import type { Page, Pin, Region } from '../../lib/types'
+import { usePanelStore } from '../../state/panel'
 import EditPopup from './EditPopup'
 import { escapeHtml, pinHtml, safeColor } from './iconHtml'
 import {
@@ -315,6 +316,10 @@ export default function MapCanvas({
     [nav, page.project_id],
   )
 
+  // Plain clicks on linked pins/regions preview the target in the context panel;
+  // full navigation only happens via the explicit "Open" affordance in the popup.
+  const previewPage = useCallback((targetId: string) => usePanelStore.getState().openPreview(targetId), [])
+
   const createPinAt = useCallback(
     (ll: L.LatLng) => {
       const [x, y] = toPixel(ll, mapH)
@@ -347,7 +352,7 @@ export default function MapCanvas({
         const pin = pins.find((p) => p.id === id)
         if (!pin) return
         if (canEdit && wantsEditor(e)) setSelected({ kind: 'pin', id })
-        else if (pin.target_page_id) openPage(pin.target_page_id)
+        else if (pin.target_page_id) previewPage(pin.target_page_id)
         else if (canEdit) setSelected({ kind: 'pin', id })
       },
       pinContext: (id, e) => {
@@ -371,7 +376,7 @@ export default function MapCanvas({
         const region = regions.find((r) => r.id === id)
         if (!region) return
         if (canEdit && wantsEditor(e)) setSelected({ kind: 'region', id })
-        else if (region.target_page_id) openPage(region.target_page_id)
+        else if (region.target_page_id) previewPage(region.target_page_id)
         else if (canEdit) setSelected({ kind: 'region', id })
       },
       regionEdit: (id) => {

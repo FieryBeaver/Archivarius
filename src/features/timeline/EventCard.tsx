@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { renderIcon } from '../../lib/icons'
 import type { WorldEvent } from '../../lib/types'
 import { readEventText } from './eventUtils'
@@ -11,18 +11,31 @@ interface Props {
   canEdit: boolean
   pending: boolean
   onOpenLink: (pageId: string) => void
+  /** Plain click on a linked card: preview the target in the context panel. */
+  onPreview: (pageId: string) => void
   onEdit: () => void
   onDelete: () => void
 }
 
-export default function EventCard({ event, linkTitle, linkIcon, canEdit, pending, onOpenLink, onEdit, onDelete }: Props) {
+export default function EventCard({ event, linkTitle, linkIcon, canEdit, pending, onOpenLink, onPreview, onEdit, onDelete }: Props) {
   const [confirming, setConfirming] = useState(false)
   const body = readEventText(event.content)
+  const target = event.target_page_id
+
+  // Card-level click previews the linked page; buttons/links inside the card
+  // (Edit, Delete, the "open page" chip) keep their own behavior, and a click
+  // that ends a text selection is not treated as a preview request.
+  const handleCardClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (!target) return
+    if ((e.target as HTMLElement).closest('button, a, input, textarea, select')) return
+    if (window.getSelection()?.toString()) return
+    onPreview(target)
+  }
 
   return (
     <article className={`tl-event${pending ? ' is-pending' : ''}`}>
       <span className="tl-node" aria-hidden="true" />
-      <div className="tl-card">
+      <div className={`tl-card${target ? ' is-linked' : ''}`} onClick={target ? handleCardClick : undefined}>
         <header className="tl-card-head">
           {event.display_date && <time className="tl-date">{event.display_date}</time>}
           {canEdit && (

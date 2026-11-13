@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import type {
-  Member, MemberWithProfile, Mention, Page, PageKind, Pin, Project, ProjectExport, Region, Role, WorldEvent,
+  AnyProjectExport, Member, MemberWithProfile, Mention, Page, PageKind, PageTab, Pin, Project, ProjectExport,
+  Region, Role, ThemeOverrides, WorldEvent,
 } from './types'
 
 function ok<T>(data: T | null, error: { message: string } | null): T {
@@ -25,6 +26,12 @@ export async function createProject(name: string): Promise<Project> {
 
 export async function renameProject(id: string, name: string): Promise<Project> {
   const { data, error } = await supabase.from('projects').update({ name }).eq('id', id).select().single()
+  return ok(data, error)
+}
+
+/** Owner only (RLS). null resets to the default theme. */
+export async function updateProjectTheme(projectId: string, theme: ThemeOverrides | null): Promise<Project> {
+  const { data, error } = await supabase.from('projects').update({ theme }).eq('id', projectId).select().single()
   return ok(data, error)
 }
 
@@ -112,6 +119,47 @@ export async function deletePage(id: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+// ---------- page tabs ----------
+
+/**
+ * Saves a page's tabs. Keeps the invariant content = tabs[0].content and
+ * re-syncs outgoing mentions from ALL tabs. Requires at least one tab.
+ */
+export async function savePageTabs(pageId: string, tabs: PageTab[]): Promise<Page> {
+  if (tabs.length === 0) throw new Error('A page needs at least one tab')
+  const page = await updatePage(pageId, { tabs, content: tabs[0].content })
+  await syncMentions(pageId, tabs.map((t) => t.content))
+  return page
+}
+
+// ---------- per-page edit access (v0.5) ----------
+
+/** Owner only (DB trigger). */
+export async function setPageEditAccess(pageId: string, access: 'inherit' | 'restricted'): Promise<Page> {
+  return updatePage(pageId, { edit_access: access })
+}
+
+/** User ids explicitly allowed to edit a restricted page. */
+export async function listPageEditors(pageId: string): Promise<string[]> {
+  const { data, error } = await supabase.from('page_editors').select('user_id').eq('page_id', pageId)
+  const rows = ok(data, error) as { user_id: string }[]
+  return rows.map((r) => r.user_id)
+}
+
+/** Owner only (RLS). Adding an existing editor is a no-op. */
+export async function addPageEditor(pageId: string, projectId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('page_editors').insert({ page_id: pageId, project_id: projectId, user_id: userId })
+  if (error && error.code !== '23505') throw new Error(error.message)
+}
+
+/** Owner only (RLS). */
+export async function removePageEditor(pageId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('page_editors').delete().eq('page_id', pageId).eq('user_id', userId)
+  if (error) throw new Error(error.message)
+}
+
 /** Lightweight page list for @mention autocomplete. */
 export async function searchPages(projectId: string, query: string): Promise<Pick<Page, 'id' | 'title' | 'kind'>[]> {
   const { data, error } = await supabase
@@ -130,6 +178,31 @@ export async function replaceMentions(fromPageId: string, toPageIds: string[]): 
   const rows = [...new Set(toPageIds)].map((to) => ({ from_page_id: fromPageId, to_page_id: to }))
   const ins = await supabase.from('mentions').insert(rows)
   if (ins.error) throw new Error(ins.error.message)
+}
+
+/** Page ids of every mention node (`{type:'mention', attrs:{id}}`) in TipTap JSON (one doc or several). */
+export function extractMentionIds(content: unknown): string[] {
+  const ids = new Set<string>()
+  const walk = (node: unknown) => {
+    if (Array.isArray(node)) { node.forEach(walk); return }
+    if (!node || typeof node !== 'object') return
+    const n = node as { type?: unknown; attrs?: { id?: unknown }; content?: unknown }
+    if (n.type === 'mention' && typeof n.attrs?.id === 'string') ids.add(n.attrs.id)
+    if (n.content) walk(n.content)
+  }
+  walk(content)
+  return [...ids]
+}
+
+/**
+ * Replaces a page's outgoing mentions with those found in the given contents
+ * (e.g. every tab). Mentions of pages that no longer exist are skipped (FK).
+ */
+export async function syncMentions(pageId: string, contents: unknown[]): Promise<void> {
+  const ids = extractMentionIds(contents)
+  let known: string[] = []
+  if (ids.length) known = (await selectIn<Pick<Page, 'id'>>('pages', 'id', ids, 'id')).map((p) => p.id)
+  await replaceMentions(pageId, known)
 }
 
 /** Pages that mention the given page. */
@@ -232,10 +305,10 @@ function chunks<T>(arr: T[], size = CHUNK): T[][] {
 }
 
 /** select * from table where col in (ids), chunked to keep URLs short. */
-async function selectIn<T>(table: string, col: string, ids: string[]): Promise<T[]> {
+async function selectIn<T>(table: string, col: string, ids: string[], columns = '*'): Promise<T[]> {
   const out: T[] = []
   for (const part of chunks(ids)) {
-    const { data, error } = await supabase.from(table).select().in(col, part)
+    const { data, error } = await supabase.from(table).select(columns).in(col, part)
     out.push(...(ok(data, error) as T[]))
   }
   return out
@@ -263,19 +336,41 @@ export async function exportProject(projectId: string): Promise<ProjectExport> {
     selectIn<Region>('regions', 'map_page_id', ids),
     selectIn<WorldEvent>('events', 'timeline_page_id', ids),
   ])
-  return { format: 'worldkeeper-export', version: 1, project: { name: project.name }, pages, mentions, pins, regions, events }
+  return {
+    format: 'archivarius-export',
+    version: 2,
+    project: { name: project.name, theme: project.theme ?? null },
+    pages, mentions, pins, regions, events,
+  }
+}
+
+/** True if `data` looks like an export importProject accepts (v2, or legacy v1). */
+export function isSupportedExport(data: unknown): data is AnyProjectExport {
+  if (!data || typeof data !== 'object') return false
+  const d = data as { format?: unknown; version?: unknown }
+  return (d.format === 'archivarius-export' && d.version === 2)
+    || (d.format === 'worldkeeper-export' && d.version === 1)
 }
 
 /**
- * Creates a new project from an export. All ids are regenerated; references
- * (parent_id, mentions, pin/region/event targets) are remapped, dangling ones
- * dropped/nulled. map_image_path is cleared (images aren't exported in v1).
+ * Creates a new project from an export (v2, or legacy v1 WorldKeeper). All ids
+ * are regenerated; references (parent_id, mentions incl. inside every tab,
+ * pin/region/event targets) are remapped, dangling ones dropped/nulled.
+ * map_image_path is cleared (images aren't exported). Page editors aren't
+ * exported, so restricted pages are editable only by the importer (owner).
  */
-export async function importProject(data: ProjectExport, name?: string): Promise<Project> {
-  if (data?.format !== 'worldkeeper-export' || data.version !== 1) {
-    throw new Error('Not a WorldKeeper export file')
+export async function importProject(input: AnyProjectExport, name?: string): Promise<Project> {
+  if (!isSupportedExport(input)) throw new Error('Not an Archivarius export file')
+  // normalise v1 -> v2 shape
+  const data: ProjectExport = input.format === 'archivarius-export' ? input : {
+    ...input,
+    format: 'archivarius-export',
+    version: 2,
+    project: { name: input.project?.name, theme: null },
+    pages: (input.pages ?? []).map((p) => ({ ...p, edit_access: 'inherit', tabs: null })),
   }
-  const project = await createProject(name?.trim() || data.project?.name || 'Imported world')
+  let project = await createProject(name?.trim() || data.project?.name || 'Imported world')
+  if (data.project?.theme) project = await updateProjectTheme(project.id, data.project.theme)
 
   const idMap = new Map<string, string>()
   for (const p of data.pages ?? []) idMap.set(p.id, crypto.randomUUID())
@@ -307,6 +402,10 @@ export async function importProject(data: ProjectExport, name?: string): Promise
         map_image_path: null,
         map_w: p.map_w,
         map_h: p.map_h,
+        edit_access: p.edit_access === 'restricted' ? 'restricted' : 'inherit',
+        tabs: Array.isArray(p.tabs)
+          ? p.tabs.map((t) => ({ ...t, content: remapContent(t.content, idMap) }))
+          : null,
       },
       d: depth(p),
     }))

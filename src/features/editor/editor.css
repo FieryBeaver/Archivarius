@@ -311,6 +311,158 @@
 .slash-glyph-danger { color: var(--danger) !important; }
 .slash-glyph-lock { color: var(--accent) !important; }
 
+/* ---------- document tabs ---------- */
+
+.doc-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  margin-bottom: var(--s1);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+/* Legacy single-doc page, editor view: just the quiet add affordance, no rule. */
+.doc-tabs-empty { border-bottom: none; margin-bottom: 0; }
+
+.doc-tabs-list {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.doc-tabs-list::-webkit-scrollbar { display: none; }
+
+.doc-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.doc-tab::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.doc-tab.active::after { background: var(--accent); }
+
+.doc-tab-btn {
+  max-width: 200px;
+  height: 34px;
+  padding: 0 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.doc-tab-btn:hover { color: var(--text); background: var(--hover); }
+.doc-tab.active .doc-tab-btn { color: var(--text); }
+
+.doc-tab-input {
+  height: 26px;
+  margin: 4px 6px;
+  padding: 0 6px;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+.doc-tab-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--focus-glow); }
+
+.doc-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0 4px 0 -6px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  opacity: 0;
+}
+.doc-tab:hover .doc-tab-close,
+.doc-tab.active .doc-tab-close,
+.doc-tab-close:focus-visible { opacity: 0.7; }
+.doc-tab-close:hover { opacity: 1; color: var(--danger); background: var(--danger-soft); }
+
+.doc-tab-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 4px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.doc-tab-confirm > span { padding: 0 4px; }
+.doc-tab-confirm button {
+  height: 22px;
+  padding: 0 6px;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+}
+.doc-tab-confirm button:hover { color: var(--text); background: var(--hover); }
+.doc-tab-confirm .doc-tab-confirm-yes { color: var(--danger); }
+.doc-tab-confirm .doc-tab-confirm-yes:hover { color: var(--danger); background: var(--danger-soft); }
+
+.doc-tab-add {
+  flex-shrink: 0;
+  height: 26px;
+  min-width: 26px;
+  padding: 0 8px;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  opacity: 0.7;
+}
+.doc-tab-add:hover { color: var(--text); background: var(--hover); opacity: 1; }
+.doc-tabs-empty .doc-tab-add { margin-left: -8px; font-size: var(--fs-xs); opacity: 0.55; }
+.doc-tabs-empty .doc-tab-add:hover { opacity: 1; }
+
+/* ---------- compact read-only render (side panel preview) ---------- */
+
+.doc-compact .doc-content .ProseMirror {
+  min-height: 0;
+  font-size: var(--fs-md);
+  line-height: 1.6;
+}
+.doc-compact .doc-content .ProseMirror > * + * { margin-top: 0.65em; }
+.doc-compact .doc-content .ProseMirror h1 { font-size: 22px; }
+.doc-compact .doc-content .ProseMirror h2 { font-size: 19px; }
+.doc-compact .doc-content .ProseMirror h3 { font-size: 16px; }
+.doc-compact .doc-content .ProseMirror h1,
+.doc-compact .doc-content .ProseMirror h2,
+.doc-compact .doc-content .ProseMirror h3 { margin: 1.2em 0 0.3em; }
+.doc-compact .doc-content .ProseMirror > :first-child { margin-top: 0; }
+.doc-compact .doc-content .ProseMirror blockquote { margin: 0.9em 0; padding-left: 12px; }
+.doc-compact .doc-content .ProseMirror pre { padding: 8px 10px; font-size: 12px; }
+.doc-compact .doc-content .callout { margin: 0.9em 0; padding: 8px 10px 8px 8px; gap: 6px; }
+.doc-compact .callout-icon { width: 22px; height: 22px; font-size: 15px; }
+.doc-compact .doc-content .ProseMirror hr { margin: 1.4em 0; }
+
 /* ---------- mobile / touch ---------- */
 
 @media (max-width: 768px) {
@@ -326,6 +478,7 @@
   }
   .editor-toolbar::-webkit-scrollbar { display: none; }
   .editor-tool { flex-shrink: 0; }
+  .doc-tabs { margin-left: -16px; margin-right: -16px; padding: 0 16px; }
   .editor-status { flex-shrink: 0; padding-left: 8px; white-space: nowrap; }
 
   .doc-content .ProseMirror h1 { font-size: 26px; }
@@ -341,4 +494,8 @@
   .editor-toolbar .editor-tool { opacity: 1; }
   .mention-option { min-height: 44px; font-size: 15px; }
   .callout-icon { width: 32px; height: 32px; margin-top: -0.1em; }
+  .doc-tab-btn { height: 40px; }
+  .doc-tab-close { width: 28px; height: 28px; opacity: 0.6; }
+  .doc-tab-add { height: 36px; min-width: 36px; }
+  .doc-tab-confirm button { height: 32px; padding: 0 10px; }
 }

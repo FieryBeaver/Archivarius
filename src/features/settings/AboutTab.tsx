@@ -8,7 +8,7 @@ export function AboutTab() {
       <div className="wks-about-head">
         <span className="wks-about-glyph">{renderIcon('gi:GiTreasureMap', { size: 32 })}</span>
         <div>
-          <div className="wks-about-name">WorldKeeper</div>
+          <div className="wks-about-name">Archivarius</div>
           <div className="wks-hint">
             A quiet place to build worlds: pages in a tree, maps with pins, timelines — shared with your table.
           </div>

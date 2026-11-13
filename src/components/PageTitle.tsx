@@ -1,16 +1,19 @@
 import { useState } from 'react'
 import { pageIconOf, renderIcon } from '../lib/icons'
 import type { Page } from '../lib/types'
-import { useCanEdit, usePages } from '../state/pages'
+import { useCanEditPage } from '../state/pageEditors'
+import { usePages } from '../state/pages'
 import Breadcrumbs from './Breadcrumbs'
+import EditAccessControl from './EditAccessControl'
 import IconPicker from './IconPicker'
 import LockIcon from './LockIcon'
 import Popover from './Popover'
 
-/** Breadcrumbs, page icon, big borderless title (persists on blur or Enter), secret toggle. Key by page id. */
+/** Breadcrumbs, page icon, big borderless title (persists on blur or Enter), secret + edit-access pills. Key by page id. */
 export default function PageTitle({ page }: { page: Page }) {
   const update = usePages((s) => s.update)
-  const canEdit = useCanEdit()
+  const canEdit = useCanEditPage(page)
+  const isOwner = usePages((s) => s.role === 'owner')
   const [value, setValue] = useState(page.title)
   const [error, setError] = useState<string | null>(null)
   const [iconAnchor, setIconAnchor] = useState<DOMRect | null>(null)
@@ -45,6 +48,7 @@ export default function PageTitle({ page }: { page: Page }) {
     <header className="page-header">
       <div className="page-meta">
         <Breadcrumbs page={page} />
+        <EditAccessControl page={page} isOwner={isOwner} />
         {canEdit ? (
           <button type="button" className={`page-secret-toggle${page.is_secret ? ' on' : ''}`}
             aria-pressed={page.is_secret} title="DM only — hidden from viewers"

@@ -1,61 +1,127 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as db from '../lib/db'
-import type { Page } from '../lib/types'
 import { PageIcon } from '../lib/icons'
-import { pagePath, usePages } from '../state/pages'
+import type { Page, PageKind } from '../lib/types'
+import { usePanelStore } from '../state/panel'
+import { pagePath } from '../state/pages'
+import ErrorBoundary from './ErrorBoundary'
 import LockIcon from './LockIcon'
+import { CloseGlyph } from './UiIcons'
 
-type Backlink = Pick<Page, 'id' | 'title' | 'kind'>
+const ReadOnlyDoc = lazy(() => import('../features/editor/ReadOnlyDoc'))
 
-interface Props {
-  projectId: string
-  pageId: string
-}
+const KIND_LABEL: Record<PageKind, string> = { doc: 'Page', map: 'Map', timeline: 'Timeline' }
 
-/** Right-hand context panel. Renders nothing when it has nothing to show. */
-export default function ContextPanel({ projectId, pageId }: Props) {
+/** undefined = loading, null = hidden from me (RLS) or gone */
+type Loaded = { id: string; page: Page | null }
+
+/**
+ * Page preview panel driven by `usePanelStore` (anyone may call openPreview).
+ * Desktop: a right-hand column. Mobile: a bottom sheet over a scrim.
+ */
+export default function ContextPanel({ projectId, isMobile }: { projectId: string; isMobile: boolean }) {
+  const pageId = usePanelStore((s) => s.previewPageId)
+  const closePreview = usePanelStore((s) => s.closePreview)
   const navigate = useNavigate()
-  const [backlinks, setBacklinks] = useState<Backlink[]>([])
-  // Backlink rows carry no icon / secrecy; take those from the loaded tree when available.
-  const pages = usePages((s) => s.pages)
-  // Only matters on mobile, where the panel sits below the content (the toggle is hidden on desktop).
-  const [collapsed, setCollapsed] = useState(true)
+  const [loaded, setLoaded] = useState<Loaded | null>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
+    if (!pageId) return
     let live = true
-    db.listBacklinks(pageId).then(
-      (rows) => live && setBacklinks(rows),
-      () => live && setBacklinks([]),
+    db.getPage(pageId).then(
+      (page) => live && setLoaded({ id: pageId, page }),
+      () => live && setLoaded({ id: pageId, page: null }),
     )
     return () => { live = false }
   }, [pageId])
 
-  if (backlinks.length === 0) return null
+  useEffect(() => {
+    if (!pageId) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) closePreview()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [pageId, closePreview])
 
-  return (
-    <aside className={`context-panel${collapsed ? ' collapsed' : ''}`}>
-      <section className="context-section">
-        <h3>Mentioned in</h3>
-        <button className="context-toggle" aria-expanded={!collapsed} onClick={() => setCollapsed((c) => !c)}>
-          Mentioned in<span className="context-toggle-count">({backlinks.length})</span>
+  // The sheet is modal on phones: move focus into it.
+  useEffect(() => {
+    if (pageId && isMobile) closeRef.current?.focus()
+  }, [pageId, isMobile])
+
+  if (!pageId) return null
+  const page = loaded?.id === pageId ? loaded.page : undefined
+
+  function open() {
+    if (!pageId) return
+    navigate(pagePath(projectId, pageId))
+    closePreview()
+  }
+
+  const panel = (
+    <aside className={`preview-panel${isMobile ? ' sheet' : ''}`} aria-label="Page preview"
+      role={isMobile ? 'dialog' : 'complementary'} aria-modal={isMobile || undefined}>
+      {isMobile && <span className="preview-grabber" aria-hidden />}
+      <header className="preview-head">
+        <span className="preview-eyebrow">Preview</span>
+        <button ref={closeRef} type="button" className="preview-close" aria-label="Close preview" title="Close (Esc)"
+          onClick={closePreview}>
+          <CloseGlyph />
         </button>
-        <ul className="context-list">
-          {backlinks.map((b) => {
-            const full = pages.find((p) => p.id === b.id)
-            return (
-              <li key={b.id}>
-                <button className={`context-link${full?.is_secret ? ' secret' : ''}`}
-                  onClick={() => navigate(pagePath(projectId, b.id))}>
-                  <span className="context-link-icon"><PageIcon page={{ kind: b.kind, icon: full?.icon ?? null }} /></span>
-                  <span className="context-link-title">{full?.title || b.title || 'Untitled'}</span>
-                  {full?.is_secret && <LockIcon size={11} className="context-link-lock" />}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      </section>
+      </header>
+
+      {page === undefined ? (
+        <p className="preview-muted">Loading…</p>
+      ) : page === null ? (
+        <p className="preview-muted">You can't see this page.</p>
+      ) : (
+        <>
+          <div className="preview-title-row">
+            <span className="preview-icon"><PageIcon page={page} /></span>
+            <div className="preview-title-text">
+              <h2 className="preview-title">{page.title || 'Untitled'}</h2>
+              <span className="preview-kind">
+                {KIND_LABEL[page.kind]}
+                {page.is_secret && <><span aria-hidden> · </span><LockIcon size={10} /> Secret</>}
+              </span>
+            </div>
+          </div>
+          <button type="button" className="btn-primary preview-open" onClick={open}>Open page</button>
+          <div className="preview-body">
+            <PreviewBody page={page} />
+          </div>
+        </>
+      )}
     </aside>
+  )
+
+  if (!isMobile) return panel
+  return (
+    <>
+      <div className="preview-scrim" aria-hidden onClick={closePreview} />
+      {panel}
+    </>
+  )
+}
+
+function PreviewBody({ page }: { page: Page }) {
+  if (page.kind === 'map') {
+    return page.map_image_path
+      ? <img className="preview-map" src={db.mapImageUrl(page.map_image_path)} alt="" loading="lazy" />
+      : <p className="preview-muted">No map image yet.</p>
+  }
+  if (page.kind === 'timeline') {
+    return <p className="preview-muted">Open the timeline to browse its events.</p>
+  }
+  const content = page.tabs?.[0]?.content ?? page.content
+  if (!content) return <p className="preview-muted">This page is empty.</p>
+  return (
+    <ErrorBoundary resetKey={page.id}>
+      <Suspense fallback={<p className="preview-muted">Loading…</p>}>
+        <ReadOnlyDoc content={content} />
+      </Suspense>
+    </ErrorBoundary>
   )
 }

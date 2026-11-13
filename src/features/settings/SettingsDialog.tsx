@@ -2,17 +2,20 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKe
 import { createPortal } from 'react-dom'
 import * as db from '../../lib/db'
 import { renderIcon } from '../../lib/icons'
-import type { Project, Role } from '../../lib/types'
+import { GiPalette } from 'react-icons/gi'
+import type { Project, Role, ThemeOverrides } from '../../lib/types'
 import { GeneralTab } from './GeneralTab'
 import { MembersTab } from './MembersTab'
 import { TransferTab } from './TransferTab'
 import { AboutTab } from './AboutTab'
+import { AppearanceTab } from './AppearanceTab'
 import './Settings.css'
 
-type TabId = 'general' | 'members' | 'transfer' | 'about'
+type TabId = 'general' | 'appearance' | 'members' | 'transfer' | 'about'
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: 'general', label: 'General', icon: 'gi:GiCastle' },
+  { id: 'appearance', label: 'Appearance', icon: 'appearance' },
   { id: 'members', label: 'Members', icon: 'gi:GiThreeFriends' },
   { id: 'transfer', label: 'Import / Export', icon: 'gi:GiTiedScroll' },
   { id: 'about', label: 'About', icon: 'gi:GiOpenBook' },
@@ -23,6 +26,9 @@ export interface SettingsContext {
   /** Current world name (may differ from props after a rename). */
   name: string
   setName(name: string): void
+  /** Current saved theme (may differ from props after a save). null = defaults. */
+  theme: ThemeOverrides | null
+  setTheme(theme: ThemeOverrides | null): void
   /** null while loading or if not a member. */
   role: Role | null
   roleLoading: boolean
@@ -36,6 +42,7 @@ export default function SettingsDialog(props: { project: Project; onClose: () =>
   const { project, onClose } = props
   const [tab, setTab] = useState<TabId>('general')
   const [name, setName] = useState(project.name)
+  const [theme, setTheme] = useState<ThemeOverrides | null>(project.theme ?? null)
   const [role, setRole] = useState<Role | null>(null)
   const [roleLoading, setRoleLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -91,11 +98,12 @@ export default function SettingsDialog(props: { project: Project; onClose: () =>
   }
 
   const ctx: SettingsContext = {
-    project, name, setName, role, roleLoading, setRole, setBusy, close,
+    project, name, setName, theme, setTheme, role, roleLoading, setRole, setBusy, close,
   }
 
   let body: ReactNode
   if (tab === 'general') body = <GeneralTab ctx={ctx} />
+  else if (tab === 'appearance') body = <AppearanceTab ctx={ctx} />
   else if (tab === 'members') body = <MembersTab ctx={ctx} />
   else if (tab === 'transfer') body = <TransferTab ctx={ctx} />
   else body = <AboutTab />
@@ -144,7 +152,9 @@ export default function SettingsDialog(props: { project: Project; onClose: () =>
                 onClick={() => setTab(t.id)}
                 onKeyDown={(e) => onTabKey(e, i)}
               >
-                <span className="wks-tab-icon">{renderIcon(t.icon, { size: 16 })}</span>
+                <span className="wks-tab-icon">{t.icon === 'appearance'
+                  ? <GiPalette size={16} aria-hidden="true" style={{ verticalAlign: '-0.125em', flexShrink: 0 }} />
+                  : renderIcon(t.icon, { size: 16 })}</span>
                 <span>{t.label}</span>
               </button>
             ))}
