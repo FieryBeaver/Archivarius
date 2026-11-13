@@ -1,3 +1,4 @@
+import { KIND_ICONS } from '../../components/pageIcon'
 import type { PageKind } from '../../lib/types'
 
 /** Preset swatches (user-facing data colors, not theme colors). */
@@ -12,13 +13,7 @@ export const PRESET_COLORS = [
   '#d47fa6',
 ] as const
 
+/** Kind glyph — single source shared with the tree, mention list and pickers. */
 export function kindIcon(kind: PageKind): string {
-  switch (kind) {
-    case 'map':
-      return '🗺'
-    case 'timeline':
-      return '⏳'
-    default:
-      return '📄'
-  }
+  return KIND_ICONS[kind] ?? KIND_ICONS.doc
 }

@@ -22,6 +22,7 @@ export default function RowMenu({ anchor, isSecret, onRename, onToggleSecret, on
       <button className="popover-item" role="menuitem" onClick={pick(onToggleSecret)}>
         <span>{isSecret ? '🔓' : '🔒'}</span><span>{isSecret ? 'Make visible' : 'Mark as secret'}</span>
       </button>
+      <div className="popover-sep" role="separator" />
       <button className="popover-item danger" role="menuitem" onClick={pick(onDelete)}>
         <span>🗑</span><span>Delete</span>
       </button>

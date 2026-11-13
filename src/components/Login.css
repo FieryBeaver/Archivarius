@@ -3,63 +3,91 @@
   min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: var(--s5);
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+    var(--bg);
 }
 
 .login-card {
+  --autofill-bg: var(--bg);
   width: 100%;
-  max-width: 360px;
+  max-width: 380px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 36px 32px;
+  gap: var(--s3);
+  padding: 44px 36px 32px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: calc(var(--radius) * 1.5);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  animation: wk-fade-up var(--t-med) var(--ease);
+}
+
+.login-mark {
+  align-self: center;
+  margin-bottom: -4px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.7;
 }
 
 .login-title {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: 30px;
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
   color: var(--accent);
   text-align: center;
 }
 
 .login-sub {
-  margin: 0 0 12px;
+  margin: 0 0 var(--s4);
   text-align: center;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--fs-lg);
   color: var(--muted);
 }
 
-.login-card input { padding: 10px 12px; background: var(--bg); }
-.login-card button { padding: 10px 12px; }
+.login-card input {
+  height: 42px;
+  padding: 0 14px;
+  background: var(--bg);
+}
+.login-card button { height: 42px; padding: 0 14px; }
+.login-card button[type='submit'] { margin-top: var(--s1); }
 
 .login-notice {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   color: var(--accent-2);
 }
 
 .login-switch {
-  margin: 8px 0 0;
+  margin: var(--s3) 0 0;
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border);
   text-align: center;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 
 .login-card .link-button {
+  height: auto;
   background: none;
   border: none;
   padding: 0;
   color: var(--accent-2);
 }
-.login-card .link-button:hover { text-decoration: underline; }
+.login-card .link-button:hover { background: none; text-decoration: underline; }
 
 @media (max-width: 480px) {
   .login { padding: 16px; }
-  .login-card { padding: 28px 20px; }
+  .login-card { padding: 32px 20px 24px; }
 }
 
 @media (pointer: coarse) {

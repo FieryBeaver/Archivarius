@@ -51,7 +51,7 @@ export default function ProjectLayout() {
   }, [drawerOpen])
 
   if (project === null) {
-    return <EmptyState message="This world doesn't exist, or you don't have access to it."
+    return <EmptyState glyph="✧" title="World not found" message="This world doesn't exist, or you don't have access to it."
       actionLabel="Back to your worlds" onAction={() => navigate('/')} />
   }
 

@@ -5,46 +5,98 @@
   display: grid;
   place-items: center;
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: var(--fs-xl);
   color: var(--muted);
   letter-spacing: 0.04em;
+  animation: wk-splash-pulse 1.6s var(--ease) infinite;
 }
+@keyframes wk-splash-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* ---------- buttons: one language ----------
+   primary = gold · secondary = base <button> (ghost with border) ·
+   ghost = no border · danger = danger-coloured ghost */
 
 .btn-primary {
   background: var(--accent);
   color: var(--bg);
   border-color: var(--accent);
   font-weight: 600;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 22%, transparent), 0 1px 2px rgba(0, 0, 0, 0.3);
 }
-.btn-primary:hover { filter: brightness(1.08); }
-.btn-primary:disabled { opacity: 0.6; cursor: default; }
+.btn-primary:hover {
+  background: color-mix(in srgb, var(--accent) 88%, var(--text));
+  border-color: color-mix(in srgb, var(--accent) 88%, var(--text));
+}
+.btn-primary:disabled { opacity: 0.5; }
+.btn-primary:disabled:hover { background: var(--accent); border-color: var(--accent); }
 
 .btn-ghost {
   background: transparent;
   border-color: transparent;
   color: var(--muted);
 }
-.btn-ghost:hover { color: var(--text); background: var(--panel-2); border-color: transparent; }
+.btn-ghost:hover { color: var(--text); background: var(--hover); border-color: transparent; }
 
-.btn-danger { color: var(--danger); }
-.btn-danger:hover { border-color: var(--danger); }
+.btn-danger {
+  color: var(--danger);
+  background: transparent;
+  border-color: transparent;
+}
+.btn-danger:hover {
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
 
 .error-text {
   color: var(--danger);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   margin: 0;
 }
+
+/* ---------- empty states: one shared look ----------
+   muted glyph · Spectral heading · muted body · primary button.
+   Timeline (.tl-empty) and map (.wk-map-dropzone) mirror these numbers. */
 
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 80px 24px;
+  gap: var(--s2);
+  padding: 96px var(--s5);
   text-align: center;
   color: var(--muted);
+  animation: wk-fade-up var(--t-med) var(--ease);
 }
-.empty-state p { margin: 0; font-size: 16px; }
+.empty-state-glyph {
+  margin-bottom: var(--s2);
+  font-size: 30px;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.55;
+}
+.empty-state-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-xl);
+  line-height: 1.3;
+  color: var(--text);
+}
+.empty-state p {
+  margin: 0;
+  max-width: 380px;
+  font-size: var(--fs-md);
+  line-height: 1.6;
+}
+.empty-state button { margin-top: var(--s3); }
+
+@keyframes wk-fade-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
 
 /* ---------- touch / small screens ---------- */
 

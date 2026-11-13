@@ -35,7 +35,7 @@
 
 .wk-map-image {
   image-rendering: auto;
-  box-shadow: 0 0 0 1px var(--border), 0 8px 40px color-mix(in srgb, var(--bg) 80%, transparent);
+  box-shadow: 0 0 0 1px var(--border), 0 12px 48px rgba(0, 0, 0, 0.5);
 }
 
 /* ---------- empty / upload ---------- */
@@ -52,6 +52,8 @@
 }
 
 .wk-map-empty__msg {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
   color: var(--muted);
 }
 
@@ -59,24 +61,29 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: var(--s2);
   width: min(440px, 100%);
-  padding: 48px 24px;
-  border: 1.5px dashed var(--border);
-  border-radius: calc(var(--radius) * 1.5);
+  padding: 56px var(--s5);
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
   background: var(--panel);
-  color: var(--text);
+  color: var(--muted);
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color var(--t-med) var(--ease), background-color var(--t-med) var(--ease),
+    transform var(--t-med) var(--ease), box-shadow var(--t-med) var(--ease);
 }
 
 .wk-map-dropzone:hover,
 .wk-map-dropzone:focus-visible,
 .wk-map-dropzone.is-over {
   border-color: var(--accent);
-  background: var(--panel-2);
+  background: color-mix(in srgb, var(--accent) 4%, var(--panel));
   outline: none;
+}
+.wk-map-dropzone.is-over {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-1);
 }
 
 .wk-map-dropzone.is-busy {
@@ -85,19 +92,27 @@
 }
 
 .wk-map-dropzone__icon {
-  font-size: 34px;
+  font-size: 30px;
   line-height: 1;
-  margin-bottom: 6px;
+  margin-bottom: var(--s2);
+  opacity: 0.6;
+  filter: grayscale(0.4);
+  transition: opacity var(--t-med) var(--ease), filter var(--t-med) var(--ease);
 }
+.wk-map-dropzone:hover .wk-map-dropzone__icon,
+.wk-map-dropzone.is-over .wk-map-dropzone__icon { opacity: 1; filter: none; }
 
 .wk-map-dropzone__title {
   font-family: var(--font-display);
-  font-size: 19px;
+  font-weight: 500;
+  font-size: var(--fs-xl);
+  line-height: 1.3;
+  color: var(--text);
 }
 
 .wk-map-dropzone__hint {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .wk-map-dropzone__error {
@@ -123,33 +138,35 @@
   display: flex;
   gap: 2px;
   padding: 3px;
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 4px 18px color-mix(in srgb, var(--bg) 70%, transparent);
-  backdrop-filter: blur(6px);
+  box-shadow: var(--shadow-1);
 }
+
+
 
 .wk-map-toolbar button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: calc(var(--radius) - 2px);
-  color: var(--text);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
 }
 
 .wk-map-toolbar button:hover {
-  background: var(--panel-2);
+  background: var(--hover);
   border-color: transparent;
+  color: var(--text);
 }
 
 .wk-map-toolbar button.is-active {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
   color: var(--accent);
 }
 
@@ -164,9 +181,10 @@
   font-size: 13px;
   white-space: nowrap;
   color: var(--text);
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-1);
   pointer-events: none;
 }
 
@@ -182,13 +200,17 @@
 
 .wk-map-replace {
   padding: 5px 10px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--muted);
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  background: var(--panel);
+  border-color: var(--border);
+  box-shadow: var(--shadow-1);
 }
 
 .wk-map-replace:hover {
   color: var(--text);
+  background: var(--panel);
+  border-color: var(--border-strong);
 }
 
 .wk-map-replace:disabled {
@@ -207,9 +229,11 @@
   padding: 6px 6px 6px 12px;
   font-size: 13px;
   color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--danger);
+  background: var(--surface-float);
+  border: 1px solid color-mix(in srgb, var(--danger) 60%, var(--border));
   border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  animation: wk-float-in var(--t-fast) var(--ease);
 }
 
 .wk-icon-btn {
@@ -222,12 +246,12 @@
   color: var(--muted);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .wk-icon-btn:hover {
   color: var(--text);
-  background: var(--panel-2);
+  background: var(--hover);
   border-color: transparent;
 }
 
@@ -236,15 +260,17 @@
 .wk-popup {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--s3);
   padding: 10px 12px 12px;
   overflow-y: auto;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   color: var(--text);
-  background: var(--panel);
+  background: var(--surface-float);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 10px 32px color-mix(in srgb, var(--bg) 85%, transparent);
+  box-shadow: var(--shadow-1);
+  transform-origin: top left;
+  animation: wk-float-in var(--t-fast) var(--ease);
 }
 
 .wk-popup__head {
@@ -254,34 +280,41 @@
 }
 
 .wk-popup__kind {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--text);
 }
 
 .wk-popup input[type='text'],
 .wk-popup input[type='search'] {
   width: 100%;
-  padding: 5px 8px;
-  font-size: 13px;
+  padding: 6px 10px;
+  font-size: var(--fs-sm);
+  background: var(--bg);
 }
 
 .wk-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
+/* Form label standard (shared with timeline .tl-field > span, context panel headers). */
 .wk-field__label {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
   color: var(--muted);
 }
 
 .wk-field__value {
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
 }
 
 .wk-field input[type='range'] {
@@ -305,19 +338,22 @@
   padding: 0;
   border-radius: 50%;
   border: 2px solid transparent;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 40%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
   cursor: pointer;
+  transition: transform var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
 }
 
 .wk-swatch:hover {
   border-color: var(--muted);
+  transform: scale(1.1);
 }
 
 .wk-swatch.is-active {
   border-color: var(--text);
 }
 
-.wk-swatch--default {
+.wk-swatch--default,
+.wk-swatch--default:hover {
   background: var(--accent);
 }
 
@@ -326,7 +362,7 @@
   position: absolute;
   inset: 5px;
   border-radius: 50%;
-  background: var(--panel);
+  background: var(--surface-float);
 }
 
 .wk-swatch--custom {
@@ -358,23 +394,26 @@
 
 .wk-popup__foot button {
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .wk-popup__confirm {
   margin-right: auto;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
+/* Danger = danger-coloured ghost (App.css .btn-danger); the confirm step is tinted. */
 .wk-btn-danger {
-  color: var(--text);
-  background: var(--danger);
-  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  font-weight: 500;
 }
 
 .wk-btn-danger:hover {
-  border-color: var(--text);
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  border-color: var(--danger);
 }
 
 .wk-btn-danger-ghost {
@@ -384,7 +423,8 @@
 }
 
 .wk-btn-danger-ghost:hover {
-  border-color: var(--danger);
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }
 
 /* ---------- link picker ---------- */
@@ -409,9 +449,18 @@
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  font-size: 13px;
-  color: var(--accent-2);
-  background: var(--panel-2);
+  font-size: var(--fs-sm);
+  color: var(--chip-fg);
+  background: var(--chip-bg);
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--chip-border);
+  transition: background-color 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+
+.wk-link__target:hover {
+  background: var(--chip-bg-hover);
+  box-shadow: inset 0 0 0 1px var(--chip-border-hover);
 }
 
 .wk-link__title {
@@ -423,31 +472,34 @@
 .wk-link__results {
   list-style: none;
   margin: 0;
-  padding: 3px;
+  padding: var(--s1);
   max-height: 200px;
   overflow-y: auto;
-  background: var(--panel-2);
+  background: var(--surface-float);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  animation: wk-float-in var(--t-fast) var(--ease);
 }
 
 .wk-link__result {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  font-size: 13px;
+  gap: 10px;
+  min-height: var(--item-h);
+  padding: 0 10px;
+  font-size: var(--fs-md);
   text-align: left;
+  color: var(--text-dim);
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  border: none;
+  border-radius: var(--radius-sm);
 }
 
-.wk-link__result:hover,
-.wk-link__result.is-active {
-  background: var(--panel);
-  border-color: transparent;
+.wk-link__result:hover {
+  background: var(--hover);
+  color: var(--text);
 }
 
 .wk-link__result.is-active {
@@ -455,8 +507,11 @@
 }
 
 .wk-link__empty {
-  padding: 4px 8px;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  min-height: var(--item-h);
+  padding: 0 10px;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 
@@ -471,8 +526,9 @@
   position: relative;
   width: 30px;
   height: 34px;
-  transition: transform 0.12s ease;
+  transition: transform var(--t-fast) var(--ease);
   transform-origin: 50% 94%;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25));
 }
 
 .wk-pin__head {
@@ -488,7 +544,7 @@
   background: var(--pin-color, var(--accent));
   border: 2px solid color-mix(in srgb, var(--bg) 55%, transparent);
   transform: rotate(-45deg);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--bg) 75%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 30%, transparent);
 }
 
 .wk-pin__head > * {
@@ -522,31 +578,33 @@
 
 /* ---------- tooltips & leaflet chrome ---------- */
 
-.wk-map .leaflet-tooltip.wk-tooltip {
-  padding: 3px 8px;
-  font-size: 12px;
+.wk-map .leaflet-tooltip {
+  padding: 4px 9px;
+  font-family: var(--font);
+  font-size: var(--fs-xs);
   font-weight: 500;
+  line-height: 1.4;
   color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--bg) 70%, transparent);
+  background: var(--surface-float);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-1);
 }
 
-.wk-map .leaflet-tooltip-top.wk-tooltip::before {
-  border-top-color: var(--border);
+.wk-map .leaflet-tooltip-top::before {
+  border-top-color: var(--border-strong);
 }
 
-.wk-map .leaflet-tooltip-bottom.wk-tooltip::before {
-  border-bottom-color: var(--border);
+.wk-map .leaflet-tooltip-bottom::before {
+  border-bottom-color: var(--border-strong);
 }
 
-.wk-map .leaflet-tooltip-left.wk-tooltip::before {
-  border-left-color: var(--border);
+.wk-map .leaflet-tooltip-left::before {
+  border-left-color: var(--border-strong);
 }
 
-.wk-map .leaflet-tooltip-right.wk-tooltip::before {
-  border-right-color: var(--border);
+.wk-map .leaflet-tooltip-right::before {
+  border-right-color: var(--border-strong);
 }
 
 .wk-tip-link {
@@ -554,31 +612,53 @@
 }
 
 .wk-map .leaflet-bar {
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: none;
+  box-shadow: var(--shadow-1);
   overflow: hidden;
 }
 
 .wk-map .leaflet-bar a,
 .wk-map .leaflet-bar a:hover {
-  color: var(--text);
-  background: var(--panel);
+  color: var(--text-dim);
+  background: transparent;
   border-bottom-color: var(--border);
   text-decoration: none;
+  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
 }
 
 .wk-map .leaflet-bar a:hover {
-  background: var(--panel-2);
+  color: var(--text);
+  background: var(--hover);
+}
+
+.wk-map .leaflet-bar a:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 .wk-map .leaflet-bar a.leaflet-disabled {
   color: var(--muted);
-  background: var(--panel);
+  background: transparent;
+  opacity: 0.5;
 }
 
 .wk-map .wk-region {
   transition: fill-opacity 0.12s ease;
+}
+
+/* "Glass" floating panels: translucent only where blur is supported, else solid --panel. */
+@supports ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
+  .wk-map-toolbar,
+  .wk-map-hint,
+  .wk-map .leaflet-bar,
+  .wk-map-replace,
+  .wk-map-replace:hover {
+    background: color-mix(in srgb, var(--panel) 78%, transparent);
+    -webkit-backdrop-filter: blur(8px) saturate(1.2);
+    backdrop-filter: blur(8px) saturate(1.2);
+  }
 }
 
 /* ---------- mobile / touch ---------- */

@@ -6,7 +6,7 @@
   --tl-gutter: 40px;        /* space left of cards; spine lives inside it */
   --tl-spine-x: 12px;       /* spine centre, from the track's left edge */
   --tl-gap: 26px;           /* vertical space between cards */
-  --tl-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --tl-mono: var(--font-mono);
 }
 
 .tl-inner {
@@ -31,10 +31,11 @@
 }
 
 .tl-count {
-  font-family: var(--tl-mono);
-  font-size: 12px;
-  letter-spacing: 0.06em;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--ls-label);
   text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
 }
 
 .tl-hint {
@@ -44,13 +45,15 @@
 
 .tl-toolbar-add {
   margin-left: auto;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   padding: 4px 12px;
   background: transparent;
-  color: var(--muted);
+  color: var(--text-dim);
 }
 .tl-toolbar-add:hover {
   color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
 }
 
 .tl-banner {
@@ -61,9 +64,10 @@
   margin: 12px 0;
   padding: 8px 12px;
   border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  background: var(--danger-soft);
   border-radius: var(--radius);
-  font-size: 13px;
+  font-size: var(--fs-sm);
+  animation: wk-float-in var(--t-fast) var(--ease);
 }
 
 /* ---------- track & spine ---------- */
@@ -76,16 +80,16 @@
 .tl-track::before {
   content: '';
   position: absolute;
-  left: calc(var(--tl-spine-x) - 1px);
+  left: calc(var(--tl-spine-x) - 0.5px);
   top: 0;
   bottom: 0;
-  width: 2px;
-  border-radius: 2px;
+  width: 1px;
   background: linear-gradient(
     to bottom,
     transparent,
-    color-mix(in srgb, var(--accent) 70%, transparent) 32px,
-    color-mix(in srgb, var(--accent) 70%, transparent) calc(100% - 48px),
+    color-mix(in srgb, var(--accent) 55%, transparent) 56px,
+    color-mix(in srgb, var(--accent) 40%, transparent) 50%,
+    color-mix(in srgb, var(--accent) 55%, transparent) calc(100% - 80px),
     transparent
   );
   pointer-events: none;
@@ -107,9 +111,14 @@
   gap: 14px;
   margin: 0 0 var(--tl-gap) calc(-1 * var(--tl-gutter));
   padding: 14px 0 12px var(--tl-gutter);
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--bg);
+}
+@supports ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
+  .tl-era {
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
 }
 
 .tl-era-mark {
@@ -119,15 +128,17 @@
   width: 12px;
   height: 12px;
   transform: translateY(-50%) rotate(45deg);
-  background: var(--bg);
-  border: 2px solid var(--accent);
-  border-radius: 2px;
+  background: var(--accent);
+  border: 3px solid var(--bg);
+  border-radius: 1px;
+  box-shadow: 0 0 0 1px var(--accent), 0 0 12px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .tl-era-label {
-  font-size: 12px;
+  font-family: var(--font-display);
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--accent);
   white-space: nowrap;
@@ -139,7 +150,7 @@
 .tl-era-rule {
   flex: 1;
   height: 1px;
-  background: linear-gradient(to right, color-mix(in srgb, var(--accent) 40%, transparent), var(--border) 40%, transparent);
+  background: linear-gradient(to right, var(--accent-line), var(--border) 35%, transparent);
 }
 
 /* ---------- events ---------- */
@@ -163,7 +174,7 @@
   background: var(--bg);
   border: 2px solid var(--accent);
   z-index: 1;
-  transition: background 0.18s ease, box-shadow 0.18s ease;
+  transition: background-color var(--t-med) var(--ease), box-shadow var(--t-med) var(--ease);
 }
 
 /* faint connector from the node to the card */
@@ -175,7 +186,7 @@
   width: calc(var(--tl-gutter) - var(--tl-spine-x) - 6px);
   height: 1px;
   background: var(--border);
-  transition: background 0.18s ease;
+  transition: background-color var(--t-med) var(--ease);
 }
 
 .tl-event:hover .tl-node,
@@ -195,16 +206,17 @@
 .tl-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: calc(var(--radius) + 2px);
+  border-radius: var(--radius-lg);
   padding: 16px 20px 18px;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  box-shadow: var(--shadow-1);
+  transition: transform var(--t-med) var(--ease), box-shadow var(--t-med) var(--ease),
+    border-color var(--t-med) var(--ease);
 }
 
 .tl-event:hover .tl-card {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
-  box-shadow: 0 10px 28px -12px color-mix(in srgb, var(--bg) 90%, transparent),
-    0 2px 6px color-mix(in srgb, var(--bg) 60%, transparent);
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  box-shadow: var(--shadow-2);
 }
 
 .tl-card-head {
@@ -216,16 +228,18 @@
 
 .tl-date {
   font-family: var(--tl-mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums slashed-zero;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+  opacity: 0.85;
 }
 
 .tl-title {
   margin: 4px 0 0;
   font-family: var(--font-display);
   font-size: 21px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.25;
   color: var(--text);
   overflow-wrap: anywhere;
@@ -235,29 +249,33 @@
   margin: 8px 0 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: color-mix(in srgb, var(--text) 82%, var(--muted));
-  line-height: 1.6;
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+  line-height: 1.65;
 }
 
+/* Same spec as the editor's .mention chip (--chip-* tokens). */
 .tl-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-top: 12px;
-  padding: 3px 11px;
-  font-size: 13px;
-  border-radius: 999px;
-  color: var(--accent-2);
-  background: color-mix(in srgb, var(--accent-2) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent-2) 35%, transparent);
+  padding: 2px 8px;
+  font-size: var(--fs-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--chip-fg);
+  background: var(--chip-bg);
+  box-shadow: inset 0 0 0 1px var(--chip-border);
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: background-color 150ms var(--ease), box-shadow 150ms var(--ease);
 }
 button.tl-chip:hover {
-  background: color-mix(in srgb, var(--accent-2) 18%, transparent);
-  border-color: var(--accent-2);
+  background: var(--chip-bg-hover);
+  box-shadow: inset 0 0 0 1px var(--chip-border-hover);
 }
 .tl-chip--static {
   margin-top: 0;
@@ -270,7 +288,7 @@ button.tl-chip:hover {
   align-items: center;
   gap: 4px;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--t-fast) var(--ease);
 }
 .tl-event:hover .tl-actions,
 .tl-event:focus-within .tl-actions,
@@ -282,48 +300,53 @@ button.tl-chip:hover {
 }
 
 .tl-icon-btn {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   padding: 2px 8px;
   background: transparent;
   border-color: transparent;
+  border-radius: var(--radius-sm);
   color: var(--muted);
 }
 .tl-icon-btn:hover {
   color: var(--text);
-  border-color: var(--border);
-  background: var(--panel-2);
+  border-color: transparent;
+  background: var(--hover);
 }
 .tl-icon-btn--danger:hover {
   color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
+  background: var(--danger-soft);
 }
 
 .tl-confirm-text {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   margin-right: 4px;
 }
 
 /* ---------- buttons ---------- */
 
+/* Buttons mirror App.css: primary = gold, ghost = secondary w/ border, danger = danger ghost. */
 .tl-btn-primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--bg);
   font-weight: 600;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 22%, transparent), 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 .tl-btn-primary:hover {
   background: color-mix(in srgb, var(--accent) 88%, var(--text));
+  border-color: color-mix(in srgb, var(--accent) 88%, var(--text));
 }
 .tl-btn-primary:disabled {
   opacity: 0.5;
   cursor: default;
 }
+.tl-btn-primary:disabled:hover { background: var(--accent); border-color: var(--accent); }
 
 .tl-btn-ghost {
   background: transparent;
-  color: var(--muted);
-  font-size: 13px;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
   padding: 4px 10px;
 }
 .tl-btn-ghost:hover {
@@ -331,14 +354,16 @@ button.tl-chip:hover {
 }
 
 .tl-btn-danger {
-  font-size: 12px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
   padding: 2px 10px;
-  background: var(--danger);
-  border-color: var(--danger);
-  color: var(--text);
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }
 .tl-btn-danger:hover {
-  border-color: var(--text);
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  border-color: var(--danger);
 }
 
 /* ---------- insertion slots ---------- */
@@ -363,13 +388,17 @@ button.tl-chip:hover {
   border: none;
   border-radius: 0;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--t-fast) var(--ease);
   z-index: 2;
 }
 .tl-slot-btn:hover,
 .tl-slot-btn:focus-visible {
   opacity: 1;
   outline: none;
+  background: transparent;
+}
+.tl-slot-btn:focus-visible .tl-slot-plus {
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--focus-ring);
 }
 
 .tl-slot-plus {
@@ -388,8 +417,9 @@ button.tl-chip:hover {
 }
 
 .tl-slot-label {
-  font-size: 12px;
-  letter-spacing: 0.06em;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--ls-label);
   text-transform: uppercase;
   color: var(--accent);
 }
@@ -411,10 +441,10 @@ button.tl-chip:hover {
   gap: 8px;
   padding: 6px 14px 6px 6px;
   background: transparent;
-  border: 1px dashed var(--border);
-  border-radius: 999px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-pill);
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-sm);
 }
 .tl-end-btn::before {
   content: '';
@@ -427,6 +457,7 @@ button.tl-chip:hover {
 .tl-end-btn:hover {
   color: var(--accent);
   border-color: var(--accent);
+  background: var(--accent-soft);
 }
 .tl-end-btn:hover::before {
   border-color: var(--accent);
@@ -435,14 +466,16 @@ button.tl-chip:hover {
 /* ---------- inline form ---------- */
 
 .tl-form {
+  --autofill-bg: var(--bg);
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 18px 20px;
   background: var(--panel);
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-  border-radius: calc(var(--radius) + 2px);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 7%, transparent), var(--shadow-2);
+  animation: wk-fade-up var(--t-med) var(--ease);
 }
 
 .tl-form-row--split {
@@ -461,9 +494,9 @@ button.tl-chip:hover {
   min-width: 0;
 }
 .tl-field > span {
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--ls-label);
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -487,7 +520,7 @@ button.tl-chip:hover {
 }
 
 .tl-form-error {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   color: var(--danger);
 }
 
@@ -501,7 +534,7 @@ button.tl-chip:hover {
 
 .tl-form-hint {
   margin-right: auto;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 
@@ -517,34 +550,43 @@ button.tl-chip:hover {
   top: calc(100% + 4px);
   z-index: 10;
   margin: 0;
-  padding: 4px;
+  padding: var(--s1);
   list-style: none;
-  background: var(--panel-2);
+  background: var(--surface-float);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 12px 28px -10px color-mix(in srgb, var(--bg) 90%, transparent);
+  box-shadow: var(--shadow-1);
   max-height: 240px;
   overflow-y: auto;
+  transform-origin: top left;
+  animation: wk-float-in var(--t-fast) var(--ease);
 }
 .tl-picker-list li {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: calc(var(--radius) - 2px);
+  gap: 10px;
+  min-height: var(--item-h);
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--fs-md);
+  color: var(--text-dim);
+}
+.tl-picker-list li + li { margin-top: 1px; }
+.tl-picker-list li.is-active {
+  background: var(--hover);
+  color: var(--text);
+}
+.tl-picker-kind {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+.tl-picker-title {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.tl-picker-list li.is-active {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-}
-.tl-picker-kind {
-  width: 14px;
-  text-align: center;
-  color: var(--muted);
 }
 
 .tl-link-selected {
@@ -562,8 +604,9 @@ button.tl-chip:hover {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 8px;
-  padding: 96px 24px;
+  gap: var(--s2);
+  padding: 96px var(--s5);
+  animation: wk-fade-up var(--t-med) var(--ease);
 }
 
 .tl-empty-glyph {
@@ -572,7 +615,8 @@ button.tl-chip:hover {
   flex-direction: column;
   align-items: center;
   gap: 18px;
-  margin-bottom: 16px;
+  margin-bottom: var(--s3);
+  opacity: 0.8;
 }
 .tl-empty-glyph::before {
   content: '';
@@ -593,16 +637,19 @@ button.tl-chip:hover {
 
 .tl-empty-title {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-weight: 500;
+  font-size: var(--fs-xl);
+  line-height: 1.3;
   color: var(--text);
 }
 
 .tl-empty-sub {
-  font-size: 14px;
+  font-size: var(--fs-md);
+  line-height: 1.6;
   color: var(--muted);
   max-width: 380px;
-  margin-bottom: 12px;
 }
+.tl-empty .tl-btn-primary { margin-top: var(--s3); }
 
 .tl-skeleton {
   display: flex;
@@ -613,7 +660,7 @@ button.tl-chip:hover {
   display: block;
   height: 12px;
   width: 85%;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--panel-2);
   animation: tl-pulse 1.4s ease-in-out infinite;
 }
@@ -627,7 +674,8 @@ button.tl-chip:hover {
 
 .tl-track--loading .tl-event:hover .tl-card {
   transform: none;
-  box-shadow: none;
+  box-shadow: var(--shadow-1);
+  border-color: var(--border);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -699,5 +747,5 @@ button.tl-chip:hover {
   .tl-chip { min-height: 36px; }
   .tl-picker-list li { min-height: 44px; }
   .tl-form-hint { display: none; }
-  .tl-event:hover .tl-card { transform: none; box-shadow: none; }
+  .tl-event:hover .tl-card { transform: none; box-shadow: var(--shadow-1); border-color: var(--border); }
 }

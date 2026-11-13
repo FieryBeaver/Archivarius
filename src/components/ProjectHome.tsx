@@ -17,7 +17,7 @@ export default function ProjectHome() {
   }
 
   return hasPages
-    ? <EmptyState message="Pick a page from the sidebar to start reading." />
-    : <EmptyState message="No pages yet. Write the first chapter of your world."
+    ? <EmptyState glyph="❧" title="Choose a page" message="Pick a page from the sidebar to start reading." />
+    : <EmptyState title="A blank world" message="No pages yet. Write the first chapter of your world."
         actionLabel="Create a page" onAction={addFirst} />
 }

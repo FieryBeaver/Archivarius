@@ -1,19 +1,91 @@
 /* WorldKeeper theme tokens — feature code uses these variables, never raw colors. */
 :root {
-  --bg: #16181d;          /* app background */
-  --panel: #1d2026;       /* sidebar / panels */
+  color-scheme: dark;
+
+  /* ---- palette (dark + gold) ---- */
+  --bg: #16181d;          /* app background / content */
+  --sidebar-bg: #121418;  /* side chrome: a step darker than content */
+  --panel: #1d2026;       /* panels, cards */
   --panel-2: #23262e;     /* hover / raised */
+  --surface-float: #252831; /* every floating surface: menus, popovers, pickers */
   --border: #2e323b;
+  --border-strong: #3b404b;
+  --border-raised: rgba(255, 255, 255, 0.045); /* faint top highlight on raised surfaces */
   --text: #e7e4dc;
+  --text-dim: #c2bdb2;    /* secondary text: sidebar rows, body copy in cards */
   --muted: #9a958a;
   --accent: #d4a953;      /* gold */
   --accent-2: #6fa8dc;    /* link blue */
   --danger: #c0564f;
+
+  /* derived tints */
+  --hover: color-mix(in srgb, var(--text) 6%, transparent);
+  --pressed: color-mix(in srgb, var(--text) 10%, transparent);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 35%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
+  --focus-ring: var(--accent);
+  --focus-glow: color-mix(in srgb, var(--accent) 22%, transparent);
+  --guide: color-mix(in srgb, var(--text) 9%, transparent);   /* tree indent guides */
+
+  /* chips: @mentions, timeline/map page links — one style */
+  --chip-fg: var(--accent);
+  --chip-bg: color-mix(in srgb, var(--accent) 11%, transparent);
+  --chip-border: color-mix(in srgb, var(--accent) 26%, transparent);
+  --chip-bg-hover: color-mix(in srgb, var(--accent) 20%, transparent);
+  --chip-border-hover: color-mix(in srgb, var(--accent) 50%, transparent);
+
+  /* ---- shape ---- */
+  --radius-sm: 6px;
   --radius: 8px;
-  --sidebar-w: 280px;
-  --rightbar-w: 260px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* ---- spacing (4px base) ---- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+
+  /* ---- type ---- */
   --font: 'Inter', system-ui, -apple-system, sans-serif;
   --font-display: 'Spectral', Georgia, serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --fs-label: 11px;       /* small-caps form/section labels */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-base: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 22px;
+  --fs-2xl: 30px;
+  --ls-label: 0.12em;
+
+  /* ---- controls ---- */
+  --item-h: 32px;         /* menu / list item height */
+  --control-h: 34px;      /* buttons, inputs */
+
+  /* ---- elevation (dark theme: black at low opacity + faint light edge) ---- */
+  --shadow-1:
+    inset 0 1px 0 var(--border-raised),
+    0 1px 2px rgba(0, 0, 0, 0.24),
+    0 8px 24px -6px rgba(0, 0, 0, 0.5);
+  --shadow-2:
+    inset 0 1px 0 var(--border-raised),
+    0 2px 6px rgba(0, 0, 0, 0.28),
+    0 24px 56px -12px rgba(0, 0, 0, 0.65);
+
+  /* ---- motion ---- */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 120ms;
+  --t-med: 180ms;
+
+  /* ---- layout ---- */
+  --sidebar-w: 280px;
+  --rightbar-w: 260px;
 }
 
 * { box-sizing: border-box; }
@@ -27,23 +99,44 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 15px;
+  font-size: var(--fs-base);
   line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-a { color: var(--accent-2); text-decoration: none; }
+a {
+  color: var(--accent-2);
+  text-decoration: none;
+  transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
 a:hover { text-decoration: underline; }
+
+/* ---------- buttons: base = secondary (ghost with border) ---------- */
 
 button {
   font: inherit;
   color: inherit;
-  background: var(--panel-2);
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 6px 12px;
   cursor: pointer;
+  transition:
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease),
+    opacity var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
 }
-button:hover { border-color: var(--accent); }
+button:hover { background: var(--hover); border-color: var(--border-strong); }
+button:disabled { cursor: default; opacity: 0.55; }
+/* Pressed: zero specificity so component transforms (rotations, lifts) always win. */
+:where(button:not(:disabled):active) { transform: translateY(1px); }
+
+/* ---------- fields ---------- */
 
 input, textarea, select {
   font: inherit;
@@ -52,7 +145,78 @@ input, textarea, select {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 6px 10px;
+  caret-color: var(--accent);
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
 }
-input:focus, textarea:focus { outline: 1px solid var(--accent); }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.8; }
+input:hover:not(:focus):not(:disabled), textarea:hover:not(:focus), select:hover:not(:focus) {
+  border-color: var(--border-strong);
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--border));
+}
+:where(input:not([type='range']):not([type='color']):not([type='checkbox']):not([type='radio'])):focus,
+:where(textarea, select):focus {
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
 
-::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+/* Browser autofill: no white/yellow flash. Containers can set --autofill-bg to their input bg. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--accent);
+  -webkit-box-shadow: 0 0 0 1000px var(--autofill-bg, var(--panel)) inset;
+  box-shadow: 0 0 0 1000px var(--autofill-bg, var(--panel)) inset;
+  transition: background-color 600000s 0s, color 600000s 0s;
+}
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--autofill-bg, var(--panel)) inset, 0 0 0 3px var(--focus-glow);
+  box-shadow: 0 0 0 1000px var(--autofill-bg, var(--panel)) inset, 0 0 0 3px var(--focus-glow);
+}
+
+/* ---------- focus: keyboard rings only ---------- */
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+:focus:not(:focus-visible) { outline: none; }
+/* Text fields show focus with border + glow instead of a ring. */
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; }
+
+/* ---------- selection & scrollbars ---------- */
+
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--text); }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: 3px solid transparent;
+  border-radius: var(--radius-pill);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: var(--border-strong); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* ---------- shared motion ---------- */
+
+/* Every floating surface (menus, popovers, pickers, edit popups) enters with this. */
+@keyframes wk-float-in {
+  from { opacity: 0; transform: translateY(-2px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

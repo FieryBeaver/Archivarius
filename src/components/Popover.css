@@ -1,13 +1,20 @@
+/* Canonical floating surface + menu item. The mention list, map edit popup / link results and
+   timeline page picker use the same tokens: --surface-float, --border, --shadow-1, --radius,
+   wk-float-in; items: --item-h, --radius-sm, --hover. */
+
 .popover {
   position: fixed;
   z-index: 50;
   display: flex;
   flex-direction: column;
-  padding: 4px;
-  background: var(--panel-2);
+  gap: 1px;
+  padding: var(--s1);
+  background: var(--surface-float);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 70%, transparent);
+  box-shadow: var(--shadow-1);
+  transform-origin: top left;
+  animation: wk-float-in var(--t-fast) var(--ease);
 }
 
 .popover-item {
@@ -15,15 +22,26 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 6px 10px;
+  min-height: var(--item-h);
+  padding: 0 10px;
   text-align: left;
-  font-size: 14px;
+  font-size: var(--fs-md);
+  color: var(--text-dim);
   background: transparent;
   border: none;
-  border-radius: calc(var(--radius) - 2px);
+  border-radius: var(--radius-sm);
 }
-.popover-item:hover { background: var(--panel); }
+.popover-item:hover { background: var(--hover); color: var(--text); }
+.popover-item:focus-visible { outline-offset: -2px; }
+.popover-item > span:first-child { width: 18px; text-align: center; flex-shrink: 0; }
 .popover-item.danger { color: var(--danger); }
+.popover-item.danger:hover { background: var(--danger-soft); color: var(--danger); }
+
+.popover-sep {
+  height: 1px;
+  margin: var(--s1) 2px;
+  background: var(--border);
+}
 
 @media (pointer: coarse) {
   .popover-item { min-height: 44px; font-size: 15px; }

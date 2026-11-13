@@ -45,6 +45,7 @@ export default function Login() {
   return (
     <div className="login">
       <form className="login-card" onSubmit={submit}>
+        <span className="login-mark" aria-hidden="true">✦</span>
         <h1 className="login-title">WorldKeeper</h1>
         <p className="login-sub">{mode === 'signin' ? 'Welcome back, worldbuilder.' : 'Start a new world.'}</p>
 

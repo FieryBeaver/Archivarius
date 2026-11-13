@@ -57,7 +57,7 @@ export default function ProjectList() {
       {error && <p className="error-text">{error}</p>}
 
       {projects?.length === 0 && !creating && (
-        <EmptyState message="No worlds yet. Every saga starts with a blank page."
+        <EmptyState title="No worlds yet" message="Every saga starts with a blank page."
           actionLabel="Create your first world" onAction={() => setCreating(true)} />
       )}
 

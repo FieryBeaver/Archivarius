@@ -1,5 +1,5 @@
 import { useSortable } from '@dnd-kit/sortable'
-import { useState, type MouseEvent } from 'react'
+import { useState, type CSSProperties, type MouseEvent } from 'react'
 import type { PageKind } from '../../lib/types'
 import type { FlatNode } from '../../state/pageTree'
 import { pageIcon } from '../pageIcon'
@@ -35,9 +35,10 @@ export default function TreeRow(props: Props) {
 
   const style = {
     paddingLeft: 8 + depth * INDENT,
+    '--depth': depth, // indent guides (Sidebar.css)
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     transition,
-  }
+  } as CSSProperties
   const className = ['tree-row', selected && 'selected', isDragging && 'dragging', popup && 'menu-open']
     .filter(Boolean).join(' ')
 

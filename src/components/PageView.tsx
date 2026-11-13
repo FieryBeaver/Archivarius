@@ -38,7 +38,7 @@ export default function PageView() {
 
   if (status !== 'ready') return null
   if (!page) {
-    return <EmptyState message="This page has wandered off the map."
+    return <EmptyState glyph="✧" title="Page not found" message="This page has wandered off the map."
       actionLabel="Back to the world" onAction={() => navigate(`/project/${projectId}`)} />
   }
 

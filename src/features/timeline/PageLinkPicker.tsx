@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import * as db from '../../lib/db'
+import { pageIcon } from '../../components/pageIcon'
 import type { Page } from '../../lib/types'
 
 type PageHit = Pick<Page, 'id' | 'title' | 'kind'>
-
-const KIND_GLYPH: Record<Page['kind'], string> = { doc: '¶', map: '◈', timeline: '⟟' }
 
 interface Props {
   projectId: string
@@ -46,7 +45,7 @@ export default function PageLinkPicker({ projectId, excludeId, value, onChange }
   if (value) {
     return (
       <div className="tl-link-selected">
-        <span className="tl-chip tl-chip--static">→ {value.title}</span>
+        <span className="tl-chip tl-chip--static"><span aria-hidden="true">→</span> {value.title}</span>
         <button type="button" className="tl-btn-ghost" onClick={() => onChange(null)}>
           Clear
         </button>
@@ -97,8 +96,8 @@ export default function PageLinkPicker({ projectId, excludeId, value, onChange }
               }}
               onMouseEnter={() => setActive(i)}
             >
-              <span className="tl-picker-kind">{KIND_GLYPH[h.kind] ?? '¶'}</span>
-              {h.title || 'Untitled'}
+              <span className="tl-picker-kind" aria-hidden="true">{pageIcon(h)}</span>
+              <span className="tl-picker-title">{h.title || 'Untitled'}</span>
             </li>
           ))}
         </ul>
