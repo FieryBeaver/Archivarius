@@ -8,13 +8,15 @@ interface Props {
   canSecret: boolean
   /** Switches this menu to the new-page kind picker (same anchor). */
   onAddChild: () => void
+  /** Doc pages, editors+: snapshot the page as a template. */
+  onSaveTemplate?: () => void
   onRename: () => void
   onToggleSecret: () => void
   onDelete: () => void
   onClose: () => void
 }
 
-export default function RowMenu({ anchor, isSecret, canSecret, onAddChild, onRename, onToggleSecret, onDelete, onClose }: Props) {
+export default function RowMenu({ anchor, isSecret, canSecret, onAddChild, onSaveTemplate, onRename, onToggleSecret, onDelete, onClose }: Props) {
   const pick = (fn: () => void) => () => {
     onClose()
     fn()
@@ -27,6 +29,11 @@ export default function RowMenu({ anchor, isSecret, canSecret, onAddChild, onRen
       <button className="popover-item" role="menuitem" onClick={pick(onRename)}>
         <span>✎</span><span>Rename</span>
       </button>
+      {onSaveTemplate && (
+        <button className="popover-item" role="menuitem" onClick={pick(onSaveTemplate)}>
+          <span>⧉</span><span>Save as template…</span>
+        </button>
+      )}
       {canSecret && (
         <button className="popover-item" role="menuitem" onClick={pick(onToggleSecret)}>
           <span>{isSecret ? <EyeGlyph /> : <EyeOffGlyph />}</span>

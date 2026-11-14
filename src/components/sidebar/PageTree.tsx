@@ -5,7 +5,8 @@ import {
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { Page, PageKind } from '../../lib/types'
+import * as db from '../../lib/db'
+import type { Page, PageKind, PageTemplate } from '../../lib/types'
 import { useAuth } from '../../state/auth'
 import { ancestorIds, buildTree, descendantIds, flattenTree } from '../../state/pageTree'
 import { effectiveRole, pagePath, useCanEdit, usePages, useVisiblePages } from '../../state/pages'
@@ -90,8 +91,19 @@ export default function PageTree({ projectId, onNavigate, filter }: PageTreeProp
     action.catch((e: Error) => setError(e.message))
   }
 
-  const addChild = (parentId: string, kind: PageKind) =>
-    attempt(create(parentId, kind).then((page) => open(page.id)))
+  const addChild = (parentId: string, kind: PageKind, template?: PageTemplate) =>
+    attempt(create(parentId, kind, template).then((page) => open(page.id)))
+
+  /** v0.7: snapshot a doc page's icon/content/tabs as a reusable template. */
+  function saveTemplate(page: Page) {
+    const name = window.prompt('Template name', page.title || 'Untitled')?.trim()
+    if (!name) return
+    const projectIdNow = usePages.getState().projectId
+    if (!projectIdNow) return
+    attempt(db.createPageTemplate(projectIdNow, {
+      name, icon: page.icon, kind: page.kind, content: page.content, tabs: page.tabs,
+    }))
+  }
 
   function deletePage(page: Page) {
     const doomed = [page.id, ...descendantIds(pages, page.id)]
@@ -137,7 +149,8 @@ export default function PageTree({ projectId, onNavigate, filter }: PageTreeProp
               dragDisabled={filtering}
               onOpen={() => open(row.id)}
               onToggle={() => { if (!filtering) toggle(row.id) }}
-              onAddChild={(kind) => addChild(row.id, kind)}
+              onAddChild={(kind, template) => addChild(row.id, kind, template)}
+              onSaveTemplate={row.page.kind === 'doc' ? () => saveTemplate(row.page) : undefined}
               onRename={(title) => attempt(update(row.id, { title }))}
               onToggleSecret={() => attempt(update(row.id, { is_secret: !row.page.is_secret }))}
               onDelete={() => deletePage(row.page)} />

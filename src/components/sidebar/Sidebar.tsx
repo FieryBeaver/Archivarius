@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import type { PageKind } from '../../lib/types'
+import type { PageKind, PageTemplate } from '../../lib/types'
 import { pagePath, useCanEdit, usePages } from '../../state/pages'
 import { EyeGlyph, GearGlyph, SearchGlyph, SidebarGlyph } from '../UiIcons'
 import KindPicker from './KindPicker'
@@ -47,10 +47,10 @@ export default function Sidebar({ projectId, projectName, inert, onNavigate, onS
     filterRef.current?.focus()
   }
 
-  function addRoot(kind: PageKind) {
+  function addRoot(kind: PageKind, template?: PageTemplate) {
     setPickerAnchor(null)
     setError(null)
-    create(null, kind).then(
+    create(null, kind, template).then(
       (page) => { onNavigate?.(); navigate(pagePath(projectId, page.id)) },
       (e: Error) => setError(e.message),
     )

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { create } from 'zustand'
 import * as db from '../lib/db'
-import type { Page, PageKind, Role } from '../lib/types'
+import type { Page, PageKind, PageTemplate, Role } from '../lib/types'
 import { ancestorIds, childrenOf, positionBetween } from './pageTree'
 
 type Status = 'idle' | 'loading' | 'ready' | 'error'
@@ -30,7 +30,8 @@ interface PagesState {
   load(projectId: string): Promise<void>
   setViewAs(role: Role | null): void
   setHideSecrets(hide: boolean): void
-  create(parentId: string | null, kind: PageKind): Promise<Page>
+  /** v0.7: with a template, the new page copies its name/icon/content/tabs. */
+  create(parentId: string | null, kind: PageKind, template?: PageTemplate): Promise<Page>
   /** Optimistic update; reverts and rethrows on failure. */
   update(id: string, attrs: Partial<Page>): Promise<void>
   /** Local-only patch, for state already persisted elsewhere (e.g. editor autosave). */
@@ -68,7 +69,7 @@ export const usePages = create<PagesState>((set, get) => ({
     }
   },
 
-  async create(parentId, kind) {
+  async create(parentId, kind, template) {
     const projectId = get().projectId
     if (!projectId) throw new Error('no project loaded')
     const siblings = childrenOf(get().pages, parentId)
@@ -76,6 +77,12 @@ export const usePages = create<PagesState>((set, get) => ({
       parent_id: parentId,
       kind,
       position: positionBetween(siblings.at(-1)),
+      ...(template ? {
+        title: template.name,
+        icon: template.icon,
+        content: template.content,
+        tabs: template.tabs,
+      } : {}),
     })
     set((s) => ({
       pages: [...s.pages, page],

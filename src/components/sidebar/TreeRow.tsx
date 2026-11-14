@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { useState, type CSSProperties, type MouseEvent } from 'react'
-import type { PageKind } from '../../lib/types'
+import type { PageKind, PageTemplate } from '../../lib/types'
 import type { FlatNode } from '../../state/pageTree'
 import { PageIcon } from '../../lib/icons'
 import { EyeGlyph, EyeOffGlyph } from '../UiIcons'
@@ -23,7 +23,9 @@ interface Props {
   dragDisabled?: boolean
   onOpen: () => void
   onToggle: () => void
-  onAddChild: (kind: PageKind) => void
+  onAddChild: (kind: PageKind, template?: PageTemplate) => void
+  /** Present on doc pages for people who can edit: snapshot as a template. */
+  onSaveTemplate?: () => void
   onRename: (title: string) => void
   onToggleSecret: () => void
   onDelete: () => void
@@ -99,11 +101,12 @@ export default function TreeRow(props: Props) {
 
       {popup?.kind === 'add' && (
         <KindPicker anchor={popup.anchor} onClose={closePopup}
-          onPick={(kind) => { closePopup(); props.onAddChild(kind) }} />
+          onPick={(kind, template) => { closePopup(); props.onAddChild(kind, template) }} />
       )}
       {popup?.kind === 'menu' && (
         <RowMenu anchor={popup.anchor} isSecret={row.page.is_secret} canSecret={props.canSecret} onClose={closePopup}
           onAddChild={() => setPopup({ kind: 'add', anchor: popup.anchor })}
+          onSaveTemplate={props.onSaveTemplate}
           onRename={() => setRenaming(true)} onToggleSecret={props.onToggleSecret} onDelete={props.onDelete} />
       )}
     </div>

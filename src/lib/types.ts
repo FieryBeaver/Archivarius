@@ -171,6 +171,21 @@ export interface PageDmNotes {
   updated_at: string
 }
 
+/**
+ * v0.7: a reusable snapshot of a doc page (icon/content/tabs). Creating a page
+ * from a template copies the snapshot — later edits to either don't connect.
+ */
+export interface PageTemplate {
+  id: string
+  project_id: string
+  name: string
+  icon: string | null
+  kind: PageKind
+  content: unknown | null
+  tabs: PageTab[] | null
+  created_at: string
+}
+
 // ---------- v0.6 ----------
 
 /** A user-uploaded plugin: one HTML file in storage at `plugins/<project_id>/<id>.html`. */

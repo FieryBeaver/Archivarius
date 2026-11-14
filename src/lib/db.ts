@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import type {
-  AnyProjectExport, Member, MemberWithProfile, Mention, Page, PageKind, PageTab, Pin, Plugin, PluginExport,
-  Project, ProjectExport, Region, Role, ThemeOverrides, WorldEvent,
+  AnyProjectExport, Member, MemberWithProfile, Mention, Page, PageKind, PageTab, PageTemplate,
+  Pin, Plugin, PluginExport, Project, ProjectExport, Region, Role, ThemeOverrides, WorldEvent,
 } from './types'
 
 function ok<T>(data: T | null, error: { message: string } | null): T {
@@ -101,7 +101,11 @@ export async function getPage(id: string): Promise<Page> {
 
 export async function createPage(
   projectId: string,
-  attrs: { title?: string; parent_id?: string | null; kind?: PageKind; position?: number },
+  attrs: {
+    title?: string; parent_id?: string | null; kind?: PageKind; position?: number
+    /** v0.7: prefilled from a template. */
+    icon?: string | null; content?: unknown; tabs?: PageTab[] | null
+  },
 ): Promise<Page> {
   const { data, error } = await supabase
     .from('pages').insert({ project_id: projectId, ...attrs }).select().single()
@@ -396,6 +400,30 @@ export async function getPluginSource(plugin: Pick<Plugin, 'source_path'>): Prom
     .download(plugin.source_path, {}, { cache: 'no-store' })
   if (error) throw new Error(error.message)
   return data.text()
+}
+
+// ---------- page templates (v0.7) ----------
+
+export async function listPageTemplates(projectId: string): Promise<PageTemplate[]> {
+  const { data, error } = await supabase
+    .from('page_templates').select().eq('project_id', projectId).order('name')
+  return ok(data, error)
+}
+
+/** Owner/editor (RLS). Snapshots a page's icon/content/tabs under a name. */
+export async function createPageTemplate(
+  projectId: string,
+  t: { name: string; icon: string | null; kind: PageKind; content: unknown; tabs: PageTab[] | null },
+): Promise<PageTemplate> {
+  const { data, error } = await supabase
+    .from('page_templates').insert({ project_id: projectId, ...t }).select().single()
+  return ok(data, error)
+}
+
+/** Owner/editor (RLS). Pages already created from it are unaffected. */
+export async function deletePageTemplate(id: string): Promise<void> {
+  const { error } = await supabase.from('page_templates').delete().eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 // ---------- DM notes (v0.7) ----------
