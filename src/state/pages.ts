@@ -156,21 +156,34 @@ export function useCanEdit(): boolean {
 }
 
 /**
- * v0.7: only OWNERS see secrets (LegendKeeper-style GM/player split). Editors
- * edit regular pages — their own PC pages included — without GM visibility.
- * Matches RLS, where secret rows never reach non-owners.
+ * v0.7 secrets model (LegendKeeper-style): owners see every secret; an editor
+ * sees only secrets THEY created (private to them + the owner); viewers none.
+ * Secret PAGES and notes are scoped server-side by RLS, so the loaded page
+ * list already matches the signed-in user — client hiding below exists for
+ * the owner's preview/hide toggles, and per-creator secret BLOCKS.
  */
-export function canSeeSecretsRole(role: Role | null): boolean {
-  return role === 'owner'
+
+/**
+ * Whether the owner's "everything secret is hidden" view is on: while
+ * previewing as a player or while the hide-secrets toggle is on.
+ */
+export function hidesSecrets(s: Pick<PagesState, 'viewAs' | 'hideSecrets'>): boolean {
+  return s.viewAs === 'viewer' || s.hideSecrets
 }
 
 /**
- * Whether secret pages/content are hidden right now: for every non-owner
- * (mirroring RLS), while previewing a lower role, or while the owner's
- * hide-secrets toggle is on.
+ * Whether the signed-in user may see a secret created by `createdBy`
+ * (null = a legacy secret, the owner's). Owners see all; editors their own.
  */
-export function hidesSecrets(s: Pick<PagesState, 'role' | 'viewAs' | 'hideSecrets'>): boolean {
-  return !canSeeSecretsRole(effectiveRole(s)) || s.hideSecrets
+export function canSeeSecret(
+  s: Pick<PagesState, 'role' | 'viewAs' | 'hideSecrets'>,
+  myUserId: string | undefined,
+  createdBy: string | null | undefined,
+): boolean {
+  if (hidesSecrets(s)) return false
+  const role = effectiveRole(s)
+  if (role === 'owner') return true
+  return role === 'editor' && !!myUserId && createdBy === myUserId
 }
 
 /**

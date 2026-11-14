@@ -3,7 +3,7 @@ import { useState, type CSSProperties, type MouseEvent } from 'react'
 import type { PageKind } from '../../lib/types'
 import type { FlatNode } from '../../state/pageTree'
 import { PageIcon } from '../../lib/icons'
-import LockIcon from '../LockIcon'
+import { EyeGlyph, EyeOffGlyph } from '../UiIcons'
 import { INDENT } from './dnd'
 import KindPicker from './KindPicker'
 import RenameInput from './RenameInput'
@@ -80,17 +80,17 @@ export default function TreeRow(props: Props) {
       )}
 
       {!props.canSecret && row.page.is_secret && (
-        <span className="tree-secret" title="DM only — only owners see this"><LockIcon /></span>
+        <span className="tree-secret" title="Secret — hidden from others"><EyeOffGlyph /></span>
       )}
 
       {canEdit && <span className="tree-actions">
         {props.canSecret && (
           <button className={`tree-action tree-secret-toggle${row.page.is_secret ? ' on' : ''}`}
             aria-pressed={row.page.is_secret}
-            aria-label={row.page.is_secret ? 'Make visible to players' : 'Hide from players (secret)'}
-            title={row.page.is_secret ? 'Secret — click to make visible' : 'Visible — click to hide from players'}
+            aria-label={row.page.is_secret ? 'Make visible' : 'Make secret'}
+            title={row.page.is_secret ? 'Secret — click to make visible' : 'Visible — click to make secret'}
             onClick={(e) => { e.stopPropagation(); props.onToggleSecret() }}>
-            <LockIcon open={!row.page.is_secret} />
+            {row.page.is_secret ? <EyeOffGlyph /> : <EyeGlyph />}
           </button>
         )}
         <button className="tree-action" aria-label="Page options"

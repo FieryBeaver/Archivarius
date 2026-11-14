@@ -24,10 +24,6 @@ interface DocEditorProps {
   canEdit: boolean
 }
 
-interface DocEditorInnerProps extends DocEditorProps {
-  /** Secret blocks render hidden (view menu / player preview). */
-  hideSecrets: boolean
-}
 
 const EMPTY_DOC: JSONContent = { type: 'doc', content: [{ type: 'paragraph' }] }
 
@@ -43,7 +39,7 @@ function newTabId(): string {
 export default function DocEditor({ page, canEdit }: DocEditorProps) {
   const hideSecrets = usePages(hidesSecrets)
   return <DocEditorInner key={`${canEdit ? 'edit' : 'view'}-${hideSecrets ? 'hidden' : 'shown'}`}
-    page={page} canEdit={canEdit} hideSecrets={hideSecrets} />
+    page={page} canEdit={canEdit} />
 }
 
 /**
@@ -52,7 +48,7 @@ export default function DocEditor({ page, canEdit }: DocEditorProps) {
  * `null` = legacy single doc in page.content; tabs are only materialized by the first
  * mutating tab action (adding a tab), so untouched pages are never rewritten.
  */
-function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
+function DocEditorInner({ page, canEdit }: DocEditorProps) {
   const { status, schedule, flush } = useAutosave(page.id)
   const [tabs, setTabs] = useState<PageTab[] | null>(() => (page.tabs?.length ? page.tabs : null))
   const tabsRef = useRef(tabs)
@@ -61,11 +57,12 @@ function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   // Latest JSON of the legacy single doc, needed when its tabs get materialized.
   const legacyContent = useRef<unknown>(page.content)
-  // Pinned DM-notes tab: owners only (GM machinery, matching RLS); gone while
-  // secrets are hidden or previewing (visibilityRole demotes, and this
-  // component remounts on those switches).
+  // Pinned notes tab and secret blocks: owners see all, editors their own
+  // (matching RLS); gone while secrets are hidden or previewing
+  // (visibilityRole demotes, and this component remounts on those switches).
   const vRole = usePages(visibilityRole)
-  const showDmNotes = vRole === 'owner'
+  const showDmNotes = vRole === 'owner' || vRole === 'editor'
+  const secretsVisible = vRole === 'owner' || vRole === 'editor'
   const [dmOpen, setDmOpen] = useState(false)
   // The tab strip's "+" menu: pick a document tab or a plugin tab.
   const [addMenu, setAddMenu] = useState<{ anchor: DOMRect; mode: 'menu' | 'plugin' } | null>(null)
@@ -208,7 +205,7 @@ function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
           data={activeTab.plugin.data} canEdit={canEdit}
           onData={(data) => onPluginData(activeTab.id, data)} />
       ) : (
-        <TabDoc key={activeId ?? 'legacy'} page={page} canEdit={canEdit} hideSecrets={hideSecrets} status={status}
+        <TabDoc key={activeId ?? 'legacy'} page={page} canEdit={canEdit} secretsVisible={secretsVisible} status={status}
           initialContent={activeTab ? activeTab.content : page.content}
           onChange={onChange} />
       )}
@@ -219,7 +216,8 @@ function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
 interface TabDocProps {
   page: Page
   canEdit: boolean
-  hideSecrets: boolean
+  /** false: every secret block renders hidden (viewers, preview, hide toggle). */
+  secretsVisible: boolean
   status: SaveStatus
   initialContent: unknown
   onChange(json: JSONContent): void
@@ -230,7 +228,7 @@ interface TabDocProps {
  * a shared instance with setContent would let undo pull one tab's text into another.
  * `onChange` must be stable (it is captured by the editor's update handler).
  */
-function TabDoc({ page, canEdit, hideSecrets, status, initialContent, onChange }: TabDocProps) {
+function TabDoc({ page, canEdit, secretsVisible, status, initialContent, onChange }: TabDocProps) {
   const navigate = useNavigate()
 
   // Created once per mount: new option identities on each render would make TipTap reconfigure.
@@ -241,7 +239,7 @@ function TabDoc({ page, canEdit, hideSecrets, status, initialContent, onChange }
       StarterKit,
       pageMention(page.project_id, page.id),
       Callout,
-      secretBlock(canEdit && !hideSecrets),
+      secretBlock(secretsVisible),
       PluginBlock.configure({ projectId: page.project_id, canEdit }),
       ...(canEdit ? [SlashCommand, MoveBlock] : []),
     ],

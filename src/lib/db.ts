@@ -375,26 +375,36 @@ export async function getPluginSource(plugin: Pick<Plugin, 'source_path'>): Prom
 
 // ---------- DM notes (v0.7) ----------
 
-/**
- * A page's DM notes, or null if none. RLS: only owner/editor members receive
- * the row at all — for viewers this resolves to null server-side.
- */
-export async function getDmNotes(pageId: string): Promise<unknown | null> {
-  const { data, error } = await supabase
-    .from('page_dm_notes').select('content').eq('page_id', pageId).maybeSingle()
-  const row = ok(data, error) as { content: unknown } | null
-  return row?.content ?? null
+/** One author's notes on a page. */
+export interface DmNoteRow {
+  user_id: string
+  content: unknown | null
+  updated_at: string
 }
 
 /**
- * Upserts a page's DM notes (owner/editor only, RLS). Mentions inside DM notes
- * are deliberately NOT synced to the mentions table: backlinks are visible to
- * viewers and would leak that the note exists.
+ * Every note on a page the caller may read. RLS scopes the result: owners get
+ * every author's note, editors their own, viewers none (empty array).
+ */
+export async function listDmNotes(pageId: string): Promise<DmNoteRow[]> {
+  const { data, error } = await supabase
+    .from('page_dm_notes').select('user_id,content,updated_at')
+    .eq('page_id', pageId).order('updated_at', { ascending: false })
+  return ok(data, error)
+}
+
+/**
+ * Upserts the signed-in user's own notes on a page (owner/editor, RLS; a DB
+ * trigger pins user_id to the caller). Mentions inside notes are deliberately
+ * NOT synced to the mentions table: backlinks are visible to viewers and
+ * would leak that the note exists.
  */
 export async function saveDmNotes(pageId: string, projectId: string, content: unknown): Promise<void> {
+  const { data: u } = await supabase.auth.getUser()
+  if (!u.user) throw new Error('not signed in')
   const { error } = await supabase
     .from('page_dm_notes')
-    .upsert({ page_id: pageId, project_id: projectId, content }, { onConflict: 'page_id' })
+    .upsert({ page_id: pageId, project_id: projectId, user_id: u.user.id, content }, { onConflict: 'page_id,user_id' })
   if (error) throw new Error(error.message)
 }
 

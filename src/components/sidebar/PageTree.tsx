@@ -6,6 +6,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Page, PageKind } from '../../lib/types'
+import { useAuth } from '../../state/auth'
 import { ancestorIds, buildTree, descendantIds, flattenTree } from '../../state/pageTree'
 import { effectiveRole, pagePath, useCanEdit, usePages, useVisiblePages } from '../../state/pages'
 import { dropPosition, getProjection } from './dnd'
@@ -44,7 +45,11 @@ export default function PageTree({ projectId, onNavigate, filter }: PageTreeProp
   // Secret pages drop out while previewing as a viewer (their non-secret children surface as roots, like RLS).
   const pages = useVisiblePages()
   const canEdit = useCanEdit()
-  const canSecret = usePages((s) => effectiveRole(s) === 'owner')
+  // Owners toggle secrecy anywhere; editors only on pages they created.
+  const role = usePages(effectiveRole)
+  const myId = useAuth((s) => s.session?.user.id)
+  const canSecretPage = (p: Page) =>
+    role === 'owner' || (role === 'editor' && !!myId && p.created_by === myId)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Mouse drags start after a small move; touch drags need a 250ms press so swipes still scroll the tree.
@@ -121,7 +126,7 @@ export default function PageTree({ projectId, onNavigate, filter }: PageTreeProp
               selected={row.id === pageId}
               expanded={!!effExpanded[row.id]}
               canEdit={canEdit}
-              canSecret={canSecret}
+              canSecret={canSecretPage(row.page)}
               dragDisabled={filtering}
               onOpen={() => open(row.id)}
               onToggle={() => { if (!filtering) toggle(row.id) }}

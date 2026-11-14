@@ -1,4 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/react'
+import { useAuth } from '../../state/auth'
+import { canSeeSecret, usePages } from '../../state/pages'
 import { glyphElement } from './blockIcons'
 
 /*
@@ -124,11 +126,30 @@ export interface SecretBlockOptions {
   visible: boolean
 }
 
+/** The signed-in user's id, for stamping new secret blocks. */
+export function currentUserId(): string | null {
+  return useAuth.getState().session?.user.id ?? null
+}
+
 /**
- * { type: 'secretBlock', attrs: { collapsed }, content: [block+] } — DM-only
- * notes inside a page. Client-side hiding only; the secure boundary is secret
- * pages. `collapsed` (v0.7) folds the content away on the DM's own screen and
- * is saved with the page, so a block left folded stays folded.
+ * Per-creator secret visibility (v0.7): owners see every secret block, an
+ * editor only blocks they created, viewers none. `createdBy === null` marks a
+ * legacy block (the owner's).
+ */
+export function canSeeSecretNode(createdBy: unknown): boolean {
+  return canSeeSecret(
+    usePages.getState(),
+    currentUserId() ?? undefined,
+    typeof createdBy === 'string' ? createdBy : null,
+  )
+}
+
+/**
+ * { type: 'secretBlock', attrs: { collapsed, createdBy }, content: [block+] } —
+ * private notes inside a page. Client-side hiding only (the page row reaches
+ * every member); the RLS-enforced boundary is secret pages and page notes.
+ * `collapsed` (v0.7) folds the content away on the creator's own screen and is
+ * saved with the page, so a block left folded stays folded.
  */
 export const SecretBlock = Node.create<SecretBlockOptions>({
   name: 'secretBlock',
@@ -148,6 +169,12 @@ export const SecretBlock = Node.create<SecretBlockOptions>({
         parseHTML: (el) => el.getAttribute('data-collapsed') === 'true',
         renderHTML: (attrs) => (attrs.collapsed ? { 'data-collapsed': 'true' } : {}),
       },
+      /** v0.7: the creating user (null = legacy, the owner's). Set at insert. */
+      createdBy: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-created-by'),
+        renderHTML: (attrs) => (attrs.createdBy ? { 'data-created-by': String(attrs.createdBy) } : {}),
+      },
     }
   },
 
@@ -164,14 +191,17 @@ export const SecretBlock = Node.create<SecretBlockOptions>({
   addNodeView() {
     const visible = this.options.visible
     return ({ node: initial, editor, getPos }) => {
-      if (!visible) {
-        // No contentDOM: ProseMirror never renders the children.
+      // Hidden for this user: never render the children (no contentDOM).
+      // Role and user are stable per mount; the editor remounts on changes.
+      if (!visible || !canSeeSecretNode(initial.attrs.createdBy)) {
         const dom = document.createElement('div')
         dom.hidden = true
         dom.className = 'secret-block-hidden'
         return { dom, ignoreMutation: () => true, stopEvent: () => true }
       }
       let node = initial
+      const myId = currentUserId()
+      const foreign = typeof initial.attrs.createdBy === 'string' && initial.attrs.createdBy !== myId
       const dom = document.createElement('div')
       dom.setAttribute('data-secret-block', '')
 
@@ -207,7 +237,10 @@ export const SecretBlock = Node.create<SecretBlockOptions>({
         toggle.title = collapsed ? 'Secret hidden — click to show' : 'Secret shown — click to hide'
         toggle.setAttribute('aria-label', toggle.title)
         toggle.setAttribute('aria-expanded', String(!collapsed))
-        label.textContent = collapsed ? 'DM only — hidden' : 'DM only'
+        // Owners see other members' private secrets, labeled as such.
+        const base = foreign ? 'Member secret' : 'DM only'
+        label.textContent = collapsed ? `${base} — hidden` : base
+        label.title = foreign ? 'Created by another member; only they and owners see it' : ''
         contentDOM.hidden = collapsed
       }
       paint()
@@ -228,7 +261,18 @@ export const SecretBlock = Node.create<SecretBlockOptions>({
   },
 })
 
+/**
+ * Visible mode still blanks OTHER creators' secrets in plain-text copies, so
+ * a select-all copy can't lift a block the screen never showed.
+ */
+const VisibleSecretBlock = SecretBlock.extend({
+  renderText: ({ node }) =>
+    (canSeeSecretNode(node.attrs.createdBy) ? node.textBetween(0, node.content.size, '\n') : ''),
+})
+
 /** SecretBlock configured for the viewer's role (hidden mode also blanks it in plain-text copies). */
 export function secretBlock(visible: boolean) {
-  return visible ? SecretBlock : SecretBlock.extend({ renderText: () => '' }).configure({ visible: false })
+  return visible
+    ? VisibleSecretBlock
+    : SecretBlock.extend({ renderText: () => '' }).configure({ visible: false })
 }

@@ -656,6 +656,24 @@
 .doc-tab-dm-glyph { display: grid; place-items: center; font-size: 12px; }
 .doc-tab-dm-glyph svg { display: block; }
 
+/* Other authors' notes (owners only), read-only under your own. */
+.dm-notes-other {
+  margin-top: var(--s4);
+  padding: 10px 14px 12px;
+  background: color-mix(in srgb, var(--sidebar-bg) 85%, transparent);
+  border: 1px dashed var(--accent-line);
+  border-radius: var(--radius);
+}
+.dm-notes-other-head {
+  margin: 0 0 6px;
+  font-size: var(--fs-label);
+  font-variant: small-caps;
+  text-transform: lowercase;
+  letter-spacing: var(--ls-label);
+  color: var(--muted);
+}
+.dm-notes-empty { margin: 0; font-size: var(--fs-sm); font-style: italic; color: var(--muted); }
+
 /* ---------- plugin tabs (v0.7) ---------- */
 
 .plugin-tab {

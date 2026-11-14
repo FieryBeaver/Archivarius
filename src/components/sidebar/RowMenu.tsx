@@ -1,5 +1,5 @@
-import LockIcon from '../LockIcon'
 import Popover from '../Popover'
+import { EyeGlyph, EyeOffGlyph } from '../UiIcons'
 
 interface Props {
   anchor: DOMRect
@@ -29,7 +29,8 @@ export default function RowMenu({ anchor, isSecret, canSecret, onAddChild, onRen
       </button>
       {canSecret && (
         <button className="popover-item" role="menuitem" onClick={pick(onToggleSecret)}>
-          <span><LockIcon open={isSecret} /></span><span>{isSecret ? 'Make visible' : 'Mark as secret'}</span>
+          <span>{isSecret ? <EyeGlyph /> : <EyeOffGlyph />}</span>
+          <span>{isSecret ? 'Make visible' : 'Mark as secret'}</span>
         </button>
       )}
       <div className="popover-sep" role="separator" />

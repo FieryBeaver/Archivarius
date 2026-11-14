@@ -2,7 +2,7 @@ import { Extension, ReactRenderer, type Editor, type Range } from '@tiptap/react
 import Suggestion from '@tiptap/suggestion'
 import { usePages, visibilityRole } from '../../state/pages'
 import type { BlockIconName } from './blockIcons'
-import { CALLOUT_LABELS, CALLOUT_VARIANTS } from './blocks'
+import { CALLOUT_LABELS, CALLOUT_VARIANTS, currentUserId } from './blocks'
 import { clampToViewport } from './mentionExtension'
 import { openPluginPicker } from './PluginPicker'
 import SlashList, { type SlashListHandle, type SlashListProps } from './SlashList'
@@ -54,7 +54,8 @@ const SLASH_ITEMS: SlashItem[] = [
   })),
   {
     id: 'secret', title: 'Secret block', keywords: 'dm gm only hidden private spoiler', glyph: { icon: 'eye' },
-    run: (e, r) => e.chain().focus().deleteRange(r).wrapIn('secretBlock').run(),
+    // Stamped with the creator: an editor's secret is private to them + owners.
+    run: (e, r) => e.chain().focus().deleteRange(r).wrapIn('secretBlock', { createdBy: currentUserId() }).run(),
   },
   {
     id: 'plugin', title: 'Plugin…', keywords: 'plugin widget embed custom sheet iframe', glyph: { icon: 'plugin' },
@@ -67,10 +68,11 @@ const SLASH_ITEMS: SlashItem[] = [
 
 function filterItems(query: string): SlashItem[] {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
-  // Secrets are GM machinery: only owners get the secret-block item.
-  const isOwner = visibilityRole(usePages.getState()) === 'owner'
+  // Owners and editors create secrets (an editor's are private to them + owners).
+  const role = visibilityRole(usePages.getState())
+  const canSecret = role === 'owner' || role === 'editor'
   return SLASH_ITEMS.filter((item) => {
-    if (item.id === 'secret' && !isOwner) return false
+    if (item.id === 'secret' && !canSecret) return false
     const hay = `${item.title} ${item.keywords}`.toLowerCase()
     return terms.every((t) => hay.includes(t))
   })

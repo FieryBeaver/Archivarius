@@ -35,6 +35,12 @@ export interface Page {
   edit_access: 'inherit' | 'restricted'
   /** v0.5: null = legacy single doc in `content`; else `content` mirrors tabs[0].content */
   tabs: PageTab[] | null
+  /**
+   * v0.7: who created the page (null on legacy rows = the world's owner).
+   * A secret page is visible to owners and, while they hold the editor role,
+   * its creator. Stamped by a DB trigger; never set it from the client.
+   */
+  created_by: string | null
 }
 
 export interface Mention {
@@ -148,12 +154,15 @@ export type AnyProjectExport = ProjectExport | ProjectExportV1
 // ---------- v0.7 ----------
 
 /**
- * Per-page DM notes. Unlike secret blocks (client-side hiding), these live in
- * their own table and RLS hides them from viewer-role members server-side.
+ * Per-page, per-author notes. Unlike secret blocks (client-side hiding), these
+ * live in their own table and RLS scopes them server-side: owners read every
+ * note, editors their own, viewers none.
  */
 export interface PageDmNotes {
   page_id: string
   project_id: string
+  /** v0.7: the note's author (one row per page per author). */
+  user_id: string
   content: unknown | null
   updated_at: string
 }

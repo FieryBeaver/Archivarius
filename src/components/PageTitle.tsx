@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { pageIconOf, renderIcon } from '../lib/icons'
 import type { Page } from '../lib/types'
+import { useAuth } from '../state/auth'
 import { useCanEditPage } from '../state/pageEditors'
 import { effectiveRole, usePages } from '../state/pages'
 import Breadcrumbs from './Breadcrumbs'
@@ -14,6 +15,10 @@ export default function PageTitle({ page }: { page: Page }) {
   const update = usePages((s) => s.update)
   const canEdit = useCanEditPage(page)
   const isOwner = usePages((s) => effectiveRole(s) === 'owner')
+  const role = usePages(effectiveRole)
+  const myId = useAuth((s) => s.session?.user.id)
+  // Owners toggle secrecy anywhere; editors on pages they created.
+  const canSecret = isOwner || (role === 'editor' && !!myId && page.created_by === myId)
   const [value, setValue] = useState(page.title)
   const [error, setError] = useState<string | null>(null)
   const [iconAnchor, setIconAnchor] = useState<DOMRect | null>(null)
@@ -49,9 +54,9 @@ export default function PageTitle({ page }: { page: Page }) {
       <div className="page-meta">
         <Breadcrumbs page={page} />
         <EditAccessControl page={page} isOwner={isOwner} />
-        {isOwner ? (
+        {canSecret ? (
           <button type="button" className={`page-secret-toggle${page.is_secret ? ' on' : ''}`}
-            aria-pressed={page.is_secret} title="DM only — only owners see this page"
+            aria-pressed={page.is_secret} title="Secret — visible to you and owners only"
             onClick={() => attempt({ is_secret: !page.is_secret })}>
             <LockIcon open={!page.is_secret} />
             <span>{page.is_secret ? 'Secret' : 'Visible'}</span>

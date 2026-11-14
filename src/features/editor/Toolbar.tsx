@@ -2,6 +2,7 @@ import { useEditorState, type Editor } from '@tiptap/react'
 import type { ReactNode } from 'react'
 import { usePages, visibilityRole } from '../../state/pages'
 import { BLOCK_ICONS } from './blockIcons'
+import { currentUserId } from './blocks'
 import type { SaveStatus } from './useAutosave'
 
 const STATUS_TEXT: Record<SaveStatus, string> = {
@@ -32,17 +33,20 @@ const TOOLS: Tool[] = [
   { label: '❝', title: 'Quote', isActive: (e) => e.isActive('blockquote'), run: (e) => e.chain().focus().toggleBlockquote().run() },
 ]
 
-/** Secrets are GM machinery: only owners get the secret-block tool. */
+/** Owners and editors create secrets (an editor's are private to them + owners). */
 const SECRET_TOOL: Tool = {
   label: <span className="editor-tool-glyph" dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.eye }} />,
-  title: 'Secret block (DM only)',
+  title: 'Secret block (private)',
   isActive: (e) => e.isActive('secretBlock'),
-  run: (e) => e.chain().focus().toggleWrap('secretBlock').run(),
+  run: (e) => e.chain().focus().toggleWrap('secretBlock', { createdBy: currentUserId() }).run(),
 }
 
 export default function Toolbar({ editor, status }: { editor: Editor; status: SaveStatus }) {
-  const isOwner = usePages((s) => visibilityRole(s) === 'owner')
-  const tools = isOwner ? [...TOOLS, SECRET_TOOL] : TOOLS
+  const canSecret = usePages((s) => {
+    const role = visibilityRole(s)
+    return role === 'owner' || role === 'editor'
+  })
+  const tools = canSecret ? [...TOOLS, SECRET_TOOL] : TOOLS
   const active = useEditorState({ editor, selector: ({ editor: e }) => [...TOOLS, SECRET_TOOL].map((t) => t.isActive(e)) })
 
   return (
