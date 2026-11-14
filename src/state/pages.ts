@@ -156,11 +156,21 @@ export function useCanEdit(): boolean {
 }
 
 /**
- * Whether secret pages/content are hidden right now: while previewing as a
- * viewer (mirroring their RLS rule) or while the hide-secrets toggle is on.
+ * v0.7: only OWNERS see secrets (LegendKeeper-style GM/player split). Editors
+ * edit regular pages — their own PC pages included — without GM visibility.
+ * Matches RLS, where secret rows never reach non-owners.
  */
-export function hidesSecrets(s: Pick<PagesState, 'viewAs' | 'hideSecrets'>): boolean {
-  return s.viewAs === 'viewer' || s.hideSecrets
+export function canSeeSecretsRole(role: Role | null): boolean {
+  return role === 'owner'
+}
+
+/**
+ * Whether secret pages/content are hidden right now: for every non-owner
+ * (mirroring RLS), while previewing a lower role, or while the owner's
+ * hide-secrets toggle is on.
+ */
+export function hidesSecrets(s: Pick<PagesState, 'role' | 'viewAs' | 'hideSecrets'>): boolean {
+  return !canSeeSecretsRole(effectiveRole(s)) || s.hideSecrets
 }
 
 /**

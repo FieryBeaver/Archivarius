@@ -49,15 +49,15 @@ export default function PageTitle({ page }: { page: Page }) {
       <div className="page-meta">
         <Breadcrumbs page={page} />
         <EditAccessControl page={page} isOwner={isOwner} />
-        {canEdit ? (
+        {isOwner ? (
           <button type="button" className={`page-secret-toggle${page.is_secret ? ' on' : ''}`}
-            aria-pressed={page.is_secret} title="DM only — hidden from viewers"
+            aria-pressed={page.is_secret} title="DM only — only owners see this page"
             onClick={() => attempt({ is_secret: !page.is_secret })}>
             <LockIcon open={!page.is_secret} />
             <span>{page.is_secret ? 'Secret' : 'Visible'}</span>
           </button>
         ) : page.is_secret && (
-          <span className="page-secret-toggle on static" title="DM only — hidden from viewers">
+          <span className="page-secret-toggle on static" title="DM only — only owners see this page">
             <LockIcon /><span>Secret</span>
           </span>
         )}

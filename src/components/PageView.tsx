@@ -31,6 +31,7 @@ export default function PageView() {
   const expandTo = usePages((s) => s.expandTo)
   const hideSecrets = usePages(hidesSecrets)
   const previewing = usePages((s) => s.viewAs !== null)
+  const isOwner = usePages((s) => s.role === 'owner')
   const setViewAs = usePages((s) => s.setViewAs)
   const setHideSecrets = usePages((s) => s.setHideSecrets)
   // Per page: restricted pages are writable only by owners and listed page editors.
@@ -49,15 +50,19 @@ export default function PageView() {
       actionLabel="Back to the world" onAction={() => navigate(`/project/${projectId}`)} />
   }
   if (page.is_secret && hideSecrets) {
-    return previewing ? (
-      <EmptyState glyph="🔒" title="Hidden from players"
+    if (previewing) {
+      return <EmptyState glyph="🔒" title="Hidden from players"
         message="This page is a secret — players don't see it at all."
         actionLabel="Exit player preview" onAction={() => setViewAs(null)} />
-    ) : (
-      <EmptyState glyph="🔒" title="Secrets are hidden"
+    }
+    if (isOwner) {
+      return <EmptyState glyph="🔒" title="Secrets are hidden"
         message="This page is a secret, and secrets are hidden right now."
         actionLabel="Show secrets" onAction={() => setHideSecrets(false)} />
-    )
+    }
+    // Non-owners never receive secret rows from the API; this is a safety net.
+    return <EmptyState glyph="✧" title="Page not found" message="This page has wandered off the map."
+      actionLabel="Back to the world" onAction={() => navigate(`/project/${projectId}`)} />
   }
 
   return (

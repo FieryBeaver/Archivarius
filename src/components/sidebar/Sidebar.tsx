@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { PageKind } from '../../lib/types'
-import { canEditRole, pagePath, useCanEdit, usePages } from '../../state/pages'
+import { pagePath, useCanEdit, usePages } from '../../state/pages'
 import { EyeGlyph, GearGlyph, SearchGlyph, SidebarGlyph } from '../UiIcons'
 import KindPicker from './KindPicker'
 import PageTree from './PageTree'
@@ -32,8 +32,9 @@ export default function Sidebar({ projectId, projectName, inert, onNavigate, onS
   const isEmpty = usePages((s) => s.pages.length === 0)
   const create = usePages((s) => s.create)
   const canEdit = useCanEdit()
-  // The view menu follows the real role, so it stays available while previewing.
-  const canPreviewRole = usePages((s) => canEditRole(s.role))
+  // The view menu is GM machinery: owners only. Follows the real role, so it
+  // stays available while previewing.
+  const canPreviewRole = usePages((s) => s.role === 'owner')
   const viewActive = usePages((s) => s.viewAs !== null || s.hideSecrets)
   const [viewAnchor, setViewAnchor] = useState<DOMRect | null>(null)
   const [pickerAnchor, setPickerAnchor] = useState<DOMRect | null>(null)

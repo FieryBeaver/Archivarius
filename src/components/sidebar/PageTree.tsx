@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Page, PageKind } from '../../lib/types'
 import { ancestorIds, buildTree, descendantIds, flattenTree } from '../../state/pageTree'
-import { pagePath, useCanEdit, usePages, useVisiblePages } from '../../state/pages'
+import { effectiveRole, pagePath, useCanEdit, usePages, useVisiblePages } from '../../state/pages'
 import { dropPosition, getProjection } from './dnd'
 import TreeRow from './TreeRow'
 
@@ -44,6 +44,7 @@ export default function PageTree({ projectId, onNavigate, filter }: PageTreeProp
   // Secret pages drop out while previewing as a viewer (their non-secret children surface as roots, like RLS).
   const pages = useVisiblePages()
   const canEdit = useCanEdit()
+  const canSecret = usePages((s) => effectiveRole(s) === 'owner')
   const [drag, setDrag] = useState<DragState | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Mouse drags start after a small move; touch drags need a 250ms press so swipes still scroll the tree.
@@ -120,6 +121,7 @@ export default function PageTree({ projectId, onNavigate, filter }: PageTreeProp
               selected={row.id === pageId}
               expanded={!!effExpanded[row.id]}
               canEdit={canEdit}
+              canSecret={canSecret}
               dragDisabled={filtering}
               onOpen={() => open(row.id)}
               onToggle={() => { if (!filtering) toggle(row.id) }}

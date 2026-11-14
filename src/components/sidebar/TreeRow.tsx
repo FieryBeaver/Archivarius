@@ -17,6 +17,8 @@ interface Props {
   expanded: boolean
   /** Viewers get a read-only row: no drag, rename, menu or add-child. */
   canEdit: boolean
+  /** Owners only: the secret toggle and menu item (secrets are GM machinery). */
+  canSecret: boolean
   /** Reordering makes no sense in a filtered view; actions still work. */
   dragDisabled?: boolean
   onOpen: () => void
@@ -77,18 +79,20 @@ export default function TreeRow(props: Props) {
         <span className="tree-title">{row.page.title || 'Untitled'}</span>
       )}
 
-      {!canEdit && row.page.is_secret && (
-        <span className="tree-secret" title="DM only — hidden from viewers"><LockIcon /></span>
+      {!props.canSecret && row.page.is_secret && (
+        <span className="tree-secret" title="DM only — only owners see this"><LockIcon /></span>
       )}
 
       {canEdit && <span className="tree-actions">
-        <button className={`tree-action tree-secret-toggle${row.page.is_secret ? ' on' : ''}`}
-          aria-pressed={row.page.is_secret}
-          aria-label={row.page.is_secret ? 'Make visible to players' : 'Hide from players (secret)'}
-          title={row.page.is_secret ? 'Secret — click to make visible' : 'Visible — click to hide from players'}
-          onClick={(e) => { e.stopPropagation(); props.onToggleSecret() }}>
-          <LockIcon open={!row.page.is_secret} />
-        </button>
+        {props.canSecret && (
+          <button className={`tree-action tree-secret-toggle${row.page.is_secret ? ' on' : ''}`}
+            aria-pressed={row.page.is_secret}
+            aria-label={row.page.is_secret ? 'Make visible to players' : 'Hide from players (secret)'}
+            title={row.page.is_secret ? 'Secret — click to make visible' : 'Visible — click to hide from players'}
+            onClick={(e) => { e.stopPropagation(); props.onToggleSecret() }}>
+            <LockIcon open={!row.page.is_secret} />
+          </button>
+        )}
         <button className="tree-action" aria-label="Page options"
           onClick={(e) => { e.stopPropagation(); setPopup({ kind: 'menu', anchor: rectOf(e) }) }}>⋯</button>
       </span>}
@@ -98,7 +102,7 @@ export default function TreeRow(props: Props) {
           onPick={(kind) => { closePopup(); props.onAddChild(kind) }} />
       )}
       {popup?.kind === 'menu' && (
-        <RowMenu anchor={popup.anchor} isSecret={row.page.is_secret} onClose={closePopup}
+        <RowMenu anchor={popup.anchor} isSecret={row.page.is_secret} canSecret={props.canSecret} onClose={closePopup}
           onAddChild={() => setPopup({ kind: 'add', anchor: popup.anchor })}
           onRename={() => setRenaming(true)} onToggleSecret={props.onToggleSecret} onDelete={props.onDelete} />
       )}

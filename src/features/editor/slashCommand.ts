@@ -1,5 +1,6 @@
 import { Extension, ReactRenderer, type Editor, type Range } from '@tiptap/react'
 import Suggestion from '@tiptap/suggestion'
+import { usePages, visibilityRole } from '../../state/pages'
 import type { BlockIconName } from './blockIcons'
 import { CALLOUT_LABELS, CALLOUT_VARIANTS } from './blocks'
 import { clampToViewport } from './mentionExtension'
@@ -66,7 +67,10 @@ const SLASH_ITEMS: SlashItem[] = [
 
 function filterItems(query: string): SlashItem[] {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
+  // Secrets are GM machinery: only owners get the secret-block item.
+  const isOwner = visibilityRole(usePages.getState()) === 'owner'
   return SLASH_ITEMS.filter((item) => {
+    if (item.id === 'secret' && !isOwner) return false
     const hay = `${item.title} ${item.keywords}`.toLowerCase()
     return terms.every((t) => hay.includes(t))
   })

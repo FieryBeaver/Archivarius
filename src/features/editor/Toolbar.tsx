@@ -1,5 +1,6 @@
 import { useEditorState, type Editor } from '@tiptap/react'
 import type { ReactNode } from 'react'
+import { usePages, visibilityRole } from '../../state/pages'
 import { BLOCK_ICONS } from './blockIcons'
 import type { SaveStatus } from './useAutosave'
 
@@ -29,20 +30,24 @@ const TOOLS: Tool[] = [
   { label: '•', title: 'Bullet list', isActive: (e) => e.isActive('bulletList'), run: (e) => e.chain().focus().toggleBulletList().run() },
   { label: '1.', title: 'Numbered list', isActive: (e) => e.isActive('orderedList'), run: (e) => e.chain().focus().toggleOrderedList().run() },
   { label: '❝', title: 'Quote', isActive: (e) => e.isActive('blockquote'), run: (e) => e.chain().focus().toggleBlockquote().run() },
-  {
-    label: <span className="editor-tool-glyph" dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.eye }} />,
-    title: 'Secret block (DM only)',
-    isActive: (e) => e.isActive('secretBlock'),
-    run: (e) => e.chain().focus().toggleWrap('secretBlock').run(),
-  },
 ]
 
+/** Secrets are GM machinery: only owners get the secret-block tool. */
+const SECRET_TOOL: Tool = {
+  label: <span className="editor-tool-glyph" dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.eye }} />,
+  title: 'Secret block (DM only)',
+  isActive: (e) => e.isActive('secretBlock'),
+  run: (e) => e.chain().focus().toggleWrap('secretBlock').run(),
+}
+
 export default function Toolbar({ editor, status }: { editor: Editor; status: SaveStatus }) {
-  const active = useEditorState({ editor, selector: ({ editor: e }) => TOOLS.map((t) => t.isActive(e)) })
+  const isOwner = usePages((s) => visibilityRole(s) === 'owner')
+  const tools = isOwner ? [...TOOLS, SECRET_TOOL] : TOOLS
+  const active = useEditorState({ editor, selector: ({ editor: e }) => [...TOOLS, SECRET_TOOL].map((t) => t.isActive(e)) })
 
   return (
     <div className="editor-toolbar" role="toolbar">
-      {TOOLS.map((tool, i) => (
+      {tools.map((tool, i) => (
         <button key={tool.title} title={tool.title} aria-pressed={active[i]}
           className={`editor-tool tool-${tool.title.split(' ')[0].toLowerCase()}${active[i] ? ' active' : ''}`}
           onMouseDown={(e) => e.preventDefault()}

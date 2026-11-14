@@ -61,10 +61,11 @@ function DocEditorInner({ page, canEdit, hideSecrets }: DocEditorInnerProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   // Latest JSON of the legacy single doc, needed when its tabs get materialized.
   const legacyContent = useRef<unknown>(page.content)
-  // Pinned DM-notes tab: owner/editor only; gone while secrets are hidden or previewing
-  // (visibilityRole demotes to viewer, and this component remounts on those switches).
+  // Pinned DM-notes tab: owners only (GM machinery, matching RLS); gone while
+  // secrets are hidden or previewing (visibilityRole demotes, and this
+  // component remounts on those switches).
   const vRole = usePages(visibilityRole)
-  const showDmNotes = vRole === 'owner' || vRole === 'editor'
+  const showDmNotes = vRole === 'owner'
   const [dmOpen, setDmOpen] = useState(false)
   // The tab strip's "+" menu: pick a document tab or a plugin tab.
   const [addMenu, setAddMenu] = useState<{ anchor: DOMRect; mode: 'menu' | 'plugin' } | null>(null)

@@ -4,6 +4,8 @@ import Popover from '../Popover'
 interface Props {
   anchor: DOMRect
   isSecret: boolean
+  /** Owners only: the secret toggle item (secrets are GM machinery). */
+  canSecret: boolean
   /** Switches this menu to the new-page kind picker (same anchor). */
   onAddChild: () => void
   onRename: () => void
@@ -12,7 +14,7 @@ interface Props {
   onClose: () => void
 }
 
-export default function RowMenu({ anchor, isSecret, onAddChild, onRename, onToggleSecret, onDelete, onClose }: Props) {
+export default function RowMenu({ anchor, isSecret, canSecret, onAddChild, onRename, onToggleSecret, onDelete, onClose }: Props) {
   const pick = (fn: () => void) => () => {
     onClose()
     fn()
@@ -25,9 +27,11 @@ export default function RowMenu({ anchor, isSecret, onAddChild, onRename, onTogg
       <button className="popover-item" role="menuitem" onClick={pick(onRename)}>
         <span>✎</span><span>Rename</span>
       </button>
-      <button className="popover-item" role="menuitem" onClick={pick(onToggleSecret)}>
-        <span><LockIcon open={isSecret} /></span><span>{isSecret ? 'Make visible' : 'Mark as secret'}</span>
-      </button>
+      {canSecret && (
+        <button className="popover-item" role="menuitem" onClick={pick(onToggleSecret)}>
+          <span><LockIcon open={isSecret} /></span><span>{isSecret ? 'Make visible' : 'Mark as secret'}</span>
+        </button>
+      )}
       <div className="popover-sep" role="separator" />
       <button className="popover-item danger" role="menuitem" onClick={pick(onDelete)}>
         <span>🗑</span><span>Delete</span>
