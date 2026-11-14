@@ -488,41 +488,6 @@ export async function deletePageTemplate(id: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
-// ---------- DM notes (v0.7) ----------
-
-/** One author's notes on a page. */
-export interface DmNoteRow {
-  user_id: string
-  content: unknown | null
-  updated_at: string
-}
-
-/**
- * Every note on a page the caller may read. RLS scopes the result: owners get
- * every author's note, editors their own, viewers none (empty array).
- */
-export async function listDmNotes(pageId: string): Promise<DmNoteRow[]> {
-  const { data, error } = await supabase
-    .from('page_dm_notes').select('user_id,content,updated_at')
-    .eq('page_id', pageId).order('updated_at', { ascending: false })
-  return ok(data, error)
-}
-
-/**
- * Upserts the signed-in user's own notes on a page (owner/editor, RLS; a DB
- * trigger pins user_id to the caller). Mentions inside notes are deliberately
- * NOT synced to the mentions table: backlinks are visible to viewers and
- * would leak that the note exists.
- */
-export async function saveDmNotes(pageId: string, projectId: string, content: unknown): Promise<void> {
-  const { data: u } = await supabase.auth.getUser()
-  if (!u.user) throw new Error('not signed in')
-  const { error } = await supabase
-    .from('page_dm_notes')
-    .upsert({ page_id: pageId, project_id: projectId, user_id: u.user.id, content }, { onConflict: 'page_id,user_id' })
-  if (error) throw new Error(error.message)
-}
-
 // ---------- timeline events ----------
 
 export async function listEvents(timelinePageId: string): Promise<WorldEvent[]> {

@@ -1,9 +1,12 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
-import { BLOCK_ICONS } from './blockIcons'
+import { useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
+import Popover from '../../components/Popover'
+import { EyeGlyph, EyeOffGlyph } from '../../components/UiIcons'
+import { VISIBILITIES, VISIBILITY_LABELS, asVisibility, type Visibility } from '../../lib/visibility'
 
 export interface TabItem {
   id: string
   title: string
+  visibleTo?: Visibility
 }
 
 interface TabBarProps {
@@ -11,6 +14,8 @@ interface TabBarProps {
   tabs: TabItem[]
   activeId: string | null
   canEdit: boolean
+  /** Offer "Owners only" (an editor choosing it would lock themselves out). */
+  canOwnerOnly: boolean
   renamingId: string | null
   onSelect(id: string): void
   /** Opens the add-tab menu anchored to the + button. */
@@ -19,11 +24,16 @@ interface TabBarProps {
   /** title === null cancels the rename. */
   onRename(id: string, title: string | null): void
   onDelete(id: string): void
-  /** Pinned DM-notes tab (owners/editors only; absent for viewers & hidden secrets). */
-  dmNotes?: { active: boolean; onSelect(): void }
+  onSetVisibility(id: string, visibleTo: Visibility): void
 }
 
 const MAX_TITLE = 60
+
+const VISIBILITY_HINTS: Record<Visibility, string> = {
+  all: 'Players see this tab',
+  editors: 'Hidden from players',
+  owners: 'Hidden from players and editors',
+}
 
 function RenameInput({ tab, onDone }: { tab: TabItem; onDone(title: string | null): void }) {
   const done = useRef(false)
@@ -46,10 +56,20 @@ function RenameInput({ tab, onDone }: { tab: TabItem; onDone(title: string | nul
 
 /** Document tab strip between the page header and the editor. */
 export default function TabBar({
-  tabs, activeId, canEdit, renamingId, onSelect, onAdd, onStartRename, onRename, onDelete, dmNotes,
+  tabs, activeId, canEdit, canOwnerOnly, renamingId, onSelect, onAdd, onStartRename, onRename, onDelete,
+  onSetVisibility,
 }: TabBarProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [menu, setMenu] = useState<{ id: string; anchor: DOMRect } | null>(null)
   const deletable = canEdit && tabs.length > 1
+  const menuTab = menu ? tabs.find((t) => t.id === menu.id) ?? null : null
+
+  function openMenu(e: MouseEvent, id: string) {
+    if (!canEdit) return
+    e.preventDefault()
+    setConfirmId(null)
+    setMenu({ id, anchor: new DOMRect(e.clientX, e.clientY, 0, 0) })
+  }
 
   return (
     <div className={`doc-tabs${tabs.length ? '' : ' doc-tabs-empty'}`}>
@@ -58,18 +78,33 @@ export default function TabBar({
           const active = tab.id === activeId
           const renaming = canEdit && tab.id === renamingId
           const confirming = deletable && tab.id === confirmId
+          const vis = asVisibility(tab.visibleTo)
+          const restricted = vis !== 'all'
           return (
-            <div key={tab.id} className={`doc-tab${active ? ' active' : ''}${confirming ? ' confirming' : ''}`}>
+            <div key={tab.id} onContextMenu={(e) => openMenu(e, tab.id)}
+              className={`doc-tab${active ? ' active' : ''}${confirming ? ' confirming' : ''}${restricted ? ' restricted' : ''}`}>
               {renaming ? (
                 <RenameInput tab={tab} onDone={(title) => onRename(tab.id, title)} />
               ) : (
                 <button type="button" role="tab" aria-selected={active} className="doc-tab-btn"
-                  title={canEdit ? `${tab.title} — double-click to rename` : tab.title}
+                  title={canEdit ? `${tab.title} — double-click to rename, right-click for options` : tab.title}
                   onClick={() => { setConfirmId(null); onSelect(tab.id) }}
                   onDoubleClick={() => { if (canEdit) onStartRename(tab.id) }}>
                   {tab.title}
                 </button>
               )}
+              {!renaming && !confirming && (canEdit ? (
+                <button type="button" className="doc-tab-eye" aria-pressed={restricted}
+                  aria-label={restricted ? `Show tab ${tab.title} to players` : `Hide tab ${tab.title} from players`}
+                  title={restricted
+                    ? `${VISIBILITY_HINTS[vis]} — click to show to everyone (right-click for more)`
+                    : 'Players see this tab — click to hide it from them (right-click for more)'}
+                  onClick={() => onSetVisibility(tab.id, restricted ? 'all' : 'editors')}>
+                  {restricted ? <EyeOffGlyph size={13} /> : <EyeGlyph size={13} />}
+                </button>
+              ) : restricted && (
+                <span className="doc-tab-eye static" title={VISIBILITY_HINTS[vis]}><EyeOffGlyph size={13} /></span>
+              ))}
               {confirming ? (
                 <span className="doc-tab-confirm" role="group" aria-label={`Delete tab ${tab.title}?`}>
                   <span>Delete?</span>
@@ -92,14 +127,38 @@ export default function TabBar({
           {tabs.length ? '+' : '+ Add tab'}
         </button>
       )}
-      {dmNotes && (
-        <button type="button" role="tab" aria-selected={dmNotes.active}
-          className={`doc-tab-dm${dmNotes.active ? ' active' : ''}`}
-          title="DM notes — never shown to players (hidden server-side)"
-          onClick={() => { setConfirmId(null); dmNotes.onSelect() }}>
-          <span className="doc-tab-dm-glyph" aria-hidden dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.lock }} />
-          DM notes
-        </button>
+      {menu && menuTab && (
+        <Popover anchor={menu.anchor} onClose={() => setMenu(null)} width={230}>
+          <button className="popover-item" role="menuitem"
+            onClick={() => { setMenu(null); onStartRename(menuTab.id) }}>
+            <span>✎</span><span>Rename</span>
+          </button>
+          <div className="popover-sep" role="separator" />
+          <div className="popover-heading">Visible to</div>
+          {VISIBILITIES.filter((v) => v !== 'owners' || canOwnerOnly || menuTab.visibleTo === 'owners').map((v) => {
+            const checked = asVisibility(menuTab.visibleTo) === v
+            return (
+              <button key={v} className="popover-item" role="menuitemradio" aria-checked={checked}
+                onClick={() => { setMenu(null); if (!checked) onSetVisibility(menuTab.id, v) }}>
+                <span>{v === 'all' ? <EyeGlyph /> : <EyeOffGlyph />}</span>
+                <span className="popover-item-label">
+                  {VISIBILITY_LABELS[v]}
+                  <small>{VISIBILITY_HINTS[v]}</small>
+                </span>
+                {checked && <span className="popover-check" aria-hidden>✓</span>}
+              </button>
+            )
+          })}
+          {deletable && (
+            <>
+              <div className="popover-sep" role="separator" />
+              <button className="popover-item danger" role="menuitem"
+                onClick={() => { setMenu(null); setConfirmId(menuTab.id) }}>
+                <span>🗑</span><span>Delete tab</span>
+              </button>
+            </>
+          )}
+        </Popover>
       )}
     </div>
   )

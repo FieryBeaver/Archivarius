@@ -135,6 +135,8 @@ export interface PageTab {
    * stays an empty doc so the tabs[0]-mirrors-content invariant holds.
    */
   plugin?: { pluginId: string; data: unknown } | null
+  /** Who sees the tab (lib/visibility.ts); absent = everyone. Client-side gating. */
+  visibleTo?: 'all' | 'editors' | 'owners'
 }
 
 export interface PageEditor {
@@ -173,20 +175,6 @@ export interface ProjectExportV1 {
 export type AnyProjectExport = ProjectExport | ProjectExportV1
 
 // ---------- v0.7 ----------
-
-/**
- * Per-page, per-author notes. Unlike secret blocks (client-side hiding), these
- * live in their own table and RLS scopes them server-side: owners read every
- * note, editors their own, viewers none.
- */
-export interface PageDmNotes {
-  page_id: string
-  project_id: string
-  /** v0.7: the note's author (one row per page per author). */
-  user_id: string
-  content: unknown | null
-  updated_at: string
-}
 
 /**
  * v0.7: a reusable snapshot of a doc page (icon/content/tabs). Creating a page

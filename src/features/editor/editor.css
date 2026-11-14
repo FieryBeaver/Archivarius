@@ -636,43 +636,37 @@
 .doc-tabs-empty .doc-tab-add { margin-left: -8px; font-size: var(--fs-xs); opacity: 0.55; }
 .doc-tabs-empty .doc-tab-add:hover { opacity: 1; }
 
-/* Pinned DM-notes tab: right-aligned, lock-marked, never shown to viewers. */
-.doc-tab-dm {
-  flex-shrink: 0;
-  display: flex;
+/* Per-tab visibility: eye shows on hover; eye-off stays visible on restricted tabs. */
+.doc-tab-eye {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  height: 26px;
-  padding: 0 10px;
-  font-size: var(--fs-sm);
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0 2px 0 -6px;
+  padding: 0;
   color: var(--muted);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
+  opacity: 0;
 }
-.doc-tab-dm:hover { color: var(--text); background: var(--hover); }
-.doc-tab-dm.active { color: var(--accent); background: var(--accent-soft); }
-.doc-tab-dm-glyph { display: grid; place-items: center; font-size: 12px; }
-.doc-tab-dm-glyph svg { display: block; }
+.doc-tab-eye svg { display: block; }
+.doc-tab-eye + .doc-tab-close { margin-left: 0; }
+.doc-tab:hover .doc-tab-eye,
+.doc-tab-eye:focus-visible { opacity: 0.7; }
+.doc-tab.restricted .doc-tab-eye { opacity: 0.85; color: var(--accent); }
+.doc-tab-eye:hover { opacity: 1; color: var(--text); background: var(--hover); }
+.doc-tab-eye.static { cursor: default; }
+.doc-tab-eye.static:hover { background: transparent; color: var(--accent); }
+.doc-tab.restricted .doc-tab-btn { font-style: italic; }
 
-/* Other authors' notes (owners only), read-only under your own. */
-.dm-notes-other {
-  margin-top: var(--s4);
-  padding: 10px 14px 12px;
-  background: color-mix(in srgb, var(--sidebar-bg) 85%, transparent);
-  border: 1px dashed var(--accent-line);
-  border-radius: var(--radius);
-}
-.dm-notes-other-head {
-  margin: 0 0 6px;
-  font-size: var(--fs-label);
-  font-variant: small-caps;
-  text-transform: lowercase;
-  letter-spacing: var(--ls-label);
+.doc-tabs-none {
+  margin: var(--s5) 0;
+  font-size: var(--fs-sm);
+  font-style: italic;
   color: var(--muted);
 }
-.dm-notes-empty { margin: 0; font-size: var(--fs-sm); font-style: italic; color: var(--muted); }
 
 /* ---------- plugin tabs (v0.7) ---------- */
 
@@ -748,6 +742,6 @@
   .doc-tab-btn { height: 40px; }
   .doc-tab-close { width: 28px; height: 28px; opacity: 0.6; }
   .doc-tab-add { height: 36px; min-width: 36px; }
-  .doc-tab-dm { height: 36px; }
+  .doc-tab-eye { width: 28px; height: 28px; opacity: 0.6; }
   .doc-tab-confirm button { height: 32px; padding: 0 10px; }
 }

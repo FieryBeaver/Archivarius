@@ -4,7 +4,8 @@ import * as db from '../lib/db'
 import { PageIcon } from '../lib/icons'
 import type { Page, PageKind } from '../lib/types'
 import { usePanelStore } from '../state/panel'
-import { hidesSecrets, pagePath, usePages } from '../state/pages'
+import { hidesSecrets, pagePath, usePages, visibilityRole } from '../state/pages'
+import { roleAllows } from '../lib/visibility'
 import ErrorBoundary from './ErrorBoundary'
 import { CloseGlyph, EyeOffGlyph } from './UiIcons'
 
@@ -109,6 +110,7 @@ export default function ContextPanel({ projectId, isMobile }: { projectId: strin
 }
 
 function PreviewBody({ page }: { page: Page }) {
+  const role = usePages(visibilityRole)
   if (page.kind === 'map') {
     return page.map_image_path
       ? <img className="preview-map" src={db.mapImageUrl(page.map_image_path)} alt="" loading="lazy" />
@@ -117,7 +119,10 @@ function PreviewBody({ page }: { page: Page }) {
   if (page.kind === 'timeline') {
     return <p className="preview-muted">Open the timeline to browse its events.</p>
   }
-  const content = page.tabs?.[0]?.content ?? page.content
+  // page.content mirrors tabs[0], which may be restricted: preview the first tab this role sees.
+  const tabs = page.tabs?.length ? page.tabs.filter((t) => roleAllows(t.visibleTo, role)) : null
+  if (tabs && tabs.length === 0) return <p className="preview-muted">Nothing here is shared with you yet.</p>
+  const content = tabs ? tabs.find((t) => !t.plugin)?.content : page.content
   if (!content) return <p className="preview-muted">This page is empty.</p>
   return (
     <ErrorBoundary resetKey={page.id}>

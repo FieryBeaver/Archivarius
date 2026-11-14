@@ -7,7 +7,7 @@ import type { Page, PageTab, Plugin } from '../../lib/types'
 import { hidesSecrets, pagePath, usePages, visibilityRole } from '../../state/pages'
 import { Callout, secretBlock } from './blocks'
 import { BLOCK_ICONS } from './blockIcons'
-import DmNotes from './DmNotes'
+import { roleAllows, type Visibility } from '../../lib/visibility'
 import { pageMention } from './mentionExtension'
 import { MoveBlock } from './moveBlock'
 import { PluginBlock } from './pluginBlock'
@@ -33,12 +33,13 @@ function newTabId(): string {
 
 /**
  * Rich-text body of a 'doc' page. Mount with key={page.id}.
- * Remounts internally when canEdit or the hide-secrets view changes, since the
- * schema/node views depend on them (pending edits flush on unmount).
+ * Remounts internally when canEdit or the hide-secrets/preview view changes, since the
+ * schema/node views and the visible tab set depend on them (pending edits flush on unmount).
  */
 export default function DocEditor({ page, canEdit }: DocEditorProps) {
   const hideSecrets = usePages(hidesSecrets)
-  return <DocEditorInner key={`${canEdit ? 'edit' : 'view'}-${hideSecrets ? 'hidden' : 'shown'}`}
+  const vRole = usePages(visibilityRole)
+  return <DocEditorInner key={`${canEdit ? 'edit' : 'view'}-${hideSecrets ? 'hidden' : 'shown'}-${vRole}`}
     page={page} canEdit={canEdit} />
 }
 
@@ -50,20 +51,18 @@ export default function DocEditor({ page, canEdit }: DocEditorProps) {
  */
 function DocEditorInner({ page, canEdit }: DocEditorProps) {
   const { status, schedule, flush } = useAutosave(page.id)
+  // Secret blocks and restricted tabs: gone while secrets are hidden or previewing
+  // (visibilityRole demotes; the outer component remounts this on those switches).
+  const vRole = usePages(visibilityRole)
+  const secretsVisible = vRole === 'owner' || vRole === 'editor'
+  const allowed = (t: PageTab) => roleAllows(t.visibleTo, vRole)
   const [tabs, setTabs] = useState<PageTab[] | null>(() => (page.tabs?.length ? page.tabs : null))
   const tabsRef = useRef(tabs)
-  const [activeId, setActiveId] = useState<string | null>(() => tabs?.[0].id ?? null)
+  const [activeId, setActiveId] = useState<string | null>(() => tabs?.find(allowed)?.id ?? null)
   const activeRef = useRef(activeId)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   // Latest JSON of the legacy single doc, needed when its tabs get materialized.
   const legacyContent = useRef<unknown>(page.content)
-  // Pinned notes tab and secret blocks: owners see all, editors their own
-  // (matching RLS); gone while secrets are hidden or previewing
-  // (visibilityRole demotes, and this component remounts on those switches).
-  const vRole = usePages(visibilityRole)
-  const showDmNotes = vRole === 'owner' || vRole === 'editor'
-  const secretsVisible = vRole === 'owner' || vRole === 'editor'
-  const [dmOpen, setDmOpen] = useState(false)
   // The tab strip's "+" menu: pick a document tab or a plugin tab.
   const [addMenu, setAddMenu] = useState<{ anchor: DOMRect; mode: 'menu' | 'plugin' } | null>(null)
 
@@ -93,22 +92,13 @@ function DocEditorInner({ page, canEdit }: DocEditorProps) {
   }, [schedule])
 
   function select(id: string) {
-    if (id === activeRef.current && !dmOpen) return
-    // Persist the outgoing tab before its editor unmounts (DM notes flush on their own unmount).
+    if (id === activeRef.current) return
+    // Persist the outgoing tab before its editor unmounts.
     flush()
-    setDmOpen(false)
     setRenamingId(null)
     // Sync the strip state with the ref so the incoming tab mounts with its latest content.
     setTabs(tabsRef.current)
     activate(id)
-  }
-
-  function openDmNotes() {
-    if (dmOpen) return
-    flush()
-    setRenamingId(null)
-    setTabs(tabsRef.current)
-    setDmOpen(true)
   }
 
   /** Existing tabs, or the materialized legacy doc as tab one. */
@@ -119,7 +109,6 @@ function DocEditorInner({ page, canEdit }: DocEditorProps) {
   function add() {
     const tab: PageTab = { id: newTabId(), title: 'New tab', content: EMPTY_DOC }
     commit([...baseTabs(), tab])
-    setDmOpen(false)
     activate(tab.id)
     setRenamingId(tab.id)
   }
@@ -131,7 +120,6 @@ function DocEditorInner({ page, canEdit }: DocEditorProps) {
       plugin: { pluginId: plugin.id, data: null },
     }
     commit([...baseTabs(), tab])
-    setDmOpen(false)
     activate(tab.id)
   }
 
@@ -154,6 +142,23 @@ function DocEditorInner({ page, canEdit }: DocEditorProps) {
     commit(current.map((t) => (t.id === id ? { ...t, title: clean } : t)))
   }
 
+  function setVisibility(id: string, visibleTo: Visibility) {
+    const current = tabsRef.current
+    if (!current) return
+    const next = current.map((t) => {
+      if (t.id !== id) return t
+      const updated: PageTab = { ...t, visibleTo }
+      if (visibleTo === 'all') delete updated.visibleTo
+      return updated
+    })
+    commit(next)
+    // Restricting the open tab above the current view role (e.g. while hiding secrets) hides it here too.
+    if (id === activeRef.current && !roleAllows(visibleTo, vRole)) {
+      const fallback = next.find(allowed)
+      if (fallback) select(fallback.id)
+    }
+  }
+
   function remove(id: string) {
     const current = tabsRef.current
     if (!current || current.length <= 1) return
@@ -161,21 +166,30 @@ function DocEditorInner({ page, canEdit }: DocEditorProps) {
     if (index < 0) return
     const next = current.filter((t) => t.id !== id)
     commit(next)
-    if (id === activeRef.current) activate(next[Math.min(index, next.length - 1)].id)
+    if (id === activeRef.current) {
+      const shownNext = next.filter(allowed)
+      const fallback = shownNext.find((t) => next.indexOf(t) >= index) ?? shownNext[shownNext.length - 1]
+      if (fallback) activate(fallback.id)
+    }
     if (id === renamingId) setRenamingId(null)
   }
 
-  const activeTab = tabs?.find((t) => t.id === activeId) ?? null
+  const shownTabs = tabs?.filter(allowed) ?? null
+  const activeTab = shownTabs?.find((t) => t.id === activeId) ?? null
+  // Tabs exist but every one is restricted above this role: never fall back to page.content
+  // (it mirrors tabs[0], which may be one of the hidden tabs).
+  const nothingShown = tabs !== null && !activeTab
   // Viewers only get a strip when there is something to switch between.
-  const showBar = canEdit || (tabs?.length ?? 0) > 1 || showDmNotes
+  const showBar = canEdit || (shownTabs?.length ?? 0) > 1
 
   return (
     <div className={`doc-editor${canEdit ? '' : ' doc-readonly'}`}>
       {showBar && (
-        <TabBar tabs={tabs ?? []} activeId={dmOpen ? null : activeId} canEdit={canEdit} renamingId={renamingId}
+        <TabBar tabs={shownTabs ?? []} activeId={activeId} canEdit={canEdit} renamingId={renamingId}
+          canOwnerOnly={vRole === 'owner'}
           onSelect={select} onAdd={(anchor) => setAddMenu({ anchor, mode: 'menu' })}
           onStartRename={setRenamingId} onRename={rename} onDelete={remove}
-          dmNotes={showDmNotes ? { active: dmOpen, onSelect: openDmNotes } : undefined} />
+          onSetVisibility={setVisibility} />
       )}
       {addMenu && (
         <Popover anchor={addMenu.anchor} onClose={() => setAddMenu(null)}
@@ -198,8 +212,8 @@ function DocEditorInner({ page, canEdit }: DocEditorProps) {
           )}
         </Popover>
       )}
-      {dmOpen && showDmNotes ? (
-        <DmNotes key={`dm-${page.id}`} page={page} canEdit={showDmNotes} />
+      {nothingShown ? (
+        <p className="doc-tabs-none">Nothing on this page is shared with you yet.</p>
       ) : activeTab?.plugin ? (
         <PluginTabView key={activeTab.id} page={page} pluginId={activeTab.plugin.pluginId}
           data={activeTab.plugin.data} canEdit={canEdit}

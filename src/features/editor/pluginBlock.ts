@@ -1,7 +1,8 @@
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { Node, mergeAttributes, type Editor } from '@tiptap/react'
 import * as db from '../../lib/db'
-import type { Plugin, Role } from '../../lib/types'
+import type { Plugin } from '../../lib/types'
+import { VISIBILITIES, VISIBILITY_LABELS, asVisibility, roleAllows, type Visibility } from '../../lib/visibility'
 import { effectiveRole, usePages, visibilityRole } from '../../state/pages'
 import { usePanelStore } from '../../state/panel'
 import { glyphElement } from './blockIcons'
@@ -94,29 +95,7 @@ function parseDataAttr(raw: string | null): unknown {
 
 // ---------- block visibility (v0.7, workstream 1A) ----------
 
-export const PLUGIN_VISIBILITIES = ['all', 'editors', 'owners'] as const
-export type PluginVisibility = (typeof PLUGIN_VISIBILITIES)[number]
-
-export const PLUGIN_VISIBILITY_LABELS: Record<PluginVisibility, string> = {
-  all: 'Everyone',
-  editors: 'Editors & owners',
-  owners: 'Owners only',
-}
-
-function asVisibility(v: unknown): PluginVisibility {
-  return PLUGIN_VISIBILITIES.includes(v as PluginVisibility) ? (v as PluginVisibility) : 'all'
-}
-
-/**
- * Client-side gating, like secret blocks: the block's data still reaches every
- * member via the page row. Content that players must never receive belongs in
- * secret pages or DM notes (both RLS-enforced).
- */
-function roleAllows(visibleTo: PluginVisibility, role: Role | null): boolean {
-  if (visibleTo === 'owners') return role === 'owner'
-  if (visibleTo === 'editors') return role === 'owner' || role === 'editor'
-  return true
-}
+// Shared with page tabs: see lib/visibility.ts.
 
 // ---------- node ----------
 
@@ -153,7 +132,7 @@ export const PluginBlock = Node.create<PluginBlockOptions>({
       },
       /** v0.7: who sees the block ('all' | 'editors' | 'owners'). Client-side gating. */
       visibleTo: {
-        default: 'all' as PluginVisibility,
+        default: 'all' as Visibility,
         parseHTML: (el) => asVisibility(el.getAttribute('data-plugin-visible-to')),
         renderHTML: (attrs) =>
           asVisibility(attrs.visibleTo) === 'all' ? {} : { 'data-plugin-visible-to': asVisibility(attrs.visibleTo) },
@@ -222,7 +201,7 @@ function createPluginView(
     gate.hidden = vis === 'all'
     if (vis !== 'all') {
       gate.replaceChildren(glyphElement('lock', 'plugin-block-gate-glyph'),
-        document.createTextNode(PLUGIN_VISIBILITY_LABELS[vis]))
+        document.createTextNode(VISIBILITY_LABELS[vis]))
       gate.title = 'Hidden from anyone below this role (on their screen — not a security boundary)'
     }
   }
@@ -266,10 +245,10 @@ function createPluginView(
     visLabel.append('Visible to')
     const select = document.createElement('select')
     const myRole = visibilityRole(usePages.getState())
-    for (const vis of PLUGIN_VISIBILITIES) {
+    for (const vis of VISIBILITIES) {
       const opt = document.createElement('option')
       opt.value = vis
-      opt.textContent = PLUGIN_VISIBILITY_LABELS[vis]
+      opt.textContent = VISIBILITY_LABELS[vis]
       // An editor picking "Owners only" would hide the block from themselves.
       opt.disabled = vis === 'owners' && myRole !== 'owner'
       select.append(opt)
@@ -280,7 +259,7 @@ function createPluginView(
 
     const hint = document.createElement('p')
     hint.className = 'plugin-settings-hint'
-    hint.textContent = 'Hides the block on lower-role screens. Data players must never receive belongs on a secret page or in DM notes.'
+    hint.textContent = 'Hides the block on lower-role screens. Data players must never receive belongs on a secret page.'
 
     const titleLabel = document.createElement('label')
     titleLabel.className = 'plugin-settings-field'
