@@ -29,6 +29,18 @@ function score(title: string, q: string): number | null {
   return i === q.length ? 5 : null
 }
 
+/** Title score, or a tag match ("#x" searches tags only). */
+function scorePage(page: Page, q: string): number | null {
+  const tagOnly = q.startsWith('#')
+  const term = tagOnly ? q.slice(1) : q
+  if (!term) return 0
+  const tagHit = (page.tags ?? []).some((t) => t.toLowerCase().includes(term))
+  if (tagOnly) return tagHit ? 2 : null
+  const byTitle = score((page.title || 'Untitled').toLowerCase(), term)
+  if (byTitle !== null) return byTitle
+  return tagHit ? 4 : null
+}
+
 function parentPath(byId: Map<string, Page>, page: Page): string {
   const out: string[] = []
   const seen = new Set<string>()
@@ -58,7 +70,7 @@ export default function QuickSwitcher({ onClose }: { onClose: () => void }) {
       ranked = [...pages].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
     } else {
       ranked = pages
-        .map((p) => ({ p, s: score((p.title || 'Untitled').toLowerCase(), q) }))
+        .map((p) => ({ p, s: scorePage(p, q) }))
         .filter((r): r is { p: Page; s: number } => r.s !== null)
         .sort((a, b) => a.s - b.s || a.p.title.length - b.p.title.length)
         .map((r) => r.p)

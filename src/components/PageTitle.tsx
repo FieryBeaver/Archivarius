@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState, type KeyboardEvent } from 'react'
 import { pageIconOf, renderIcon } from '../lib/icons'
 import type { Page } from '../lib/types'
 import { useAuth } from '../state/auth'
@@ -89,6 +89,8 @@ export default function PageTitle({ page }: { page: Page }) {
       </div>
       {error && <p className="error-text">{error}</p>}
 
+      <PageTags page={page} canEdit={canEdit} onSave={(tags) => attempt({ tags })} />
+
       {iconAnchor && canEdit && (
         <Popover anchor={iconAnchor} onClose={() => setIconAnchor(null)} width={320} role="presentation"
           className="popover-padded">
@@ -96,5 +98,48 @@ export default function PageTitle({ page }: { page: Page }) {
         </Popover>
       )}
     </header>
+  )
+}
+
+/** v0.7: free-form tag chips under the title; searchable in the tree filter and quick switcher. */
+function PageTags({ page, canEdit, onSave }: { page: Page; canEdit: boolean; onSave(tags: string[]): void }) {
+  const [adding, setAdding] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const tags = page.tags ?? []
+  if (!canEdit && tags.length === 0) return null
+
+  const remove = (tag: string) => onSave(tags.filter((t) => t !== tag))
+  const commit = () => {
+    const value = inputRef.current?.value.trim().replace(/^#/, '') ?? ''
+    setAdding(false)
+    if (!value) return
+    if (tags.some((t) => t.toLowerCase() === value.toLowerCase())) return
+    onSave([...tags, value])
+  }
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit() }
+    else if (e.key === 'Escape') { e.preventDefault(); setAdding(false) }
+  }
+
+  return (
+    <div className="page-tags">
+      {tags.map((tag) => (
+        <span key={tag} className="page-tag">
+          #{tag}
+          {canEdit && (
+            <button type="button" className="page-tag-remove" aria-label={`Remove tag ${tag}`}
+              onClick={() => remove(tag)}>×</button>
+          )}
+        </span>
+      ))}
+      {canEdit && (adding ? (
+        <input ref={inputRef} className="page-tag-input" autoFocus placeholder="tag name"
+          maxLength={40} aria-label="New tag" onBlur={commit} onKeyDown={onKey} />
+      ) : (
+        <button type="button" className="page-tag-add" onClick={() => setAdding(true)}>
+          + tag
+        </button>
+      ))}
+    </div>
   )
 }

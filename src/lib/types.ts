@@ -43,6 +43,8 @@ export interface Page {
    * its creator. Stamped by a DB trigger; never set it from the client.
    */
   created_by: string | null
+  /** v0.7: free-form tags; as visible/private as the page row itself. */
+  tags: string[]
 }
 
 export interface Mention {

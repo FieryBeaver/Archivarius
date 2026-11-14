@@ -586,6 +586,7 @@ export async function importProject(input: AnyProjectExport, name?: string): Pro
         map_w: p.map_w,
         map_h: p.map_h,
         edit_access: p.edit_access === 'restricted' ? 'restricted' : 'inherit',
+        tags: Array.isArray(p.tags) ? p.tags : [],
         tabs: Array.isArray(p.tabs)
           ? p.tabs.map((t) => {
             const tab: PageTab = { ...t, content: remapContent(t.content) }

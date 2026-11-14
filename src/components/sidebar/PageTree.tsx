@@ -18,12 +18,19 @@ interface DragState {
   offsetX: number
 }
 
-/** Pages whose name matches the query, plus their ancestors (so matches keep their place in the tree). */
+/**
+ * Pages whose name or tags match the query, plus their ancestors (so matches
+ * keep their place in the tree). A leading "#" searches tags only.
+ */
 function filterPages(pages: Page[], query: string): Page[] {
-  const q = query.toLowerCase()
+  const tagOnly = query.startsWith('#')
+  const q = (tagOnly ? query.slice(1) : query).toLowerCase()
   const visible = new Set<string>()
+  const matches = (p: Page) =>
+    (p.tags ?? []).some((t) => t.toLowerCase().includes(q))
+    || (!tagOnly && (p.title || 'Untitled').toLowerCase().includes(q))
   for (const p of pages) {
-    if ((p.title || 'Untitled').toLowerCase().includes(q)) {
+    if (matches(p)) {
       visible.add(p.id)
       for (const a of ancestorIds(pages, p.id)) visible.add(a)
     }
