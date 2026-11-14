@@ -125,8 +125,10 @@ export interface SecretBlockOptions {
 }
 
 /**
- * { type: 'secretBlock', content: [block+] } — DM-only notes inside a page.
- * Client-side hiding only; the secure boundary is secret pages.
+ * { type: 'secretBlock', attrs: { collapsed }, content: [block+] } — DM-only
+ * notes inside a page. Client-side hiding only; the secure boundary is secret
+ * pages. `collapsed` (v0.7) folds the content away on the DM's own screen and
+ * is saved with the page, so a block left folded stays folded.
  */
 export const SecretBlock = Node.create<SecretBlockOptions>({
   name: 'secretBlock',
@@ -137,6 +139,16 @@ export const SecretBlock = Node.create<SecretBlockOptions>({
 
   addOptions() {
     return { visible: true }
+  },
+
+  addAttributes() {
+    return {
+      collapsed: {
+        default: false,
+        parseHTML: (el) => el.getAttribute('data-collapsed') === 'true',
+        renderHTML: (attrs) => (attrs.collapsed ? { 'data-collapsed': 'true' } : {}),
+      },
+    }
   },
 
   parseHTML() {
@@ -151,7 +163,7 @@ export const SecretBlock = Node.create<SecretBlockOptions>({
 
   addNodeView() {
     const visible = this.options.visible
-    return ({ editor }) => {
+    return ({ node: initial, editor, getPos }) => {
       if (!visible) {
         // No contentDOM: ProseMirror never renders the children.
         const dom = document.createElement('div')
@@ -159,20 +171,57 @@ export const SecretBlock = Node.create<SecretBlockOptions>({
         dom.className = 'secret-block-hidden'
         return { dom, ignoreMutation: () => true, stopEvent: () => true }
       }
+      let node = initial
       const dom = document.createElement('div')
-      dom.className = 'secret-block'
       dom.setAttribute('data-secret-block', '')
+
       const header = document.createElement('div')
       header.className = 'secret-block-header'
       header.contentEditable = 'false'
-      header.append(makeDragHandle(dom, () => editor.isEditable),
-        glyphElement('lock', 'secret-block-glyph'), document.createTextNode('DM only'))
+
+      // Eye toggle: fold the secret away on the DM's own screen (saved with the page).
+      const toggle = document.createElement('button')
+      toggle.type = 'button'
+      toggle.className = 'secret-block-toggle'
+      toggle.addEventListener('mousedown', (e) => e.preventDefault())
+      toggle.addEventListener('click', () => {
+        const pos = getPos()
+        if (typeof pos !== 'number') return
+        const current = editor.state.doc.nodeAt(pos)
+        if (!current || current.type.name !== 'secretBlock') return
+        editor.view.dispatch(editor.state.tr.setNodeAttribute(pos, 'collapsed', !current.attrs.collapsed))
+      })
+
+      const label = document.createElement('span')
+      label.className = 'secret-block-label'
+      header.append(makeDragHandle(dom, () => editor.isEditable), toggle, label)
+
       const contentDOM = document.createElement('div')
       contentDOM.className = 'secret-block-content'
       dom.append(header, contentDOM)
+
+      const paint = () => {
+        const collapsed = node.attrs.collapsed === true
+        dom.className = `secret-block${collapsed ? ' collapsed' : ''}`
+        toggle.replaceChildren(glyphElement(collapsed ? 'eyeOff' : 'eye', 'secret-block-glyph'))
+        toggle.title = collapsed ? 'Secret hidden — click to show' : 'Secret shown — click to hide'
+        toggle.setAttribute('aria-label', toggle.title)
+        toggle.setAttribute('aria-expanded', String(!collapsed))
+        label.textContent = collapsed ? 'DM only — hidden' : 'DM only'
+        contentDOM.hidden = collapsed
+      }
+      paint()
+
       return {
         dom,
         contentDOM,
+        update(updated) {
+          if (updated.type !== node.type) return false
+          node = updated
+          paint()
+          return true
+        },
+        stopEvent: (e) => toggle.contains(e.target as globalThis.Node),
         ignoreMutation: (m) => m.type !== 'selection' && !contentDOM.contains(m.target),
       }
     }

@@ -30,7 +30,7 @@ const TOOLS: Tool[] = [
   { label: '1.', title: 'Numbered list', isActive: (e) => e.isActive('orderedList'), run: (e) => e.chain().focus().toggleOrderedList().run() },
   { label: '❝', title: 'Quote', isActive: (e) => e.isActive('blockquote'), run: (e) => e.chain().focus().toggleBlockquote().run() },
   {
-    label: <span className="editor-tool-glyph" dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.lock }} />,
+    label: <span className="editor-tool-glyph" dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.eye }} />,
     title: 'Secret block (DM only)',
     isActive: (e) => e.isActive('secretBlock'),
     run: (e) => e.chain().focus().toggleWrap('secretBlock').run(),

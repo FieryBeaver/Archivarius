@@ -52,7 +52,7 @@ const SLASH_ITEMS: SlashItem[] = [
     },
   })),
   {
-    id: 'secret', title: 'Secret block', keywords: 'dm gm only hidden private spoiler', glyph: { icon: 'lock' },
+    id: 'secret', title: 'Secret block', keywords: 'dm gm only hidden private spoiler', glyph: { icon: 'eye' },
     run: (e, r) => e.chain().focus().deleteRange(r).wrapIn('secretBlock').run(),
   },
   {

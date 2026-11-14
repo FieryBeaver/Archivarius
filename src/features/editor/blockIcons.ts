@@ -18,6 +18,8 @@ export const BLOCK_ICONS = {
   plugin: svg('<path d="M10 4h4v3a1.5 1.5 0 0 0 3 0V4h3v6h-3a1.5 1.5 0 0 0 0 3h3v7h-7v-3a1.5 1.5 0 0 0-3 0v3H4v-7h3a1.5 1.5 0 0 0 0-3H4V4h6Z"/>'),
   sliders: svg('<path d="M4 7h10"/><circle cx="17" cy="7" r="2.5"/><path d="M20 17H10"/><circle cx="7" cy="17" r="2.5"/>'),
   grip: svg('<circle cx="9" cy="5.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="5.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="18.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="18.5" r="1.3" fill="currentColor" stroke="none"/>'),
+  eye: svg('<path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/>'),
+  eyeOff: svg('<path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/><path d="M4 20 20 4"/>'),
 } as const
 
 export type BlockIconName = keyof typeof BLOCK_ICONS

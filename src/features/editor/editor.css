@@ -312,6 +312,31 @@
 .secret-block-hidden { display: none !important; }
 
 /* Nested block content follows the same rhythm as the top level. */
+/* Eye toggle: fold the secret on the DM's own screen. */
+.secret-block-toggle {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.secret-block-toggle:hover { color: var(--text); background: var(--hover); }
+.secret-block-toggle .secret-block-glyph { display: inline-flex; font-size: 13px; }
+.secret-block-label { user-select: none; }
+.doc-content .secret-block.collapsed { padding-bottom: 8px; }
+.secret-block.collapsed .secret-block-header { margin-bottom: 0; }
+.secret-block.collapsed .secret-block-label { opacity: 0.7; }
+
+@media (pointer: coarse) {
+  .secret-block-toggle { width: 36px; height: 36px; }
+  .secret-block-toggle .secret-block-glyph { font-size: 16px; }
+}
+
 .callout-content > * + *,
 .secret-block-content > * + * { margin-top: 0.8em; }
 .callout-content > :first-child,
