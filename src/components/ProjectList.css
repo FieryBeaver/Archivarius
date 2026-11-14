@@ -32,6 +32,18 @@
 }
 .projects-create input { flex: 1; padding: 10px 12px; }
 
+.projects-notice {
+  margin: 0 0 var(--s5);
+  padding: 10px 14px;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-line);
+  border-radius: var(--radius);
+}
+
 .projects-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

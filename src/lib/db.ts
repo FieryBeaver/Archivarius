@@ -16,12 +16,27 @@ export async function listProjects(): Promise<Project[]> {
   return ok(data, error)
 }
 
+/** Shown when the server refuses a new world (allowlist, see world_creators migration). */
+export const WORLD_CREATION_CLOSED = 'World creation is invite-only on this server. Ask the host to let you create worlds — you can still join worlds you are invited to.'
+
 export async function createProject(name: string): Promise<Project> {
   const { data: u } = await supabase.auth.getUser()
   if (!u.user) throw new Error('not signed in')
   const { data, error } = await supabase
     .from('projects').insert({ name, owner_id: u.user.id }).select().single()
+  // 42501 = RLS refused the insert: the account isn't on the world-creator allowlist.
+  if (error?.code === '42501') throw new Error(WORLD_CREATION_CLOSED)
   return ok(data, error)
+}
+
+/**
+ * v0.7: may the signed-in user create worlds? The server enforces this in RLS
+ * (projects insert); this only drives the UI. Fails closed.
+ */
+export async function canCreateWorlds(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('can_create_worlds')
+  if (error) return false
+  return data === true
 }
 
 export async function renameProject(id: string, name: string): Promise<Project> {

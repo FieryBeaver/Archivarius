@@ -50,6 +50,23 @@ Schema lives in `supabase/migrations/`; `supabase start` applies it automaticall
    Cloudflare Pages domain, plus `http://localhost:5173` for dev) to the
    redirect allow list — the app redirects back to `window.location.origin`.
 
+### Who can create worlds
+
+World creation is invite-only: only accounts whose **confirmed** email is in
+the `world_creators` table can create worlds (enforced by RLS on `projects`).
+Everyone can still sign up and join worlds they're invited to. Manage the
+list in the Supabase dashboard → SQL editor:
+
+```sql
+insert into world_creators (email) values ('someone@example.com');  -- allow
+delete from world_creators where email = 'someone@example.com';     -- revoke
+select * from world_creators;                                       -- list
+```
+
+Emails are stored lowercase. Revoking doesn't touch existing worlds. For local
+development, allow your dev account the same way (the migration only seeds
+the production host's address).
+
 ## Architecture
 
 See `CONTRACT.md` for internal boundaries. Short version:

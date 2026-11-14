@@ -12,10 +12,13 @@ export default function ProjectList() {
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
+  // null = still checking; the server enforces the allowlist regardless.
+  const [canCreate, setCanCreate] = useState<boolean | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     db.listProjects().then(setProjects, (e: Error) => setError(e.message))
+    db.canCreateWorlds().then(setCanCreate)
   }, [])
 
   useEffect(() => {
@@ -39,12 +42,19 @@ export default function ProjectList() {
       <header className="projects-header">
         <h1>Your worlds</h1>
         <div className="projects-actions">
-          <button className="btn-primary" onClick={() => setCreating(true)}>New world</button>
+          {canCreate && <button className="btn-primary" onClick={() => setCreating(true)}>New world</button>}
           <button className="btn-ghost" onClick={signOut}>Sign out</button>
         </div>
       </header>
 
-      {creating && (
+      {canCreate === false && (
+        <p className="projects-notice" role="note">
+          World creation is invite-only on this server. You can still join worlds you're invited to —
+          ask a world's owner to add your email in its Members settings.
+        </p>
+      )}
+
+      {creating && canCreate && (
         <form className="projects-create" onSubmit={create}>
           <input ref={inputRef} placeholder="Name your world…" value={name}
             onChange={(e) => setName(e.target.value)}
@@ -56,9 +66,13 @@ export default function ProjectList() {
 
       {error && <p className="error-text">{error}</p>}
 
-      {projects?.length === 0 && !creating && (
-        <EmptyState title="No worlds yet" message="Every saga starts with a blank page."
-          actionLabel="Create your first world" onAction={() => setCreating(true)} />
+      {projects?.length === 0 && !creating && canCreate !== null && (
+        canCreate ? (
+          <EmptyState title="No worlds yet" message="Every saga starts with a blank page."
+            actionLabel="Create your first world" onAction={() => setCreating(true)} />
+        ) : (
+          <EmptyState title="No worlds yet" message="When someone invites you to their world, it will appear here." />
+        )
       )}
 
       {projects && projects.length > 0 && (
