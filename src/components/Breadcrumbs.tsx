@@ -4,7 +4,7 @@ import { PageIcon } from '../lib/icons'
 import type { Page } from '../lib/types'
 import { ancestorsOf } from '../state/pageTree'
 import { pagePath, useVisiblePages } from '../state/pages'
-import LockIcon from './LockIcon'
+import { EyeOffGlyph } from './UiIcons'
 
 /** Ancestor trail above the page title. Renders nothing for root pages. */
 export default function Breadcrumbs({ page }: { page: Page }) {
@@ -32,7 +32,7 @@ export default function Breadcrumbs({ page }: { page: Page }) {
               onClick={() => navigate(pagePath(p.project_id, p.id))}>
               <PageIcon page={p} size={14} className="crumb-icon" />
               <span className="crumb-title">{p.title || 'Untitled'}</span>
-              {p.is_secret && <LockIcon size={11} className="crumb-lock" />}
+              {p.is_secret && <EyeOffGlyph size={11} className="crumb-lock" />}
             </button>
           ) : (
             <span className="crumb-gap" title={hidden}>…</span>

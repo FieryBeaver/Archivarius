@@ -1,7 +1,6 @@
 import { usePages } from '../../state/pages'
-import LockIcon from '../LockIcon'
 import Popover from '../Popover'
-import { EyeGlyph } from '../UiIcons'
+import { EyeGlyph, EyeOffGlyph } from '../UiIcons'
 
 /**
  * The sidebar eye menu (owners/editors): hide secrets in place, or preview
@@ -22,7 +21,7 @@ export default function ViewMenu({ anchor, onClose }: { anchor: DOMRect; onClose
     <Popover anchor={anchor} onClose={onClose} width={220}>
       <button className="popover-item" role="menuitemcheckbox" aria-checked={hideSecrets}
         onClick={pick(() => setHideSecrets(!hideSecrets))}>
-        <span><LockIcon open={hideSecrets} /></span>
+        <span>{hideSecrets ? <EyeGlyph /> : <EyeOffGlyph />}</span>
         <span className="popover-item-label">
           {hideSecrets ? 'Show secrets' : 'Hide secrets'}
           <small>Keep editing, hide DM-only content</small>

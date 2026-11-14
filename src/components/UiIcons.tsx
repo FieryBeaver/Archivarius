@@ -1,9 +1,16 @@
 /** Tiny UI chrome glyphs (stroke, currentColor). Content icons go through src/lib/icons. */
 import type { ReactNode } from 'react'
 
-function Svg({ children }: { children: ReactNode }) {
+interface GlyphProps {
+  /** Pixel size (default 1em, following the parent's font size). */
+  size?: number
+  className?: string
+}
+
+function Svg({ children, size, className }: { children: ReactNode } & GlyphProps) {
   return (
-    <svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
+    <svg width={size ?? '1em'} height={size ?? '1em'} className={className}
+      viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {children}
     </svg>
@@ -36,11 +43,11 @@ export const CloseGlyph = () => (
 )
 
 /** Eye: preview the world as a lower role ("view as player"), or "visible". */
-export const EyeGlyph = () => (
-  <Svg><path d="M1.8 8s2.3-4.2 6.2-4.2S14.2 8 14.2 8s-2.3 4.2-6.2 4.2S1.8 8 1.8 8Z" /><circle cx="8" cy="8" r="1.9" /></Svg>
+export const EyeGlyph = (props: GlyphProps) => (
+  <Svg {...props}><path d="M1.8 8s2.3-4.2 6.2-4.2S14.2 8 14.2 8s-2.3 4.2-6.2 4.2S1.8 8 1.8 8Z" /><circle cx="8" cy="8" r="1.9" /></Svg>
 )
 
 /** Slashed eye: secret / hidden from players. */
-export const EyeOffGlyph = () => (
-  <Svg><path d="M1.8 8s2.3-4.2 6.2-4.2S14.2 8 14.2 8s-2.3 4.2-6.2 4.2S1.8 8 1.8 8Z" /><circle cx="8" cy="8" r="1.9" /><path d="M2.8 13.2 13.2 2.8" /></Svg>
+export const EyeOffGlyph = (props: GlyphProps) => (
+  <Svg {...props}><path d="M1.8 8s2.3-4.2 6.2-4.2S14.2 8 14.2 8s-2.3 4.2-6.2 4.2S1.8 8 1.8 8Z" /><circle cx="8" cy="8" r="1.9" /><path d="M2.8 13.2 13.2 2.8" /></Svg>
 )

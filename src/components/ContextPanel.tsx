@@ -6,8 +6,7 @@ import type { Page, PageKind } from '../lib/types'
 import { usePanelStore } from '../state/panel'
 import { hidesSecrets, pagePath, usePages } from '../state/pages'
 import ErrorBoundary from './ErrorBoundary'
-import LockIcon from './LockIcon'
-import { CloseGlyph } from './UiIcons'
+import { CloseGlyph, EyeOffGlyph } from './UiIcons'
 
 const ReadOnlyDoc = lazy(() => import('../features/editor/ReadOnlyDoc'))
 
@@ -87,7 +86,7 @@ export default function ContextPanel({ projectId, isMobile }: { projectId: strin
               <h2 className="preview-title">{page.title || 'Untitled'}</h2>
               <span className="preview-kind">
                 {KIND_LABEL[page.kind]}
-                {page.is_secret && <><span aria-hidden> · </span><LockIcon size={10} /> Secret</>}
+                {page.is_secret && <><span aria-hidden> · </span><EyeOffGlyph size={10} /> Secret</>}
               </span>
             </div>
           </div>

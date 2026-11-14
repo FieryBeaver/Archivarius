@@ -259,8 +259,13 @@
 }
 
 .tree-secret { flex-shrink: 0; display: grid; place-items: center; font-size: 12px; color: var(--muted); opacity: 0.8; }
-.tree-row.secret .tree-title { opacity: 0.7; }
-.tree-row.secret.selected .tree-title { opacity: 0.85; }
+/* Secret pages read quieter than normal ones: muted text and dimmed icon. */
+.tree-row.secret { color: var(--muted); }
+.tree-row.secret .tree-title { opacity: 0.75; }
+.tree-row.secret .tree-icon { color: var(--muted); opacity: 0.65; }
+.tree-row.secret:hover { color: var(--text-dim); }
+.tree-row.secret:hover .tree-title { opacity: 0.9; }
+.tree-row.secret.selected .tree-title { opacity: 0.9; }
 
 .tree-rename {
   flex: 1;

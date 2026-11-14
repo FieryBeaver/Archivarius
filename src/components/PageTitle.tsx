@@ -7,8 +7,8 @@ import { effectiveRole, usePages } from '../state/pages'
 import Breadcrumbs from './Breadcrumbs'
 import EditAccessControl from './EditAccessControl'
 import IconPicker from './IconPicker'
-import LockIcon from './LockIcon'
 import Popover from './Popover'
+import { EyeGlyph, EyeOffGlyph } from './UiIcons'
 
 /** Breadcrumbs, page icon, big borderless title (persists on blur or Enter), secret + edit-access pills. Key by page id. */
 export default function PageTitle({ page }: { page: Page }) {
@@ -58,12 +58,12 @@ export default function PageTitle({ page }: { page: Page }) {
           <button type="button" className={`page-secret-toggle${page.is_secret ? ' on' : ''}`}
             aria-pressed={page.is_secret} title="Secret — visible to you and owners only"
             onClick={() => attempt({ is_secret: !page.is_secret })}>
-            <LockIcon open={!page.is_secret} />
+            {page.is_secret ? <EyeOffGlyph /> : <EyeGlyph />}
             <span>{page.is_secret ? 'Secret' : 'Visible'}</span>
           </button>
         ) : page.is_secret && (
-          <span className="page-secret-toggle on static" title="DM only — only owners see this page">
-            <LockIcon /><span>Secret</span>
+          <span className="page-secret-toggle on static" title="Secret — hidden from others">
+            <EyeOffGlyph /><span>Secret</span>
           </span>
         )}
       </div>

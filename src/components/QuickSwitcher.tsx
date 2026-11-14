@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { PageIcon } from '../lib/icons'
 import type { Page } from '../lib/types'
 import { pagePath, useVisiblePages } from '../state/pages'
-import LockIcon from './LockIcon'
+import { EyeOffGlyph } from './UiIcons'
 import './QuickSwitcher.css'
 
 const LIMIT = 50
@@ -118,7 +118,7 @@ export default function QuickSwitcher({ onClose }: { onClose: () => void }) {
                   <span className="qs-title">{page.title || 'Untitled'}</span>
                   {path && <span className="qs-path">{path}</span>}
                 </span>
-                {page.is_secret && <LockIcon size={12} className="qs-lock" />}
+                {page.is_secret && <EyeOffGlyph size={12} className="qs-lock" />}
               </li>
             ))}
           </ul>
