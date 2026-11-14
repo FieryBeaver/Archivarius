@@ -13,8 +13,10 @@ interface PagesState {
   error: string | null
   /** Expanded tree nodes, keyed by page id. */
   expanded: Record<string, boolean>
-  /** The signed-in user's role in the loaded project (null = unknown / not a member). */
+  /** The signed-in user's BASE role in the loaded project (null = unknown / not a member). */
   role: Role | null
+  /** v0.7: the user's custom-role label, when one is assigned (display + plugins). */
+  roleName: string | null
   /**
    * Preview role (v0.7): owners/editors can temporarily see the world as a lower
    * role. null = off. Client-side only — it hides what the client knows is
@@ -48,22 +50,25 @@ export const usePages = create<PagesState>((set, get) => ({
   error: null,
   expanded: {},
   role: null,
+  roleName: null,
   viewAs: null,
   hideSecrets: false,
 
   async load(projectId) {
     if (get().projectId !== projectId) {
       set({
-        projectId, pages: [], expanded: {}, role: null, viewAs: null, hideSecrets: false,
+        projectId, pages: [], expanded: {}, role: null, roleName: null, viewAs: null, hideSecrets: false,
         status: 'loading', error: null,
       })
     }
     try {
-      const [pages, role] = await Promise.all([
+      const [pages, membership] = await Promise.all([
         db.listPages(projectId),
-        db.getMyRole(projectId).catch(() => null),
+        db.getMyMembership(projectId).catch(() => ({ role: null, roleName: null })),
       ])
-      if (get().projectId === projectId) set({ pages, role, status: 'ready' })
+      if (get().projectId === projectId) {
+        set({ pages, role: membership.role, roleName: membership.roleName, status: 'ready' })
+      }
     } catch (e) {
       if (get().projectId === projectId) set({ status: 'error', error: (e as Error).message })
     }

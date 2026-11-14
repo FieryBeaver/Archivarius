@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import type {
   AnyProjectExport, Member, MemberWithProfile, Mention, Page, PageKind, PageTab, PageTemplate,
-  Pin, Plugin, PluginExport, Project, ProjectExport, Region, Role, ThemeOverrides, WorldEvent,
+  Pin, Plugin, PluginExport, Project, ProjectExport, ProjectRole, Region, Role, ThemeOverrides, WorldEvent,
 } from './types'
 
 function ok<T>(data: T | null, error: { message: string } | null): T {
@@ -53,11 +53,52 @@ export async function getMyRole(projectId: string): Promise<Role | null> {
   return row?.role ?? null
 }
 
-/** Members with emails (owners first). Empty if the caller is not a member. */
+/** Members with emails and custom-role labels (owners first). Empty if the caller is not a member. */
 export async function listMembers(projectId: string): Promise<MemberWithProfile[]> {
   const { data, error } = await supabase.rpc('project_members', { p: projectId })
-  const rows = ok(data, error) as { user_id: string; role: Role; email: string }[]
-  return rows.map((r) => ({ project_id: projectId, user_id: r.user_id, role: r.role, email: r.email }))
+  const rows = ok(data, error) as {
+    user_id: string; role: Role; email: string
+    custom_role_id: string | null; custom_role_name: string | null
+  }[]
+  return rows.map((r) => ({
+    project_id: projectId, user_id: r.user_id, role: r.role, email: r.email,
+    custom_role_id: r.custom_role_id ?? null, custom_role_name: r.custom_role_name ?? null,
+  }))
+}
+
+// ---------- custom roles (v0.7) ----------
+
+export async function listProjectRoles(projectId: string): Promise<ProjectRole[]> {
+  const { data, error } = await supabase
+    .from('project_roles').select().eq('project_id', projectId).order('name')
+  return ok(data, error)
+}
+
+/** Owner only (RLS). A custom role is a label over a base capability. */
+export async function createProjectRole(projectId: string, name: string, base: Role): Promise<ProjectRole> {
+  const { data, error } = await supabase
+    .from('project_roles').insert({ project_id: projectId, name: name.trim(), base }).select().single()
+  return ok(data, error)
+}
+
+/** Owner only (RLS). Members holding it keep their base role (FK set-null). */
+export async function deleteProjectRole(id: string): Promise<void> {
+  const { error } = await supabase.from('project_roles').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+/** The signed-in user's base role plus their display label (custom name when assigned). */
+export async function getMyMembership(projectId: string): Promise<{ role: Role | null; roleName: string | null }> {
+  const { data: u } = await supabase.auth.getUser()
+  if (!u.user) return { role: null, roleName: null }
+  const { data, error } = await supabase
+    .from('members').select('role,custom_role_id')
+    .eq('project_id', projectId).eq('user_id', u.user.id).maybeSingle()
+  const row = ok(data, error) as { role: Role; custom_role_id: string | null } | null
+  if (!row) return { role: null, roleName: null }
+  if (!row.custom_role_id) return { role: row.role, roleName: null }
+  const { data: r } = await supabase.from('project_roles').select('name').eq('id', row.custom_role_id).maybeSingle()
+  return { role: row.role, roleName: (r as { name: string } | null)?.name ?? null }
 }
 
 /** Owner only (RLS). Throws 'No account with that email' if nobody signed up with it. */
@@ -72,10 +113,16 @@ export async function addMemberByEmail(projectId: string, email: string, role: R
   }
 }
 
-/** Owner only (RLS). */
-export async function updateMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
+/**
+ * Owner only (RLS). With a customRoleId the DB trigger forces `role` to that
+ * custom role's base; without one the base role is set and any label cleared.
+ */
+export async function updateMemberRole(
+  projectId: string, userId: string, role: Role, customRoleId: string | null = null,
+): Promise<void> {
   const { error } = await supabase
-    .from('members').update({ role }).eq('project_id', projectId).eq('user_id', userId)
+    .from('members').update({ role, custom_role_id: customRoleId })
+    .eq('project_id', projectId).eq('user_id', userId)
   if (error) throw new Error(error.message)
 }
 

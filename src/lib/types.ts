@@ -94,7 +94,24 @@ export interface Profile {
   created_at: string
 }
 
-export type MemberWithProfile = Member & { email: string }
+export type MemberWithProfile = Member & {
+  email: string
+  /** v0.7: assigned custom role, if any (role still holds its base capability). */
+  custom_role_id: string | null
+  custom_role_name: string | null
+}
+
+/**
+ * v0.7: a project-defined role label (e.g. "Co-GM") mapped onto a base
+ * capability. Permissions always follow `base`; the name is display + plugins.
+ */
+export interface ProjectRole {
+  id: string
+  project_id: string
+  name: string
+  base: Role
+  created_at: string
+}
 
 // ---------- v0.5 ----------
 

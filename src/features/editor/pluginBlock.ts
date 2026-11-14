@@ -364,9 +364,11 @@ function createPluginView(
       type: 'archivarius:init',
       data: node.attrs.data ?? null,
       canEdit: canEdit(),
-      // v0.7: the viewer's project role ('owner' | 'editor' | 'viewer' | null), so plugins
+      // v0.7: the viewer's BASE project role ('owner' | 'editor' | 'viewer' | null), so plugins
       // can adapt (e.g. a GM-only panel). Follows the preview role while "view as player" is on.
       role: effectiveRole(usePages.getState()),
+      // v0.7: the custom-role label when one is assigned (e.g. "Co-GM"); display only.
+      roleName: usePages.getState().roleName,
       theme: readTheme(dom),
     })
   }

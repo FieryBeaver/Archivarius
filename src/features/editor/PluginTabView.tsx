@@ -76,6 +76,7 @@ export default function PluginTabView({ page, pluginId, data, canEdit, onData }:
             data: dataRef.current ?? null,
             canEdit,
             role: effectiveRole(usePages.getState()),
+            roleName: usePages.getState().roleName,
             theme: hostRef.current ? readTheme(hostRef.current) : {},
           })
           break
