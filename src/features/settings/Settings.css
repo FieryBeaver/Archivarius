@@ -612,3 +612,18 @@
   .wks-icon-btn { width: 44px; height: 44px; min-height: 44px; }
   .wks-link { display: inline-flex; align-items: center; min-height: 44px; }
 }
+
+/* ---------- world cover image (v0.7) ---------- */
+
+.wks-cover-preview {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: var(--s2);
+}
+
+.wks-actions-start { justify-content: flex-start; }

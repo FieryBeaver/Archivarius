@@ -64,9 +64,17 @@ export default function ProjectList() {
       {projects && projects.length > 0 && (
         <div className="projects-grid">
           {projects.map((p) => (
-            <button key={p.id} className="project-card" onClick={() => navigate(`/project/${p.id}`)}>
-              <span className="project-card-name">{p.name}</span>
-              <span className="project-card-date">Created {new Date(p.created_at).toLocaleDateString()}</span>
+            <button key={p.id} className={`project-card${p.cover_path ? ' has-cover' : ''}`}
+              onClick={() => navigate(`/project/${p.id}`)}>
+              {p.cover_path && (
+                <span className="project-card-cover" aria-hidden="true">
+                  <img src={db.mapImageUrl(p.cover_path)} alt="" loading="lazy" />
+                </span>
+              )}
+              <span className="project-card-body">
+                <span className="project-card-name">{p.name}</span>
+                <span className="project-card-date">Created {new Date(p.created_at).toLocaleDateString()}</span>
+              </span>
             </button>
           ))}
         </div>

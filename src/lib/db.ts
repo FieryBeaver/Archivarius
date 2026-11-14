@@ -278,6 +278,31 @@ export function mapImageUrl(path: string): string {
   return supabase.storage.from('maps').getPublicUrl(path).data.publicUrl
 }
 
+// ---------- world cover image (v0.7) ----------
+
+/**
+ * Uploads a world cover image (same bucket, caps and public URL as map
+ * images) and returns its storage path + URL. Does not touch the project row.
+ */
+export async function uploadCoverImage(projectId: string, file: File): Promise<{ path: string; url: string }> {
+  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file')
+  if (file.size > MAP_IMAGE_MAX_BYTES) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1)
+    throw new Error(`That image is ${mb} MB — the limit is ${MAP_IMAGE_MAX_BYTES / (1024 * 1024)} MB. Try a compressed JPEG or WebP.`)
+  }
+  const path = `${projectId}/cover-${crypto.randomUUID()}-${file.name.replace(/[^\w.-]/g, '_')}`
+  const { error } = await supabase.storage.from('maps').upload(path, file)
+  if (error) throw new Error(error.message)
+  return { path, url: mapImageUrl(path) }
+}
+
+/** Owner only (RLS). Sets or clears the world's cover; null = plain card. */
+export async function updateProjectCover(projectId: string, coverPath: string | null): Promise<Project> {
+  const { data, error } = await supabase
+    .from('projects').update({ cover_path: coverPath }).eq('id', projectId).select().single()
+  return ok(data, error)
+}
+
 // ---------- plugins (v0.6) ----------
 
 /** Max size of a plugin's HTML source (also enforced by the `plugins` bucket). */

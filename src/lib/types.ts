@@ -8,6 +8,8 @@ export interface Project {
   created_at: string
   /** v0.5: per-project theme overrides (CSS color strings); null = default theme */
   theme: ThemeOverrides | null
+  /** v0.7: cover image for the worlds list (path in the maps bucket); null = plain card */
+  cover_path: string | null
 }
 
 export interface Member {

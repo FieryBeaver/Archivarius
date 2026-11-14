@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as db from '../../lib/db'
 import { supabase } from '../../lib/supabase'
@@ -85,12 +85,88 @@ export function GeneralTab({ ctx }: { ctx: SettingsContext }) {
         {renameError && <p className="wks-error" role="alert">{renameError}</p>}
       </div>
 
+      <CoverImage ctx={ctx} isOwner={isOwner} />
+
       {!roleLoading && role && (
         <div className="wks-danger-zone">
           <div className="wks-label wks-label-danger">Danger zone</div>
           {isOwner ? <DeleteWorld ctx={ctx} /> : <LeaveWorld ctx={ctx} />}
         </div>
       )}
+    </div>
+  )
+}
+
+/** v0.7: cover image shown on the world's card in "Your worlds". Owner only. */
+function CoverImage({ ctx, isOwner }: { ctx: SettingsContext; isOwner: boolean }) {
+  const { project, setBusy } = ctx
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [coverPath, setCoverPath] = useState<string | null>(project.cover_path ?? null)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const pick = async (file: File | undefined) => {
+    if (fileRef.current) fileRef.current.value = ''
+    if (!file || pending) return
+    setPending(true)
+    setBusy(true)
+    setError(null)
+    try {
+      const { path } = await db.uploadCoverImage(project.id, file)
+      await db.updateProjectCover(project.id, path)
+      setCoverPath(path)
+    } catch (e) {
+      setError((e as Error).message || 'Could not set the cover image.')
+    } finally {
+      setPending(false)
+      setBusy(false)
+    }
+  }
+
+  const remove = async () => {
+    if (pending) return
+    setPending(true)
+    setBusy(true)
+    setError(null)
+    try {
+      await db.updateProjectCover(project.id, null)
+      setCoverPath(null)
+    } catch (e) {
+      setError((e as Error).message || 'Could not remove the cover image.')
+    } finally {
+      setPending(false)
+      setBusy(false)
+    }
+  }
+
+  if (!isOwner && !coverPath) return null
+
+  return (
+    <div className="wks-field">
+      <div className="wks-label">Cover image</div>
+      {coverPath && (
+        <img className="wks-cover-preview" src={db.mapImageUrl(coverPath)} alt="World cover" />
+      )}
+      {isOwner ? (
+        <>
+          <input ref={fileRef} className="wks-file-input" tabIndex={-1} aria-hidden="true" type="file"
+            accept="image/*" disabled={pending} onChange={(e) => { void pick(e.target.files?.[0]) }} />
+          <div className="wks-actions wks-actions-start">
+            <button type="button" className="wks-btn" disabled={pending} onClick={() => fileRef.current?.click()}>
+              {pending ? 'Working…' : coverPath ? 'Replace image…' : 'Choose image…'}
+            </button>
+            {coverPath && (
+              <button type="button" className="btn-ghost wks-btn" disabled={pending} onClick={() => { void remove() }}>
+                Remove
+              </button>
+            )}
+          </div>
+          <div className="wks-hint">Shown on this world's card in "Your worlds". Up to 10 MB; wide images look best.</div>
+        </>
+      ) : (
+        <div className="wks-hint">Only owners can change the cover.</div>
+      )}
+      {error && <p className="wks-error" role="alert">{error}</p>}
     </div>
   )
 }
