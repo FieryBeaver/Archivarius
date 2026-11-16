@@ -67,6 +67,39 @@
   .list { display: grid; gap: 4px; }
   .row { display: flex; gap: 6px; align-items: center; }
   .row .del { padding: 0 8px; }
+
+  /* experiences */
+  .exp-row input { flex: 1; min-width: 0; }
+  .exp-row input:disabled { border-color: transparent; background: transparent; padding-left: 2px; opacity: 1; }
+  .exp-bonus { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  .exp-bonus .val { min-width: 30px; text-align: center; font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums;
+    color: var(--accent, #d4a953); background: color-mix(in srgb, var(--accent, #d4a953) 12%, transparent);
+    border-radius: 999px; padding: 0 6px; line-height: 1.6; }
+  .exp-bonus .val.neg { color: var(--muted, #9a958a); background: color-mix(in srgb, var(--muted, #9a958a) 12%, transparent); }
+  .step { padding: 0 6px; font-size: 12px; line-height: 1.4; }
+  .readonly .step { display: none; }
+
+  /* weapons */
+  .wpn { display: grid; gap: 3px; background: var(--panel-2, #23262e); border-radius: 8px; padding: 6px 8px 7px 10px;
+    border-left: 2px solid var(--wc, var(--accent, #d4a953)); }
+  .wpn.secondary { --wc: color-mix(in srgb, var(--accent, #d4a953) 45%, var(--muted, #9a958a)); }
+  .wpn-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .wpn-name { font-weight: 700; overflow-wrap: anywhere; }
+  .wpn-name.untitled { color: var(--muted, #9a958a); font-style: italic; font-weight: 400; }
+  .wpn-slot { flex-shrink: 0; font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; padding: 0 6px;
+    line-height: 1.7; border-radius: 999px; color: var(--wc, var(--accent, #d4a953));
+    background: color-mix(in srgb, var(--wc, var(--accent, #d4a953)) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--wc, var(--accent, #d4a953)) 35%, transparent); }
+  .wpn-head .card-tools { margin-left: auto; }
+  .wpn-meta { font-size: 11.5px; color: var(--muted, #9a958a); }
+  .wpn-feat { font-size: 11.5px; color: color-mix(in srgb, var(--text, #e7e4dc) 80%, var(--muted, #9a958a)); white-space: pre-line; }
+  .wpn-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .wpn-edit .full { grid-column: 1 / -1; }
+  .seg { display: inline-flex; flex-shrink: 0; }
+  .seg button { font-size: 10px; padding: 1px 8px; border-radius: 0; color: var(--muted, #9a958a); }
+  .seg button:first-child { border-radius: 999px 0 0 999px; }
+  .seg button:last-child { border-radius: 0 999px 999px 0; border-left: none; }
+  .seg button.on { color: var(--accent, #d4a953); background: color-mix(in srgb, var(--accent, #d4a953) 16%, transparent); border-color: var(--accent, #d4a953); }
   .add { display: flex; gap: 6px; margin-top: 4px; }
   .readonly .add, .readonly .del, .readonly .maxer, .readonly .browse-bar, .readonly .vault-btn,
   .readonly .edit-btn, .readonly .apply, .readonly .apply-row { display: none; }
@@ -256,12 +289,12 @@
     <section>
       <h3>Experiences <small style="text-transform:none;letter-spacing:0">(two at creation, +2 each)</small></h3>
       <div class="list" id="exp"></div>
-      <div class="add"><input id="newExp" placeholder="Add an experience…"><button id="addExp">Add</button></div>
+      <div class="add"><input id="newExp" placeholder="Add an experience (starts at +2)…"><button id="addExp">Add</button></div>
     </section>
     <section>
       <h3>Weapons &amp; armor</h3>
       <div class="list" id="weapons"></div>
-      <div class="add"><input id="newWeapon" placeholder="Name · trait · range · damage"><button id="addWeapon">Add</button></div>
+      <div class="add"><input id="newWeapon" placeholder="Weapon name (or Name · trait · range · damage)"><button id="addWeapon">Add</button></div>
     </section>
   </div>
 
@@ -376,21 +409,138 @@
     holder.append(minus, plus)
   }
 
-  // ---- generic string lists (experiences, weapons) ----
-  function rowList(holder, items, update, remove) {
+  // ---- experiences: {text, bonus} ----
+  const EXP_DEFAULT_BONUS = 2
+  /** Strings (v1/v2 data) become {text, bonus: 2}; a trailing "+N" is lifted into the bonus. */
+  function normExp(e) {
+    if (e && typeof e === 'object') {
+      const b = Math.round(Number(e.bonus))
+      return { text: String(e.text ?? ''), bonus: Number.isFinite(b) ? clamp(b, -9, 20) : EXP_DEFAULT_BONUS }
+    }
+    const str = String(e ?? '')
+    const m = str.match(/^(.*?)\s*\+\s*(\d{1,2})\s*$/)
+    return m && m[1].trim() ? { text: m[1].trim(), bonus: Number(m[2]) } : { text: str, bonus: EXP_DEFAULT_BONUS }
+  }
+  const fmtBonus = (n) => (n < 0 ? '−' + Math.abs(n) : '+' + n)
+  function expList() {
+    const holder = $('exp')
     holder.innerHTML = ''
-    items.forEach((item, i) => {
+    state.experiences.forEach((x, i) => {
       const row = document.createElement('div')
-      row.className = 'row'
+      row.className = 'row exp-row'
       const input = document.createElement('input')
-      input.value = item
-      input.disabled = !canEdit
-      input.addEventListener('input', () => { update(i, input.value); save() })
-      const del = document.createElement('button')
-      del.type = 'button'; del.className = 'del'; del.textContent = '×'
-      del.addEventListener('click', () => { remove(i); render(); save() })
-      row.append(input, del)
+      input.value = x.text
+      input.placeholder = 'Experience'
+      input.addEventListener('input', () => { x.text = input.value; save() })
+      const bonus = document.createElement('span')
+      bonus.className = 'exp-bonus'
+      const val = document.createElement('span')
+      val.className = 'val' + (x.bonus < 0 ? ' neg' : '')
+      val.textContent = fmtBonus(x.bonus)
+      val.title = 'Experience bonus'
+      const step = (d) => smallButton('step', d < 0 ? '−' : '+', d < 0 ? 'Lower bonus' : 'Raise bonus', () => {
+        if (!canEdit) return
+        x.bonus = clamp(x.bonus + d, -9, 20); render(); save()
+      })
+      bonus.append(step(-1), val, step(1))
+      const del = smallButton('del', '×', 'Remove experience', () => { state.experiences.splice(i, 1); render(); save() })
+      row.append(input, bonus, del)
       holder.appendChild(row)
+    })
+  }
+
+  // ---- weapons: {name, slot, trait, range, damage, feature} ----
+  const RANGES = ['Melee', 'Very Close', 'Close', 'Far', 'Very Far']
+  const findIn = (list, v) => list.find((x) => x.toLowerCase() === String(v || '').trim().toLowerCase()) || ''
+  const nextSlot = (list) => (list.some((w) => w.slot === 'primary') ? 'secondary' : 'primary')
+  /** Best-effort parse of a legacy "Name · trait · range · damage" string; no text is ever dropped. */
+  function parseWeapon(str) {
+    const parts = String(str).split('·').map((p) => p.trim()).filter(Boolean)
+    const w = { name: parts.shift() || String(str).trim(), slot: 'primary', trait: '', range: '', damage: '', feature: '' }
+    const rest = []
+    for (const p of parts) {
+      if (!w.trait && findIn(TRAITS, p)) w.trait = findIn(TRAITS, p)
+      else if (!w.range && findIn(RANGES, p)) w.range = findIn(RANGES, p)
+      else rest.push(p)
+    }
+    w.damage = rest.join(' · ')
+    return w
+  }
+  function normWeapons(list) {
+    const out = []
+    for (const w of Array.isArray(list) ? list : []) {
+      if (w == null) continue
+      if (typeof w !== 'object') { out.push({ ...parseWeapon(w), slot: nextSlot(out) }); continue }
+      out.push({ name: String(w.name ?? ''), slot: w.slot === 'secondary' ? 'secondary' : 'primary',
+        trait: findIn(TRAITS, w.trait), range: findIn(RANGES, w.range), damage: String(w.damage ?? ''), feature: String(w.feature ?? '') })
+    }
+    return out
+  }
+  let editingWeapons = new WeakSet() // transient, not persisted
+  function selectOf(options, value, emptyLabel, onChange) {
+    const sel = document.createElement('select')
+    for (const v of ['', ...options]) {
+      const o = document.createElement('option'); o.value = v; o.textContent = v || emptyLabel; sel.append(o)
+    }
+    sel.value = value || ''
+    sel.addEventListener('change', () => onChange(sel.value))
+    return sel
+  }
+  function weaponList() {
+    const holder = $('weapons')
+    holder.innerHTML = ''
+    state.weapons.forEach((w, i) => {
+      const box = document.createElement('div')
+      box.className = 'wpn ' + w.slot
+      const head = document.createElement('div'); head.className = 'wpn-head'
+      const tools = document.createElement('div'); tools.className = 'card-tools'
+      if (canEdit && editingWeapons.has(w)) {
+        const name = document.createElement('input')
+        name.value = w.name; name.placeholder = 'Weapon name'
+        name.addEventListener('input', () => { w.name = name.value; save() })
+        name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { editingWeapons.delete(w); render() } })
+        const seg = document.createElement('span'); seg.className = 'seg'
+        for (const slot of ['primary', 'secondary']) {
+          seg.append(smallButton(w.slot === slot ? 'on' : '', slot === 'primary' ? 'Primary' : 'Secondary', 'Weapon slot',
+            () => { w.slot = slot; render(); save() }))
+        }
+        tools.append(iconButton('ok', ICON_DONE, 'Done editing', () => { editingWeapons.delete(w); render() }),
+          iconButton('del', '×', 'Remove weapon', () => { editingWeapons.delete(w); state.weapons.splice(i, 1); render(); save() }))
+        head.append(name, seg, tools)
+        const grid = document.createElement('div'); grid.className = 'wpn-edit'
+        const text = (key, ph, cls) => {
+          const el = document.createElement('input')
+          el.value = w[key]; el.placeholder = ph; if (cls) el.className = cls
+          el.addEventListener('input', () => { w[key] = el.value; save() })
+          return el
+        }
+        grid.append(
+          selectOf(TRAITS, w.trait, 'Trait…', (v) => { w.trait = v; save() }),
+          selectOf(RANGES, w.range, 'Range…', (v) => { w.range = v; save() }),
+          text('damage', 'Damage, e.g. d8+2 phy', 'full'),
+          text('feature', 'Feature (optional)', 'full'))
+        box.append(head, grid)
+        holder.appendChild(box)
+        return
+      }
+      const name = document.createElement('span')
+      name.className = 'wpn-name' + (w.name.trim() ? '' : ' untitled')
+      name.textContent = w.name.trim() || 'Unnamed weapon'
+      const slot = document.createElement('span'); slot.className = 'wpn-slot'
+      slot.textContent = w.slot === 'secondary' ? 'Secondary' : 'Primary'
+      if (canEdit) {
+        tools.append(iconButton('edit-btn', ICON_EDIT, 'Edit weapon', () => {
+          editingWeapons.add(w); render()
+          const first = $('weapons').children[i] && $('weapons').children[i].querySelector('input')
+          if (first) first.focus()
+        }))
+      }
+      head.append(name, slot, tools)
+      box.append(head)
+      const meta = [w.trait, w.range, w.damage.trim()].filter(Boolean).join(' · ')
+      if (meta) { const m = document.createElement('div'); m.className = 'wpn-meta'; m.textContent = meta; box.append(m) }
+      if (w.feature.trim()) { const f = document.createElement('div'); f.className = 'wpn-feat'; f.textContent = w.feature.trim(); box.append(f) }
+      holder.appendChild(box)
     })
   }
   function adder(inputId, btnId, push) {
@@ -404,8 +554,8 @@
     $(btnId).addEventListener('click', commit)
     $(inputId).addEventListener('keydown', (e) => { if (e.key === 'Enter') commit() })
   }
-  adder('newExp', 'addExp', (t) => state.experiences.push(t))
-  adder('newWeapon', 'addWeapon', (t) => state.weapons.push(t))
+  adder('newExp', 'addExp', (t) => state.experiences.push(normExp(t)))
+  adder('newWeapon', 'addWeapon', (t) => state.weapons.push({ ...parseWeapon(t), slot: nextSlot(state.weapons) }))
   adder('newCard', 'addCard', (t) => state.cards.push({ name: t, domain: '', level: 0, type: 'Custom', recall: 0, text: '', vault: false }))
   // "+ Add card" expands one panel holding both the SRD picker and the custom-card input
   // (transient UI, not persisted). It stays open while adding several; Done/Esc/+ Add card closes it.
@@ -1047,8 +1197,8 @@
     maxer($('stressMaxer'), () => state.stressMax, (n) => { state.stressMax = n; state.stress = Math.min(state.stress, n) }, STRESS_CAP)
     maxer($('armorMaxer'), () => state.armorMax, (n) => { state.armorMax = n; state.armorUsed = Math.min(state.armorUsed, n) }, 12)
     // lists
-    rowList($('exp'), state.experiences, (i, v) => { state.experiences[i] = v }, (i) => state.experiences.splice(i, 1))
-    rowList($('weapons'), state.weapons, (i, v) => { state.weapons[i] = v }, (i) => state.weapons.splice(i, 1))
+    expList()
+    weaponList()
     cardList()
     renderPicker()
     renderRest()
@@ -1074,6 +1224,8 @@
   function migrate(d) {
     if (!d || typeof d !== 'object') return DEFAULTS()
     const base = { ...DEFAULTS(), ...d, traits: { ...DEFAULTS().traits, ...d.traits } }
+    base.experiences = (Array.isArray(d.experiences) ? d.experiences : []).filter((e) => e != null).map(normExp)
+    base.weapons = normWeapons(d.weapons)
     base.cards = (Array.isArray(d.cards) ? d.cards : []).map((c) => {
       if (c && typeof c === 'object' && 'type' in c) {
         return { name: String(c.name || ''), domain: String(c.domain || ''), level: Number(c.level) || 0,
