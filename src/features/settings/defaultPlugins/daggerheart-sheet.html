@@ -74,6 +74,14 @@
 
   /* domain cards */
   .cards { position: relative; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); align-items: start; margin-top: 6px; }
+  /* resize handle (editable, display-mode cards only) */
+  .rs-handle { position: absolute; right: 1px; bottom: 1px; width: 16px; height: 16px; padding: 0; border: none;
+    background: transparent; color: var(--muted, #9a958a); opacity: .5; cursor: nwse-resize; touch-action: none; z-index: 1; }
+  .rs-handle:hover, .card-item.resizing .rs-handle { color: var(--accent, #d4a953); opacity: 1; }
+  .readonly .rs-handle { display: none; }
+  .card-item.has-rs .card-tracker { padding-right: 22px; }
+  .card-item.resizing { transition: none; outline: 1.5px dashed color-mix(in srgb, var(--dc) 70%, transparent); outline-offset: 2px; }
+  .card-item.resizing:hover { transform: none; }
   /* drag-to-reorder (editable, display-mode cards only) */
   .sheet:not(.readonly) .card-item:not(.editing) .card-band { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
   .cards.sorting .card-item { transition: transform .22s cubic-bezier(.2, .8, .2, 1); }
@@ -85,7 +93,7 @@
     transition: box-shadow .2s ease; will-change: transform;
     box-shadow: 0 18px 38px -12px rgba(0, 0, 0, .65), 0 0 0 1px color-mix(in srgb, var(--dc) 60%, transparent); }
   .card-item.drag-float.settle { transition: transform .18s cubic-bezier(.2, .8, .2, 1), box-shadow .18s ease; box-shadow: none; }
-  .card-item { --dc: var(--accent, #d4a953); position: relative; display: grid; background: var(--panel-2, #23262e);
+  .card-item { --dc: var(--accent, #d4a953); position: relative; display: grid; grid-template-rows: auto 1fr auto; background: var(--panel-2, #23262e);
     border: 1px solid color-mix(in srgb, var(--dc) 28%, var(--border, #2e323b)); border-top: 3px solid var(--dc);
     border-radius: 10px; overflow: hidden; transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease; }
   .card-item:not(.editing):hover { transform: translateY(-2px);
@@ -425,6 +433,15 @@
   const DOMAIN_COLORS = { Arcana: '#a269d3', Blade: '#d65156', Bone: '#bbad95', Codex: '#5c95d6', Grace: '#d671ac',
     Midnight: '#7578c7', Sage: '#54b661', Splendor: '#e7c040', Valor: '#e67737' }
   const TRACKER_CAP = 99
+  const SIZE_MIN_H = 60, SIZE_MAX_H = 800
+  /** Persisted shape: {span: 1|2, h: px|null}; omitted entirely when it is the default (1 column, natural height). */
+  function normSize(z) {
+    if (!z || typeof z !== 'object') return undefined
+    const span = Number(z.span) === 2 ? 2 : 1
+    const hn = Math.round(Number(z.h))
+    const h = Number.isFinite(hn) && hn >= SIZE_MIN_H ? Math.min(SIZE_MAX_H, hn) : null
+    return span === 1 && !h ? undefined : { span, h }
+  }
   const PIP_LIMIT = 12 // trackers with a max up to this draw as pips, larger ones as a number
   const isColor = (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
   /** Persisted shape: {count, max, label?} with max null for "no max" and label omitted for the
@@ -526,6 +543,12 @@
       body.textContent = card.text.trim() || 'No card text.'
       item.append(band, body)
       if (normTracker(card.tracker)) item.append(trackerRow(card))
+      const size = normSize(card.size)
+      if (size) {
+        if (size.span === 2) item.style.gridColumn = '1 / -1'
+        if (size.h) item.style.minHeight = size.h + 'px' // never below the content's natural height
+      }
+      if (canEdit) { item.classList.add('has-rs'); item.append(resizeHandle(card, item)) }
       holder.appendChild(item)
     })
   }
@@ -616,6 +639,71 @@
   sortHolder.addEventListener('pointerup', (e) => { if (drag && e.pointerId === drag.id) endDrag(true) })
   sortHolder.addEventListener('pointercancel', (e) => { if (drag && e.pointerId === drag.id) endDrag(false) })
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drag && drag.active) endDrag(false) })
+
+  // ---- resize: width snaps to 1 column / full row, height is free (never below content) ----
+  const ICON_GRIP = '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M13 6.5L6.5 13M13 10l-3 3"/></svg>'
+  let resizing = null
+  function resizeHandle(card, item) {
+    const h = document.createElement('button')
+    h.type = 'button'; h.className = 'rs-handle'; h.innerHTML = ICON_GRIP
+    h.title = 'Drag to resize · double-click to reset'
+    h.setAttribute('aria-label', 'Resize card')
+    h.addEventListener('pointerdown', (e) => {
+      if (!canEdit || e.button !== 0 || drag || resizing) return
+      e.preventDefault(); e.stopPropagation()
+      try { h.setPointerCapture(e.pointerId) } catch { /* pointer already gone */ }
+      const cs = getComputedStyle(sortHolder)
+      const cols = cs.gridTemplateColumns.split(' ').filter(Boolean).length
+      const gap = parseFloat(cs.columnGap) || 0
+      const r = item.getBoundingClientRect()
+      const prevMin = item.style.minHeight
+      item.style.minHeight = ''
+      const natural = item.offsetHeight // content height with no stored size
+      item.style.minHeight = prevMin
+      const size = normSize(card.size)
+      resizing = { id: e.pointerId, card, item, x0: e.clientX, y0: e.clientY, w0: r.width, h0: r.height, natural, cols,
+        colW: (sortHolder.clientWidth - gap * (cols - 1)) / cols, span: size ? size.span : 1, h: r.height }
+      item.classList.add('resizing')
+    })
+    h.addEventListener('pointermove', (e) => {
+      const z = resizing
+      if (!z || e.pointerId !== z.id || z.item !== item) return
+      z.moved = true
+      const w = z.w0 + e.clientX - z.x0
+      // snap width: past halfway between one column and the full row counts as full row (2-up and wider only)
+      if (z.cols > 1) z.span = w > z.colW + (sortHolder.clientWidth - z.colW) / 2 ? 2 : 1
+      item.style.gridColumn = z.span === 2 ? '1 / -1' : ''
+      z.h = clamp(z.h0 + e.clientY - z.y0, Math.max(SIZE_MIN_H, z.natural), SIZE_MAX_H)
+      item.style.minHeight = z.h + 'px'
+    })
+    const finish = (commit) => (e) => {
+      const z = resizing
+      if (!z || e.pointerId !== z.id || z.item !== item) return
+      resizing = null
+      // a plain click (e.g. half of a double-click) leaves the DOM alone so dblclick still lands
+      if (!z.moved) { item.classList.remove('resizing'); return }
+      if (commit) {
+        const h = Math.round(z.h) > z.natural + 2 ? Math.round(z.h) : null
+        const next = normSize({ span: z.span, h })
+        if (next) card.size = next; else delete card.size
+        save()
+      }
+      render()
+    }
+    h.addEventListener('pointerup', finish(true))
+    h.addEventListener('pointercancel', finish(false))
+    h.addEventListener('dblclick', (e) => {
+      e.stopPropagation()
+      if (!canEdit || !card.size) return
+      delete card.size; render(); save()
+    })
+    return h
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !resizing) return
+    resizing = null
+    render() // drops the live preview and restores the stored size
+  })
 
   // ---- per-card token tracker & custom-card styling ----
   function smallButton(cls, text, title, onClick) {
@@ -990,7 +1078,8 @@
       if (c && typeof c === 'object' && 'type' in c) {
         return { name: String(c.name || ''), domain: String(c.domain || ''), level: Number(c.level) || 0,
           type: String(c.type || 'Custom'), recall: Number(c.recall) || 0, text: String(c.text || ''), vault: c.vault === true,
-          ...(isColor(c.color) ? { color: c.color } : {}), ...(normTracker(c.tracker) ? { tracker: normTracker(c.tracker) } : {}) }
+          ...(isColor(c.color) ? { color: c.color } : {}), ...(normTracker(c.tracker) ? { tracker: normTracker(c.tracker) } : {}),
+          ...(normSize(c.size) ? { size: normSize(c.size) } : {}) }
       }
       if (c && typeof c === 'object') {
         return { name: String(c.name || ''), domain: '', level: 0, type: 'Custom', recall: 0, text: String(c.desc || ''), vault: false }

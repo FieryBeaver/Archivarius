@@ -419,7 +419,9 @@ function createPluginView(
   async function resolve() {
     const pluginId = node.attrs.pluginId as string
     const projectId = optProjectId || usePages.getState().projectId
-    if (!pluginId || !projectId) return showMissing(projectId)
+    // No world to look in is a load failure, not a removed plugin.
+    if (!projectId) return showStatus('Couldn’t load plugin: no world is open.', true)
+    if (!pluginId) return showMissing(projectId)
     try {
       let plugin = (await loadPlugins(projectId)).find((p) => p.id === pluginId)
       // Cache may predate an upload made in another tab/dialog.
