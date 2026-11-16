@@ -9,6 +9,7 @@ import { Callout, secretBlock } from './blocks'
 import { BLOCK_ICONS } from './blockIcons'
 import { roleAllows, type Visibility } from '../../lib/visibility'
 import { pageMention } from './mentionExtension'
+import { ImageBlock, clickBelowLastBlock, imageDropHandler, imagePasteHandler } from './imageBlock'
 import { MoveBlock } from './moveBlock'
 import { PluginBlock } from './pluginBlock'
 import { PluginPicker } from './PluginPicker'
@@ -263,8 +264,18 @@ function TabDoc({ page, canEdit, secretsVisible, status, initialContent, onChang
       Callout,
       secretBlock(secretsVisible),
       PluginBlock.configure({ projectId: page.project_id, canEdit }),
+      ImageBlock.configure({ projectId: page.project_id, canEdit }),
       ...(canEdit ? [SlashCommand, MoveBlock] : []),
     ],
+    // Pasted / dropped image files upload to the world's library and become image blocks.
+    editorProps: canEdit
+      ? {
+          handlePaste: imagePasteHandler(page.project_id),
+          handleDrop: imageDropHandler(page.project_id),
+          // Clicking under a trailing image/plugin block opens a paragraph after it.
+          handleDOMEvents: { mousedown: clickBelowLastBlock },
+        }
+      : {},
     content: (initialContent as JSONContent | null) ?? '',
   }))
   const editor = useEditor({

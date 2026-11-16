@@ -344,6 +344,77 @@ export function mapImageUrl(path: string): string {
   return supabase.storage.from('maps').getPublicUrl(path).data.publicUrl
 }
 
+// ---------- document images (v0.9) ----------
+
+/** Same cap as map images (the `maps` bucket enforces it server-side too). */
+export const DOC_IMAGE_MAX_BYTES = MAP_IMAGE_MAX_BYTES
+
+/** Why `file` can't be a document image, or null when it can. */
+export function docImageProblem(file: File): string | null {
+  if (!file.type.startsWith('image/')) return `“${file.name || 'That file'}” isn’t an image.`
+  if (file.size > DOC_IMAGE_MAX_BYTES) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1)
+    return `That image is ${mb} MB — the limit is ${DOC_IMAGE_MAX_BYTES / (1024 * 1024)} MB. Try a compressed JPEG or WebP.`
+  }
+  return null
+}
+
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp',
+  'image/svg+xml': 'svg', 'image/avif': 'avif', 'image/bmp': 'bmp',
+}
+
+function imageExtension(file: File): string {
+  const known = IMAGE_EXTENSIONS[file.type]
+  if (known) return known
+  const fromName = /\.([a-z0-9]{1,5})$/i.exec(file.name)?.[1]
+  return fromName ? fromName.toLowerCase() : 'img'
+}
+
+/**
+ * Uploads a document image to the public `maps` bucket under
+ * `<projectId>/images/<uuid>.<ext>` and returns its storage path + public URL.
+ */
+export async function uploadDocImage(projectId: string, file: File): Promise<{ path: string; url: string }> {
+  const problem = docImageProblem(file)
+  if (problem) throw new Error(problem)
+  const path = `${projectId}/images/${crypto.randomUUID()}.${imageExtension(file)}`
+  // Public URLs are browser-cached for an hour: a deleted image can keep showing until then.
+  const { error } = await supabase.storage.from('maps').upload(path, file, { contentType: file.type, cacheControl: '3600' })
+  if (error) throw new Error(error.message)
+  return { path, url: docImageUrl(path) }
+}
+
+/** Public URL of a document image path (same bucket as map images). */
+export function docImageUrl(path: string): string {
+  return mapImageUrl(path)
+}
+
+export interface DocImage { path: string; url: string; name: string; created_at: string }
+
+/** The project's uploaded document images, newest first. */
+export async function listProjectImages(projectId: string): Promise<DocImage[]> {
+  const folder = `${projectId}/images`
+  const { data, error } = await supabase.storage.from('maps').list(folder, {
+    limit: 1000,
+    sortBy: { column: 'created_at', order: 'desc' },
+  })
+  if (error) throw new Error(error.message)
+  return (data ?? [])
+    // Sub-folders come back with a null id; the placeholder object marks an empty folder.
+    .filter((f) => f.id && f.name !== '.emptyFolderPlaceholder')
+    .map((f) => {
+      const path = `${folder}/${f.name}`
+      return { path, url: docImageUrl(path), name: f.name, created_at: f.created_at ?? '' }
+    })
+}
+
+/** Removes an image from storage. Documents that use it keep the node (it renders as missing). */
+export async function deleteProjectImage(path: string): Promise<void> {
+  const { error } = await supabase.storage.from('maps').remove([path])
+  if (error) throw new Error(error.message)
+}
+
 // ---------- world cover image (v0.7) ----------
 
 /**

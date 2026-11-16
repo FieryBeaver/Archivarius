@@ -145,3 +145,31 @@ Fixed: `src/lib/**`, `src/index.css`, `supabase/migrations/**`, `package.json`, 
 - Ownership: foundation-2 = migration + storage policies + lib (types/db) +
   PLUGINS.md; C2 = `src/features/editor/**` (node, iframe host, slash
   picker); B2 = `src/features/settings/**` (Plugins tab with upload).
+
+## v0.9 contracts — document images
+
+- Storage: the existing PUBLIC `maps` bucket (10 MB cap, `image/*` only, enforced
+  server-side), path `<project_id>/images/<uuid>.<ext>`. No schema change; the
+  library is simply the listing of that folder.
+- db.ts: `DOC_IMAGE_MAX_BYTES` (= `MAP_IMAGE_MAX_BYTES`), `docImageProblem(file): string | null`
+  (client-side image/* + size check), `uploadDocImage(projectId, file): Promise<{ path, url }>`,
+  `docImageUrl(path): string` (public URL), `listProjectImages(projectId): Promise<DocImage[]>`
+  where `DocImage = { path, url, name, created_at }` (newest first), `deleteProjectImage(path)`.
+- TipTap node `imageBlock`: atom block, attrs
+  `{ path: string, width: number /* % of column, 10–100, default 100 */, align: 'left' | 'center' | 'right' /* default 'center' */, caption: string /* default '' */ }`,
+  serialized `{ type: 'imageBlock', attrs: { path, width, align, caption } }`. The node
+  stores the storage path, never a URL; display width is capped at the image's natural
+  pixel width. Click opens a lightbox (also read-only).
+- Inserting: slash "Image…" (library picker: upload / pick / owner-delete), paste of
+  clipboard image files, drag-drop of image files (editorProps in DocEditor).
+- Deleting an image from the library does not touch documents: blocks that use it
+  render a "missing image" state. Library delete is owner-only in the UI.
+  Uploads set `cacheControl: '3600'`, so browsers that already loaded a deleted image
+  may keep showing it for up to an hour (accepted; the confirm text says so).
+- Storage policies (migration `20261116120000_maps_select.sql`): `maps` objects are
+  listable by project members (select), writable/deletable by owners + editors, scoped
+  by the first path segment via `plugin_object_project(name)`. Every `maps` path must
+  therefore start with `<project_id>/`. Public URLs still serve without auth.
+- Export/import: documents reference images by storage path → public URL; files are
+  NOT inlined in exports (same as maps and covers). An imported world keeps pointing
+  at the source world's image paths.

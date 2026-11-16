@@ -4,6 +4,7 @@ import { usePages, visibilityRole } from '../../state/pages'
 import type { BlockIconName } from './blockIcons'
 import { CALLOUT_LABELS, CALLOUT_VARIANTS, currentUserId } from './blocks'
 import { clampToViewport } from './mentionExtension'
+import { openImageLibrary } from './ImageLibrary'
 import { openPluginPicker } from './PluginPicker'
 import SlashList, { type SlashListHandle, type SlashListProps } from './SlashList'
 
@@ -62,6 +63,13 @@ const SLASH_ITEMS: SlashItem[] = [
     run: (e, r) => {
       e.chain().focus().deleteRange(r).run()
       openPluginPicker(e, e.state.selection.from)
+    },
+  },
+  {
+    id: 'image', title: 'Image…', keywords: 'image picture photo upload illustration art library', glyph: { icon: 'image' },
+    run: (e, r) => {
+      e.chain().focus().deleteRange(r).run()
+      openImageLibrary(e, e.state.selection.from)
     },
   },
 ]
