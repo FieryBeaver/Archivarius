@@ -68,19 +68,112 @@
   .row { display: flex; gap: 6px; align-items: center; }
   .row .del { padding: 0 8px; }
   .add { display: flex; gap: 6px; margin-top: 4px; }
-  .readonly .add, .readonly .del, .readonly .maxer, .readonly .browse-bar, .readonly .vault-btn { display: none; }
+  .readonly .add, .readonly .del, .readonly .maxer, .readonly .browse-bar, .readonly .vault-btn,
+  .readonly .edit-btn, .readonly .apply, .readonly .apply-row { display: none; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
   /* domain cards */
-  .cards { display: grid; gap: 8px; }
-  .card-item { display: grid; gap: 4px; background: var(--panel-2, #23262e); border-radius: 8px; padding: 8px; }
-  .card-item.vaulted { opacity: .55; }
-  .card-head { display: flex; gap: 6px; align-items: center; }
-  .card-head input { font-weight: 600; }
-  .card-meta { flex-shrink: 0; font-size: 10.5px; color: var(--muted, #9a958a); white-space: nowrap; }
-  .vault-btn { flex-shrink: 0; font-size: 10.5px; padding: 1px 8px; }
+  .cards { position: relative; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); align-items: start; margin-top: 6px; }
+  /* drag-to-reorder (editable, display-mode cards only) */
+  .sheet:not(.readonly) .card-item:not(.editing) .card-band { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .cards.sorting .card-item { transition: transform .22s cubic-bezier(.2, .8, .2, 1); }
+  .cards.sorting .card-item:hover { box-shadow: none; }
+  .card-item.drag-slot { opacity: 1; filter: none; background: transparent; box-shadow: none;
+    border: 1.5px dashed color-mix(in srgb, var(--dc) 60%, transparent); }
+  .card-item.drag-slot > * { visibility: hidden; }
+  .card-item.drag-float { position: fixed; z-index: 50; margin: 0; pointer-events: none; cursor: grabbing;
+    transition: box-shadow .2s ease; will-change: transform;
+    box-shadow: 0 18px 38px -12px rgba(0, 0, 0, .65), 0 0 0 1px color-mix(in srgb, var(--dc) 60%, transparent); }
+  .card-item.drag-float.settle { transition: transform .18s cubic-bezier(.2, .8, .2, 1), box-shadow .18s ease; box-shadow: none; }
+  .card-item { --dc: var(--accent, #d4a953); position: relative; display: grid; background: var(--panel-2, #23262e);
+    border: 1px solid color-mix(in srgb, var(--dc) 28%, var(--border, #2e323b)); border-top: 3px solid var(--dc);
+    border-radius: 10px; overflow: hidden; transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease; }
+  .card-item:not(.editing):hover { transform: translateY(-2px);
+    box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--dc) 45%, transparent); }
+  .card-item.editing { grid-column: 1 / -1; box-shadow: 0 0 0 1px color-mix(in srgb, var(--dc) 55%, transparent); }
+  .card-item.vaulted { opacity: .55; filter: saturate(.6); }
+  .card-item.vaulted:hover { opacity: .8; }
+  .card-band { display: flex; gap: 8px; align-items: flex-start; padding: 7px 8px 6px 10px;
+    background: linear-gradient(100deg, color-mix(in srgb, var(--dc) 24%, transparent), color-mix(in srgb, var(--dc) 4%, transparent) 70%);
+    border-bottom: 1px solid color-mix(in srgb, var(--dc) 22%, transparent); }
+  .card-titles { flex: 1; min-width: 0; display: grid; gap: 3px; }
+  .card-name { font-weight: 700; font-size: 12.5px; text-transform: uppercase; letter-spacing: .09em; font-variant: small-caps;
+    color: color-mix(in srgb, var(--dc) 60%, var(--text, #e7e4dc)); overflow-wrap: anywhere; }
+  .card-name.untitled { color: var(--muted, #9a958a); font-style: italic; }
+  .card-titles input { font-weight: 600; }
+  .card-badge { justify-self: start; font-size: 10px; line-height: 1.5; padding: 0 7px; border-radius: 999px; white-space: nowrap;
+    color: color-mix(in srgb, var(--dc) 55%, var(--text, #e7e4dc)); background: color-mix(in srgb, var(--dc) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--dc) 35%, transparent); max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .card-tools { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+  .vault-btn { flex-shrink: 0; font-size: 10px; padding: 0 8px; border-radius: 999px; line-height: 1.6; }
   .vault-btn.on { color: var(--muted, #9a958a); }
-  .card-item .desc { font-size: 12px; color: var(--text, #e7e4dc); min-height: 30px; }
+  .vault-tag { display: none; font-size: 10px; color: var(--muted, #9a958a); border: 1px dashed var(--border, #2e323b);
+    border-radius: 999px; padding: 0 7px; line-height: 1.6; }
+  .readonly .vault-tag { display: inline-block; }
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
+    border-color: transparent; color: var(--muted, #9a958a); border-radius: 6px; }
+  .icon-btn:hover { color: var(--accent, #d4a953); border-color: color-mix(in srgb, var(--accent, #d4a953) 45%, transparent); }
+  .icon-btn.ok { color: var(--accent, #d4a953); }
+  .icon-btn.del { color: var(--danger, #c0564f); font-size: 15px; line-height: 1; }
+  .icon-btn.del:hover { border-color: var(--danger, #c0564f); }
+  .card-body { padding: 8px 10px 10px; font-size: 12px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere;
+    color: color-mix(in srgb, var(--text, #e7e4dc) 88%, var(--muted, #9a958a)); }
+  .card-body.empty { color: var(--muted, #9a958a); font-style: italic; }
+  .card-item .desc { font-size: 12px; color: var(--text, #e7e4dc); min-height: 90px; margin: 8px 10px 10px; width: auto; }
+
+  .add-card { margin-top: 8px; display: grid; gap: 8px; justify-items: start; }
+  .add-open.open { color: var(--accent, #d4a953); border-color: var(--accent, #d4a953); border-style: solid; }
+  .add-panel { justify-self: stretch; display: grid; gap: 8px; background: var(--panel-2, #23262e);
+    border: 1px solid var(--border, #2e323b); border-radius: 10px; padding: 10px; }
+  .add-panel[hidden] { display: none; }
+  .add-panel h4 { margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted, #9a958a); font-weight: 600; }
+  .add-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .add-open { font-size: 11px; padding: 2px 10px; border-radius: 999px; color: var(--muted, #9a958a); border-style: dashed; }
+  .add-open:hover { color: var(--accent, #d4a953); border-color: var(--accent, #d4a953); }
+  .add-row { display: flex; gap: 6px; flex: 1; }
+
+  .card-tracker { display: flex; align-items: center; gap: 6px; padding: 5px 10px 7px;
+    border-top: 1px dashed color-mix(in srgb, var(--dc) 30%, var(--border, #2e323b)); }
+  .tok-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted, #9a958a); margin-right: auto; }
+  .tok-value { display: inline-flex; align-items: center; gap: 3px; min-width: 24px; justify-content: center; }
+  .tok { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--dc) 70%, transparent); }
+  .tok.on { background: var(--dc); border-color: var(--dc); box-shadow: 0 0 5px color-mix(in srgb, var(--dc) 55%, transparent); }
+  .tok-num { font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; margin-left: 3px;
+    color: color-mix(in srgb, var(--dc) 60%, var(--text, #e7e4dc)); }
+  .tok-btn { width: 20px; height: 20px; padding: 0; line-height: 1; border-radius: 50%; font-size: 13px; color: var(--dc); }
+  .tok-btn:hover { border-color: var(--dc); }
+  .readonly .tok-btn { display: none; }
+  .card-extras { display: grid; gap: 8px; padding: 0 10px 10px; }
+  .x-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .x-field { display: grid; gap: 2px; font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted, #9a958a); }
+  .x-field input { font-size: 12px; text-transform: none; letter-spacing: normal; }
+  .x-domain { width: 140px; }
+  .x-num { width: 64px; }
+  .x-color { width: 40px; height: 27px; padding: 2px; cursor: pointer; }
+  .swatches { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; padding-bottom: 5px; }
+  .swatch { width: 16px; height: 16px; padding: 0; border-radius: 50%; border: 2px solid transparent; font-size: 11px; line-height: 1; }
+  .swatch.on { border-color: var(--text, #e7e4dc); }
+  .swatch.clear { color: var(--muted, #9a958a); border-color: var(--border, #2e323b); }
+  .x-btn { font-size: 10.5px; padding: 1px 9px; border-radius: 999px; }
+  .x-btn.danger { color: var(--danger, #c0564f); }
+  .x-btn.danger:hover { border-color: var(--danger, #c0564f); }
+
+  /* rests & level up */
+  .rest-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .rest-bar button { font-size: 11.5px; padding: 3px 11px; border-radius: 999px; }
+  .rest-bar button.open { background: color-mix(in srgb, var(--accent, #d4a953) 16%, transparent); border-color: var(--accent, #d4a953); }
+  .rest-bar .tier { margin-left: auto; font-size: 10.5px; color: var(--muted, #9a958a); }
+  .guide { margin-top: 8px; background: var(--panel-2, #23262e); border: 1px solid var(--border, #2e323b);
+    border-radius: 8px; padding: 10px 12px; font-size: 12px; display: grid; gap: 8px; }
+  .guide .intro, .guide .note { color: var(--muted, #9a958a); font-size: 11.5px; }
+  .guide h4 { margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted, #9a958a); font-weight: 600; }
+  .moves { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .move { display: grid; gap: 3px; padding-left: 8px; border-left: 2px solid color-mix(in srgb, var(--accent, #d4a953) 45%, transparent); }
+  .move b { color: var(--text, #e7e4dc); }
+  .apply-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .apply { font-size: 10.5px; padding: 0 8px; border-radius: 999px; line-height: 1.7; }
+  .roll-out { font-size: 11px; color: var(--accent, #d4a953); font-variant-numeric: tabular-nums; }
+  .steps { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 
   .browse-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .browse-bar select { width: auto; }
@@ -101,7 +194,8 @@
   footer.attribution { font-size: 9.5px; line-height: 1.5; color: var(--muted, #9a958a);
     border-top: 1px solid var(--border, #2e323b); padding-top: 8px; }
   @media (max-width: 560px) { .traits { grid-template-columns: repeat(3, 1fr); } .cols { grid-template-columns: 1fr; }
-    .defense { grid-template-columns: 1fr 1fr; } .thresholds { grid-column: span 2; } }
+    .defense { grid-template-columns: 1fr 1fr; } .thresholds { grid-column: span 2; }
+    .cards { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -144,6 +238,12 @@
       <span class="pips" id="hopePips"></span></div>
   </section>
 
+  <section>
+    <h3>Downtime</h3>
+    <div class="rest-bar" id="restBar"></div>
+    <div id="restPanel"></div>
+  </section>
+
   <div class="cols">
     <section>
       <h3>Experiences <small style="text-transform:none;letter-spacing:0">(two at creation, +2 each)</small></h3>
@@ -159,15 +259,24 @@
 
   <section>
     <h3>Domain cards <small style="text-transform:none;letter-spacing:0">(loadout max 5; vaulted cards cost their Recall in Stress)</small></h3>
-    <div class="browse-bar">
-      <button id="browseToggle" type="button">Browse SRD cards…</button>
-      <select id="pickDomain"><option value="">All domains</option></select>
-      <select id="pickLevel"><option value="">Any level</option></select>
-      <input id="pickSearch" placeholder="Search cards…">
-    </div>
-    <div class="picker" id="picker"></div>
     <div class="list cards" id="cards"></div>
-    <div class="add"><input id="newCard" placeholder="Add a custom card…"><button id="addCard">Add</button></div>
+    <div class="add add-card">
+      <button id="addCardOpen" class="add-open" type="button" aria-expanded="false" aria-controls="addPanel">+ Add card</button>
+      <div class="add-panel" id="addPanel" hidden>
+        <div class="add-panel-head">
+          <h4>Pick from the SRD</h4>
+          <button id="addCardClose" class="x-btn" type="button" title="Close (Esc)">Done</button>
+        </div>
+        <div class="browse-bar">
+          <select id="pickDomain"><option value="">All domains</option></select>
+          <select id="pickLevel"><option value="">Any level</option></select>
+          <input id="pickSearch" placeholder="Search cards…">
+        </div>
+        <div class="picker" id="picker"></div>
+        <h4>…or make a custom card</h4>
+        <div class="add-row"><input id="newCard" placeholder="Custom card name…"><button id="addCard" type="button">Add</button></div>
+      </div>
+    </div>
   </section>
 
   <section>
@@ -290,48 +399,485 @@
   adder('newExp', 'addExp', (t) => state.experiences.push(t))
   adder('newWeapon', 'addWeapon', (t) => state.weapons.push(t))
   adder('newCard', 'addCard', (t) => state.cards.push({ name: t, domain: '', level: 0, type: 'Custom', recall: 0, text: '', vault: false }))
+  // "+ Add card" expands one panel holding both the SRD picker and the custom-card input
+  // (transient UI, not persisted). It stays open while adding several; Done/Esc/+ Add card closes it.
+  function setCardAdder(open) {
+    pickState.open = open && canEdit
+    $('addPanel').hidden = !pickState.open
+    $('addCardOpen').classList.toggle('open', pickState.open)
+    $('addCardOpen').setAttribute('aria-expanded', String(pickState.open))
+    $('addCardOpen').textContent = pickState.open ? '− Close' : '+ Add card'
+    if (!pickState.open) $('newCard').value = ''
+    renderPicker()
+    if (pickState.open) $('pickSearch').focus()
+  }
+  $('addCardOpen').addEventListener('click', () => setCardAdder(!pickState.open))
+  $('addCardClose').addEventListener('click', () => setCardAdder(false))
+  $('addPanel').addEventListener('keydown', (e) => { if (e.key === 'Escape') { setCardAdder(false); $('addCardOpen').focus() } })
 
   // ---- domain cards ----
   function cardMeta(c) {
-    if (!c.domain) return c.type === 'Custom' ? 'custom' : ''
+    if (c.type === 'Custom') return c.domain ? c.domain + ' · custom' : 'custom'
+    if (!c.domain) return ''
     return c.domain + ' · L' + c.level + ' · ' + c.type + ' · ⚡' + c.recall
+  }
+  /** Stable per-domain hues for the SRD domains; custom/unknown domains keep the theme accent. */
+  const DOMAIN_COLORS = { Arcana: '#a269d3', Blade: '#d65156', Bone: '#bbad95', Codex: '#5c95d6', Grace: '#d671ac',
+    Midnight: '#7578c7', Sage: '#54b661', Splendor: '#e7c040', Valor: '#e67737' }
+  const TRACKER_CAP = 99
+  const PIP_LIMIT = 12 // trackers with a max up to this draw as pips, larger ones as a number
+  const isColor = (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
+  /** Persisted shape: {count, max, label?} with max null for "no max" and label omitted for the
+   *  default "Tokens"; anything that is not an object means no tracker. */
+  function normTracker(t) {
+    if (!t || typeof t !== 'object') return undefined
+    const max = Math.round(Number(t.max)) > 0 ? Math.min(TRACKER_CAP, Math.round(Number(t.max))) : null
+    const count = Math.max(0, Math.min(max || TRACKER_CAP, Math.round(Number(t.count)) || 0))
+    const label = typeof t.label === 'string' ? t.label.trim().slice(0, 40) : ''
+    return label ? { count, max, label } : { count, max }
+  }
+  const cardColor = (c) => (isColor(c.color) ? c.color : DOMAIN_COLORS[c.domain])
+  const ICON_EDIT = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13l.6-2.6 7.2-7.2a1.4 1.4 0 0 1 2 2l-7.2 7.2z"/><path d="M9.6 4.4l2 2"/></svg>'
+  const ICON_DONE = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg>'
+  // Transient, per-card edit mode (keyed by the card object; never persisted).
+  let editingCards = new WeakSet()
+
+  function iconButton(cls, html, title, onClick) {
+    const b = document.createElement('button')
+    b.type = 'button'; b.className = 'icon-btn ' + cls; b.title = title
+    b.setAttribute('aria-label', title)
+    b.innerHTML = html
+    b.addEventListener('click', onClick)
+    return b
   }
   function cardList() {
     const holder = $('cards')
     holder.innerHTML = ''
     state.cards.forEach((card, i) => {
+      const editing = canEdit && editingCards.has(card)
       const item = document.createElement('div')
-      item.className = 'card-item' + (card.vault ? ' vaulted' : '')
-      const row = document.createElement('div')
-      row.className = 'card-head'
-      const name = document.createElement('input')
-      name.value = card.name
-      name.placeholder = 'Card name'
-      name.disabled = !canEdit
-      name.addEventListener('input', () => { card.name = name.value; save() })
-      const meta = document.createElement('span')
-      meta.className = 'card-meta'
-      meta.textContent = cardMeta(card)
+      item.className = 'card-item' + (card.vault ? ' vaulted' : '') + (editing ? ' editing' : '')
+      item.dataset.index = String(i)
+      if (cardColor(card)) item.style.setProperty('--dc', cardColor(card))
+
+      const band = document.createElement('div')
+      band.className = 'card-band'
+      const titles = document.createElement('div')
+      titles.className = 'card-titles'
+      const meta = cardMeta(card)
+      const badge = document.createElement('span')
+      badge.className = 'card-badge'
+      badge.textContent = meta
+      const tools = document.createElement('div')
+      tools.className = 'card-tools'
+
       const vault = document.createElement('button')
       vault.type = 'button'
       vault.className = 'vault-btn' + (card.vault ? ' on' : '')
       vault.textContent = card.vault ? 'In vault' : 'Loadout'
-      vault.title = 'Loadout cards are active (max 5); vault cards are inactive'
+      vault.title = 'Loadout cards are active (max 5); vault cards are inactive. Click to toggle.'
       vault.addEventListener('click', () => { card.vault = !card.vault; render(); save() })
-      const del = document.createElement('button')
-      del.type = 'button'; del.className = 'del'; del.textContent = '×'
-      del.addEventListener('click', () => { state.cards.splice(i, 1); render(); save() })
-      row.append(name, meta, vault, del)
-      const desc = document.createElement('textarea')
-      desc.className = 'desc'
-      desc.rows = 3
-      desc.placeholder = 'Card text…'
-      desc.value = card.text
-      desc.disabled = !canEdit
-      desc.addEventListener('input', () => { card.text = desc.value; save() })
-      item.append(row, desc)
+      tools.append(vault)
+      if (card.vault) {
+        const tag = document.createElement('span'); tag.className = 'vault-tag'; tag.textContent = 'In vault'
+        tools.append(tag)
+      }
+
+      if (editing) {
+        const name = document.createElement('input')
+        name.value = card.name
+        name.placeholder = 'Card name'
+        name.addEventListener('input', () => { card.name = name.value; save() })
+        name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { editingCards.delete(card); render() } })
+        titles.append(name)
+        if (meta || card.type === 'Custom') titles.append(badge)
+        const done = iconButton('ok', ICON_DONE, 'Done editing', () => { editingCards.delete(card); render() })
+        const del = iconButton('del', '×', 'Remove card', () => {
+          editingCards.delete(card); state.cards.splice(i, 1); render(); save()
+        })
+        tools.append(done, del)
+        band.append(titles, tools)
+        const desc = document.createElement('textarea')
+        desc.className = 'desc'
+        desc.rows = 5
+        desc.placeholder = 'Card text…'
+        desc.value = card.text
+        desc.addEventListener('input', () => { card.text = desc.value; save() })
+        item.append(band, desc, cardEditExtras(card, item, badge))
+        holder.appendChild(item)
+        return
+      }
+
+      const name = document.createElement('div')
+      name.className = 'card-name' + (card.name.trim() ? '' : ' untitled')
+      name.textContent = card.name.trim() || 'Untitled card'
+      titles.append(name)
+      if (meta) titles.append(badge)
+      if (canEdit) {
+        tools.append(iconButton('edit-btn', ICON_EDIT, 'Edit card', () => {
+          editingCards.add(card); render()
+          const first = $('cards').children[i] && $('cards').children[i].querySelector('input')
+          if (first) first.focus()
+        }))
+      }
+      band.append(titles, tools)
+      const body = document.createElement('div')
+      body.className = 'card-body' + (card.text.trim() ? '' : ' empty')
+      body.textContent = card.text.trim() || 'No card text.'
+      item.append(band, body)
+      if (normTracker(card.tracker)) item.append(trackerRow(card))
       holder.appendChild(item)
     })
+  }
+
+  // ---- drag-to-reorder cards (pointer events; FLIP-animated repacking) ----
+  const sortHolder = $('cards')
+  let drag = null // {id, x0, y0, item, float, rect, last, active}
+  /** Moves `fn`'s DOM change with a FLIP animation so siblings glide into their new slots. */
+  function flip(fn) {
+    const kids = [...sortHolder.children]
+    const first = new Map(kids.map((el) => [el, el.getBoundingClientRect()]))
+    fn()
+    for (const el of kids) {
+      const a = first.get(el), b = el.getBoundingClientRect()
+      const dx = a.left - b.left, dy = a.top - b.top
+      if (!dx && !dy) continue
+      el.style.transition = 'none'
+      el.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'
+      el.getBoundingClientRect()
+      el.style.transition = ''
+      el.style.transform = ''
+    }
+  }
+  sortHolder.addEventListener('pointerdown', (e) => {
+    if (!canEdit || drag || e.button !== 0) return
+    const band = e.target.closest('.card-band')
+    const item = band && band.closest('.card-item')
+    if (!item || item.classList.contains('editing') || e.target.closest('button, input, textarea, select, .card-badge')) return
+    drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, item, active: false, last: null }
+  })
+  sortHolder.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return
+    const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0
+    if (!drag.active) {
+      if (Math.hypot(dx, dy) < 5) return
+      drag.active = true
+      try { sortHolder.setPointerCapture(e.pointerId) } catch { /* pointer already gone */ }
+      const r = drag.rect = drag.item.getBoundingClientRect()
+      const f = drag.float = drag.item.cloneNode(true)
+      f.classList.add('drag-float')
+      f.style.cssText += ';left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + r.height + 'px'
+      document.body.append(f)
+      drag.item.classList.add('drag-slot')
+      sortHolder.classList.add('sorting')
+    }
+    e.preventDefault()
+    drag.float.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(1.03) rotate(.6deg)'
+    // hit-test against layout boxes (offset* ignore in-flight FLIP transforms)
+    const hr = sortHolder.getBoundingClientRect()
+    const x = e.clientX - hr.left, y = e.clientY - hr.top
+    const kids = [...sortHolder.children]
+    const hit = kids.find((el) => x >= el.offsetLeft && x < el.offsetLeft + el.offsetWidth
+      && y >= el.offsetTop && y < el.offsetTop + el.offsetHeight)
+    if (!hit) {
+      const lastEl = kids[kids.length - 1]
+      if (lastEl !== drag.item && y > lastEl.offsetTop + lastEl.offsetHeight) flip(() => sortHolder.append(drag.item))
+      return
+    }
+    if (hit === drag.item) { drag.last = null; return }
+    if (hit === drag.last) return // avoid ping-ponging between cards of different heights
+    drag.last = hit
+    const before = kids.indexOf(hit) < kids.indexOf(drag.item)
+    flip(() => sortHolder.insertBefore(drag.item, before ? hit : hit.nextSibling))
+  })
+  function endDrag(commit) {
+    const d = drag
+    drag = null
+    if (!d || !d.active) return
+    const from = Number(d.item.dataset.index)
+    const to = [...sortHolder.children].indexOf(d.item)
+    const finish = () => {
+      d.float.remove()
+      sortHolder.classList.remove('sorting')
+      if (commit && to !== from && to >= 0) {
+        const [moved] = state.cards.splice(from, 1)
+        state.cards.splice(to, 0, moved)
+        save()
+      }
+      render()
+    }
+    if (!commit) return finish()
+    // let the floating card settle into its slot before re-rendering
+    const r = d.item.getBoundingClientRect()
+    d.float.classList.add('settle')
+    d.float.style.transform = 'translate(' + (r.left - d.rect.left) + 'px,' + (r.top - d.rect.top) + 'px)'
+    setTimeout(finish, 180)
+  }
+  sortHolder.addEventListener('pointerup', (e) => { if (drag && e.pointerId === drag.id) endDrag(true) })
+  sortHolder.addEventListener('pointercancel', (e) => { if (drag && e.pointerId === drag.id) endDrag(false) })
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drag && drag.active) endDrag(false) })
+
+  // ---- per-card token tracker & custom-card styling ----
+  function smallButton(cls, text, title, onClick) {
+    const b = document.createElement('button')
+    b.type = 'button'; b.className = cls; b.textContent = text; b.title = title
+    b.addEventListener('click', onClick)
+    return b
+  }
+  function trackerRow(card) {
+    const t = normTracker(card.tracker)
+    const row = document.createElement('div')
+    row.className = 'card-tracker'
+    const label = document.createElement('span'); label.className = 'tok-label'; label.textContent = t.label || 'Tokens'
+    const bump = (d) => () => {
+      if (!canEdit) return
+      card.tracker = normTracker({ ...t, count: t.count + d })
+      render(); save()
+    }
+    const minus = smallButton('tok-btn', '−', 'Remove a token', bump(-1))
+    const plus = smallButton('tok-btn', '+', 'Add a token', bump(1))
+    minus.disabled = t.count <= 0
+    plus.disabled = t.count >= (t.max || TRACKER_CAP)
+    const value = document.createElement('span')
+    value.className = 'tok-value'
+    if (t.max && t.max <= PIP_LIMIT) {
+      for (let k = 0; k < t.max; k++) {
+        const pip = document.createElement('span'); pip.className = 'tok' + (k < t.count ? ' on' : '')
+        value.append(pip)
+      }
+    }
+    const n = document.createElement('span'); n.className = 'tok-num'
+    n.textContent = t.max ? t.count + ' / ' + t.max : String(t.count)
+    value.append(n)
+    row.append(label, minus, value, plus)
+    return row
+  }
+  function cardEditExtras(card, item, badge) {
+    const box = document.createElement('div')
+    box.className = 'card-extras'
+    const field = (labelText, ...els) => {
+      const f = document.createElement('label'); f.className = 'x-field'
+      const l = document.createElement('span'); l.textContent = labelText
+      f.append(l, ...els); return f
+    }
+    if (card.type === 'Custom') {
+      const row = document.createElement('div'); row.className = 'x-row'
+      const dom = document.createElement('input')
+      dom.className = 'x-domain'; dom.placeholder = 'e.g. Blood'; dom.value = card.domain || ''
+      const applyColor = () => {
+        const c = cardColor(card)
+        if (c) item.style.setProperty('--dc', c); else item.style.removeProperty('--dc')
+      }
+      dom.addEventListener('input', () => { card.domain = dom.value; badge.textContent = cardMeta(card); applyColor(); save() })
+      const color = document.createElement('input')
+      color.type = 'color'; color.className = 'x-color'
+      color.value = cardColor(card) || '#d4a953'
+      color.addEventListener('input', () => { card.color = color.value; applyColor(); save() })
+      const sw = document.createElement('span'); sw.className = 'swatches'
+      for (const [d, hex] of Object.entries(DOMAIN_COLORS)) {
+        const b = smallButton('swatch' + (card.color === hex ? ' on' : ''), '', d, () => { card.color = hex; render(); save() })
+        b.style.background = hex
+        b.setAttribute('aria-label', d + ' colour')
+        sw.append(b)
+      }
+      sw.append(smallButton('swatch clear', '×', 'Clear custom colour', () => { delete card.color; render(); save() }))
+      row.append(field('Domain', dom), field('Colour', color), sw)
+      box.append(row)
+    }
+    const trow = document.createElement('div'); trow.className = 'x-row'
+    if (!card.tracker) {
+      trow.append(smallButton('x-btn', '+ Add tracker', 'Track tokens placed on this card', () => {
+        card.tracker = { count: 0, max: null }; render(); save()
+      }))
+    } else {
+      const t = normTracker(card.tracker)
+      const count = document.createElement('input')
+      count.type = 'number'; count.min = 0; count.max = TRACKER_CAP; count.value = t.count; count.className = 'x-num'
+      const max = document.createElement('input')
+      max.type = 'number'; max.min = 1; max.max = TRACKER_CAP; max.placeholder = 'none'; max.value = t.max || ''; max.className = 'x-num'
+      const label = document.createElement('input')
+      label.className = 'x-domain'; label.placeholder = 'Tokens'; label.maxLength = 40; label.value = t.label || ''
+      const sync = () => { card.tracker = normTracker({ count: count.value, max: max.value, label: label.value }); save() }
+      count.addEventListener('input', sync)
+      max.addEventListener('input', sync)
+      label.addEventListener('input', sync)
+      // normalise the visible values once the user leaves a field
+      const tidy = () => { const n = normTracker(card.tracker); count.value = n.count; max.value = n.max || '' }
+      count.addEventListener('change', tidy)
+      max.addEventListener('change', tidy)
+      trow.append(field('Tracker label', label), field('Count', count), field('Max', max),
+        smallButton('x-btn danger', 'Remove tracker', 'Remove the token tracker', () => { delete card.tracker; render(); save() }))
+    }
+    box.append(trow)
+    return box
+  }
+
+  // ---- downtime: short rest, long rest, level up ----
+  const num = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : d }
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n))
+  const curLevel = () => clamp(Math.round(num(state.level, 1)) || 1, 1, 10)
+  const tierOf = (lvl) => (lvl <= 1 ? 1 : lvl <= 4 ? 2 : lvl <= 7 ? 3 : 4)
+  const d4 = () => 1 + Math.floor(Math.random() * 4)
+  // Transient UI state for the guide panels (not persisted).
+  const restUI = { open: '', results: {} }
+
+  /** Clears up to `amount` marked boxes from a track; returns how many were actually cleared. */
+  function clearTrack(key, amount, max) {
+    const before = clamp(num(state[key], 0), 0, max)
+    state[key] = clamp(before - amount, 0, max)
+    return before - state[key]
+  }
+  const ACTIONS = {
+    hpRoll: () => rollClear('hp', state.hpMax, 'Hit Points'),
+    stressRoll: () => rollClear('stress', state.stressMax, 'Stress'),
+    armorRoll: () => rollClear('armorUsed', state.armorMax, 'Armor Slots'),
+    hpAll: () => 'cleared ' + clearTrack('hp', Infinity, num(state.hpMax, 6)) + ' Hit Points',
+    stressAll: () => 'cleared ' + clearTrack('stress', Infinity, num(state.stressMax, 6)) + ' Stress',
+    armorAll: () => 'repaired ' + clearTrack('armorUsed', Infinity, num(state.armorMax, 3)) + ' Armor Slots',
+    hope1: () => gainHope(1),
+    hope2: () => gainHope(2),
+    levelUp: () => {
+      const lvl = curLevel()
+      if (lvl >= 10) return 'already at level 10'
+      const next = lvl + 1
+      state.level = next
+      state.thMajor = num(state.thMajor, 0) + 1
+      state.thSevere = num(state.thSevere, 0) + 1
+      $('level').value = state.level; $('thMajor').value = state.thMajor; $('thSevere').value = state.thSevere
+      let msg = 'now level ' + next + ' (tier ' + tierOf(next) + ') · thresholds ' + state.thMajor + ' / ' + state.thSevere
+      if (next === 2 || next === 5 || next === 8) msg += ' · tier achievement: add a new Experience at +2 and raise Proficiency'
+        + (next === 2 ? '' : '; clear marked traits')
+      return msg
+    },
+  }
+  function rollClear(key, max, label) {
+    const tier = tierOf(curLevel())
+    const r = d4()
+    const got = clearTrack(key, r + tier, num(max, 6))
+    return 'rolled ' + r + ' + tier ' + tier + ' = ' + (r + tier) + ' → ' + (key === 'armorUsed' ? 'repaired ' : 'cleared ')
+      + got + ' ' + label + (got < r + tier ? ' (track now clear)' : '')
+  }
+  function gainHope(n) {
+    const before = clamp(num(state.hope, 0), 0, HOPE_MAX)
+    state.hope = clamp(before + n, 0, HOPE_MAX)
+    return state.hope === before ? 'Hope already full (' + HOPE_MAX + ')' : '+' + (state.hope - before) + ' Hope → ' + state.hope + ' / ' + HOPE_MAX
+  }
+
+  const PREPARE = { name: 'Prepare', text: 'Describe how you prepare for what lies ahead and gain a Hope. If you prepare together with one or more party members, you each gain 2 Hope instead.',
+    apply: [['+1 Hope', 'hope1'], ['+2 Hope (together)', 'hope2']] }
+  const GUIDES = {
+    short: { label: 'Short rest',
+      intro: 'About an hour of rest. Each PC takes two downtime moves (you may pick the same move twice). Rolls use 1d4 + your tier.',
+      moves: [
+        { name: 'Tend to Wounds', text: 'Clear 1d4 + tier Hit Points for yourself or an ally.', apply: [['Roll & apply', 'hpRoll']] },
+        { name: 'Clear Stress', text: 'Clear 1d4 + tier Stress.', apply: [['Roll & apply', 'stressRoll']] },
+        { name: 'Repair Armor', text: 'Repair 1d4 + tier Armor Slots on your armor (yours or an ally’s).', apply: [['Roll & apply', 'armorRoll']] },
+        PREPARE,
+      ],
+      note: 'The GM gains 1d4 Fear. After three short rests in a row, your next rest must be a long rest. You can swap domain cards between loadout and vault during a rest.' },
+    long: { label: 'Long rest',
+      intro: 'Several hours, usually a night’s sleep or a safe camp. Each PC takes two downtime moves (the same move twice is allowed).',
+      moves: [
+        { name: 'Tend to All Wounds', text: 'Clear all Hit Points for yourself or an ally.', apply: [['Apply', 'hpAll']] },
+        { name: 'Clear All Stress', text: 'Clear all Stress.', apply: [['Apply', 'stressAll']] },
+        { name: 'Repair All Armor', text: 'Repair all Armor Slots on your armor (yours or an ally’s).', apply: [['Apply', 'armorAll']] },
+        PREPARE,
+        { name: 'Work on a Project', text: 'Advance a long-term project you have set up with the GM (its countdown or progress).' },
+      ],
+      note: 'The GM gains Fear (1d4 plus one per PC) and may advance a long-term countdown. You can swap domain cards between loadout and vault during a rest.' },
+    level: { label: 'Level up',
+      steps: [
+        ['Tier achievements', 'At levels 2, 5 and 8 you enter a new tier: gain a new Experience at +2 and increase your Proficiency. At levels 5 and 8, also clear any marked traits.'],
+        ['Advancements', 'Choose two advancements from your tier’s list (or a lower tier): +1 to two unmarked traits (then mark them), +1 Hit Point slot, +1 Stress slot, +1 to two Experiences, an extra domain card, +1 Evasion — and from tier 3 on, options such as a subclass upgrade, +1 Proficiency or multiclassing (some cost both picks).'],
+        ['Damage thresholds', 'Increase both your Major and Severe damage thresholds by 1.'],
+        ['Domain card', 'Take a new domain card of your level or lower from your class’s domains. You may also exchange one card you have for another of equal or lower level.'],
+      ] },
+  }
+
+  function renderRest() {
+    const bar = $('restBar')
+    bar.innerHTML = ''
+    for (const key of ['short', 'long', 'level']) {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = restUI.open === key ? 'open' : ''
+      b.textContent = GUIDES[key].label
+      b.setAttribute('aria-expanded', String(restUI.open === key))
+      b.addEventListener('click', () => {
+        restUI.open = restUI.open === key ? '' : key
+        restUI.results = {}
+        renderRest()
+      })
+      bar.append(b)
+    }
+    const lvl = curLevel()
+    const tier = document.createElement('span')
+    tier.className = 'tier'
+    tier.textContent = 'Level ' + lvl + ' · Tier ' + tierOf(lvl)
+    bar.append(tier)
+
+    const panel = $('restPanel')
+    panel.innerHTML = ''
+    const g = GUIDES[restUI.open]
+    if (!g) return
+    const box = document.createElement('div')
+    box.className = 'guide'
+    const addText = (cls, text) => { const p = document.createElement('div'); p.className = cls; p.textContent = text; box.append(p) }
+    const applyRow = (pairs, resultKey) => {
+      const row = document.createElement('div')
+      row.className = 'apply-row'
+      for (const [label, act] of pairs) {
+        const b = document.createElement('button')
+        b.type = 'button'; b.className = 'apply'; b.textContent = label
+        b.addEventListener('click', () => {
+          if (!canEdit) return
+          restUI.results[resultKey] = ACTIONS[act]()
+          render(); save()
+        })
+        row.append(b)
+      }
+      const out = document.createElement('span')
+      out.className = 'roll-out'
+      out.textContent = restUI.results[resultKey] || ''
+      return [row, out]
+    }
+    if (g.intro) addText('intro', g.intro)
+    if (g.moves) {
+      const h = document.createElement('h4'); h.textContent = 'Downtime moves'; box.append(h)
+      const ul = document.createElement('ul'); ul.className = 'moves'
+      g.moves.forEach((m, idx) => {
+        const li = document.createElement('li'); li.className = 'move'
+        const line = document.createElement('div')
+        const b = document.createElement('b'); b.textContent = m.name
+        line.append(b, document.createTextNode(' — ' + m.text))
+        li.append(line)
+        if (m.apply) {
+          const [row, out] = applyRow(m.apply, restUI.open + idx)
+          row.append(out)
+          li.append(row)
+        }
+        ul.append(li)
+      })
+      box.append(ul)
+    }
+    if (g.steps) {
+      const ol = document.createElement('ol'); ol.className = 'steps'
+      for (const [name, text] of g.steps) {
+        const li = document.createElement('li')
+        const b = document.createElement('b'); b.textContent = name
+        li.append(b, document.createTextNode(' — ' + text))
+        ol.append(li)
+      }
+      box.append(ol)
+      const [row, out] = applyRow([['Apply level ' + (lvl >= 10 ? '(max)' : lvl + ' → ' + (lvl + 1)), 'levelUp']], 'level')
+      if (lvl >= 10) row.firstChild.disabled = true
+      const hint = document.createElement('span'); hint.className = 'note'
+      hint.textContent = 'raises level and both thresholds by 1; pick advancements & cards yourself'
+      row.append(hint, out)
+      box.append(row)
+    }
+    if (g.note) addText('note', g.note)
+    panel.append(box)
   }
 
   // ---- SRD card picker ----
@@ -342,15 +888,13 @@
   for (let l = 1; l <= 10; l++) {
     const o = document.createElement('option'); o.value = String(l); o.textContent = 'Level ' + l; $('pickLevel').append(o)
   }
-  $('browseToggle').addEventListener('click', () => { pickState.open = !pickState.open; renderPicker() })
-  $('pickDomain').addEventListener('change', (e) => { pickState.domain = e.target.value; pickState.open = true; renderPicker() })
-  $('pickLevel').addEventListener('change', (e) => { pickState.level = e.target.value; pickState.open = true; renderPicker() })
-  $('pickSearch').addEventListener('input', (e) => { pickState.q = e.target.value.trim().toLowerCase(); pickState.open = true; renderPicker() })
+  $('pickDomain').addEventListener('change', (e) => { pickState.domain = e.target.value; renderPicker() })
+  $('pickLevel').addEventListener('change', (e) => { pickState.level = e.target.value; renderPicker() })
+  $('pickSearch').addEventListener('input', (e) => { pickState.q = e.target.value.trim().toLowerCase(); renderPicker() })
 
   function renderPicker() {
     const panel = $('picker')
     panel.className = 'picker' + (pickState.open ? ' open' : '')
-    $('browseToggle').textContent = pickState.open ? 'Hide SRD cards' : 'Browse SRD cards…'
     if (!pickState.open) { panel.innerHTML = ''; return }
     const have = new Set(state.cards.map((c) => (c.name || '').toLowerCase()))
     const matches = SRD_CARDS.filter((c) =>
@@ -419,6 +963,7 @@
     rowList($('weapons'), state.weapons, (i, v) => { state.weapons[i] = v }, (i) => state.weapons.splice(i, 1))
     cardList()
     renderPicker()
+    renderRest()
     document.querySelectorAll('input, textarea, select').forEach((el) => { el.disabled = !canEdit })
   }
 
@@ -428,6 +973,7 @@
     bindText('heritage', 'heritage')
     bindText('klass', 'klass')
     bindText('level', 'level', true)
+    $('level').addEventListener('input', renderRest)
     bindText('evasion', 'evasion', true)
     bindText('armor', 'armor', true)
     bindText('proficiency', 'proficiency', true)
@@ -443,7 +989,8 @@
     base.cards = (Array.isArray(d.cards) ? d.cards : []).map((c) => {
       if (c && typeof c === 'object' && 'type' in c) {
         return { name: String(c.name || ''), domain: String(c.domain || ''), level: Number(c.level) || 0,
-          type: String(c.type || 'Custom'), recall: Number(c.recall) || 0, text: String(c.text || ''), vault: c.vault === true }
+          type: String(c.type || 'Custom'), recall: Number(c.recall) || 0, text: String(c.text || ''), vault: c.vault === true,
+          ...(isColor(c.color) ? { color: c.color } : {}), ...(normTracker(c.tracker) ? { tracker: normTracker(c.tracker) } : {}) }
       }
       if (c && typeof c === 'object') {
         return { name: String(c.name || ''), domain: '', level: 0, type: 'Custom', recall: 0, text: String(c.desc || ''), vault: false }
