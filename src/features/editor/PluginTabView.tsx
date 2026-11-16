@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Popover from '../../components/Popover'
 import type { Page, Plugin } from '../../lib/types'
 import { effectiveRole, usePages } from '../../state/pages'
 import { usePanelStore } from '../../state/panel'
@@ -6,6 +7,7 @@ import {
   cleanData, loadPlugins, loadSource,
   PLUGIN_DEFAULT_HEIGHT, PLUGIN_MAX_HEIGHT, PLUGIN_MIN_HEIGHT, readTheme,
 } from './pluginBlock'
+import { PluginPicker } from './PluginPicker'
 
 interface Props {
   page: Page
@@ -16,17 +18,20 @@ interface Props {
   canEdit: boolean
   /** Persist new data (debounced by the page's normal tabs save path). */
   onData(data: unknown): void
+  /** Point the tab at another installed plugin, keeping its data (shown when the plugin is gone). */
+  onReconnect?(plugin: Plugin): void
 }
 
-type Loaded = { plugin: Plugin; source: string } | { error: string } | null
+type Loaded = { plugin: Plugin; source: string } | { error: string } | { missing: true } | null
 
 /**
  * A full-tab plugin host (v0.7, workstream 2A). Same sandbox and bridge as
  * pluginBlock — sandbox="allow-scripts" only — but the data lives in the
  * page tab (tab.plugin.data) instead of a block node.
  */
-export default function PluginTabView({ page, pluginId, data, canEdit, onData }: Props) {
+export default function PluginTabView({ page, pluginId, data, canEdit, onData, onReconnect }: Props) {
   const [loaded, setLoaded] = useState<Loaded>(null)
+  const [pickAt, setPickAt] = useState<DOMRect | null>(null)
   const hostRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
   // Live refs: the message handler is registered once per source.
@@ -42,7 +47,7 @@ export default function PluginTabView({ page, pluginId, data, canEdit, onData }:
         // Cache may predate an upload made in another tab/dialog.
         if (!plugin && live) plugin = (await loadPlugins(page.project_id, true)).find((p) => p.id === pluginId)
         if (!live) return
-        if (!plugin) return setLoaded({ error: 'This plugin was removed from the world.' })
+        if (!plugin) return setLoaded({ missing: true })
         const source = await loadSource(plugin)
         if (live) setLoaded({ plugin, source })
       } catch (e) {
@@ -104,8 +109,29 @@ export default function PluginTabView({ page, pluginId, data, canEdit, onData }:
   }, [source, canEdit])
 
   return (
-    <div ref={hostRef} className="plugin-tab">
+    <div ref={hostRef} className={`plugin-tab${loaded && 'missing' in loaded ? ' plugin-tab-missing' : ''}`}>
       {loaded === null && <p className="plugin-tab-status">Loading plugin…</p>}
+      {loaded && 'missing' in loaded && (
+        <>
+          <p className="plugin-tab-status">This plugin was removed from the world. The tab’s saved data is kept.</p>
+          {canEdit && onReconnect && (
+            <div className="plugin-tab-missing-actions">
+              <button type="button" className="btn-ghost plugin-tab-reconnect"
+                title="Use an installed plugin for this tab’s saved data"
+                onClick={(e) => setPickAt(e.currentTarget.getBoundingClientRect())}>
+                Reconnect…
+              </button>
+            </div>
+          )}
+          {pickAt && onReconnect && (
+            <Popover anchor={pickAt} onClose={() => setPickAt(null)} width={300} className="tab-plugin-pick">
+              <PluginPicker projectId={page.project_id}
+                onPick={(p) => { setPickAt(null); onReconnect(p) }}
+                onClose={() => setPickAt(null)} />
+            </Popover>
+          )}
+        </>
+      )}
       {loaded && 'error' in loaded && (
         <p className="plugin-tab-status plugin-tab-error">Couldn't load this plugin: {loaded.error}</p>
       )}

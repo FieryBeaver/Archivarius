@@ -132,6 +132,13 @@ function DocEditorInner({ page, canEdit }: DocEditorProps) {
     schedule({ kind: 'tabs', tabs: next })
   }, [schedule])
 
+  /** Re-point an orphaned plugin tab at an installed plugin; tab.plugin.data is kept as is. */
+  function reconnectPluginTab(tabId: string, plugin: Plugin) {
+    const current = tabsRef.current
+    if (!current) return
+    commit(current.map((t) => (t.id === tabId && t.plugin ? { ...t, plugin: { ...t.plugin, pluginId: plugin.id } } : t)))
+  }
+
   function rename(id: string, title: string | null) {
     setRenamingId(null)
     const current = tabsRef.current
@@ -215,9 +222,10 @@ function DocEditorInner({ page, canEdit }: DocEditorProps) {
       {nothingShown ? (
         <p className="doc-tabs-none">Nothing on this page is shared with you yet.</p>
       ) : activeTab?.plugin ? (
-        <PluginTabView key={activeTab.id} page={page} pluginId={activeTab.plugin.pluginId}
-          data={activeTab.plugin.data} canEdit={canEdit}
-          onData={(data) => onPluginData(activeTab.id, data)} />
+        <PluginTabView key={`${activeTab.id}:${activeTab.plugin.pluginId}`} page={page}
+          pluginId={activeTab.plugin.pluginId} data={activeTab.plugin.data} canEdit={canEdit}
+          onData={(data) => onPluginData(activeTab.id, data)}
+          onReconnect={(p) => reconnectPluginTab(activeTab.id, p)} />
       ) : (
         <TabDoc key={activeId ?? 'legacy'} page={page} canEdit={canEdit} secretsVisible={secretsVisible} status={status}
           initialContent={activeTab ? activeTab.content : page.content}

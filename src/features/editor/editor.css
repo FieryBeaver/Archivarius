@@ -486,6 +486,8 @@
 .plugin-block-status { padding: 12px; font-size: var(--fs-sm); color: var(--muted); }
 .doc-content .plugin-block-missing { background: transparent; border-style: dashed; }
 .plugin-block-missing .plugin-block-status { font-style: italic; }
+.plugin-block-missing-actions { padding: 0 12px 12px; }
+.plugin-block-reconnect, .plugin-tab-reconnect { font-size: var(--fs-sm); }
 .doc-compact .doc-content .plugin-block { margin: 0.9em 0; }
 
 .plugin-picker { min-width: min(260px, calc(100vw - 16px)); max-height: none; overflow: hidden; }
@@ -680,6 +682,9 @@
 .plugin-tab-frame { display: block; width: 100%; border: 0; background: transparent; color-scheme: normal; }
 .plugin-tab-status { margin: 0; padding: 14px; font-size: var(--fs-sm); color: var(--muted); }
 .plugin-tab-error { color: var(--danger); }
+.plugin-tab-missing { background: transparent; border-style: dashed; }
+.plugin-tab-missing .plugin-tab-status { font-style: italic; }
+.plugin-tab-missing-actions { padding: 0 14px 14px; }
 
 /* The tab strip's plugin picker reuses PluginPicker inside a Popover: flatten the double surface. */
 .popover.tab-plugin-pick { padding: 0; background: transparent; border: none; box-shadow: none; }

@@ -7,6 +7,7 @@ import { effectiveRole, usePages, visibilityRole } from '../../state/pages'
 import { usePanelStore } from '../../state/panel'
 import { glyphElement } from './blockIcons'
 import { makeDragHandle } from './blocks'
+import { openFloatingPluginPicker } from './PluginPicker'
 
 /*
  * User-uploaded plugin blocks (CONTRACT.md v0.6, PLUGINS.md).
@@ -206,7 +207,7 @@ function createPluginView(
     }
   }
 
-  function setAttr(name: 'visibleTo' | 'title', value: string | null) {
+  function setAttr(name: 'visibleTo' | 'title' | 'pluginId', value: string | null) {
     const pos = getPos()
     if (typeof pos !== 'number' || !editor.isEditable) return
     const current = editor.state.doc.nodeAt(pos)
@@ -332,6 +333,29 @@ function createPluginView(
     body.replaceChildren(status)
   }
 
+  /**
+   * The plugin is gone from the project (deleted, or a different world's id). The block keeps its
+   * data; editors can point it at an installed plugin. Only pluginId changes, so `update` returns
+   * false and TipTap rebuilds this view, which then loads the new plugin with the kept data.
+   */
+  function showMissing(projectId: string | null) {
+    showStatus('This plugin was removed from the world. The block\u2019s saved data is kept.', true)
+    if (!canEdit() || !projectId) return
+    const reconnect = document.createElement('button')
+    reconnect.type = 'button'
+    reconnect.className = 'btn-ghost plugin-block-reconnect'
+    reconnect.textContent = 'Reconnect\u2026'
+    reconnect.title = 'Use an installed plugin for this block\u2019s saved data'
+    reconnect.addEventListener('mousedown', (e) => e.preventDefault())
+    reconnect.addEventListener('click', () => {
+      openFloatingPluginPicker(projectId, reconnect.getBoundingClientRect(), (plugin) => setAttr('pluginId', plugin.id))
+    })
+    const row = document.createElement('div')
+    row.className = 'plugin-block-missing-actions'
+    row.append(reconnect)
+    body.append(row)
+  }
+
   function post(msg: Record<string, unknown>) {
     // Opaque-origin frame: '*' is the only target origin that reaches it.
     iframe?.contentWindow?.postMessage(msg, '*')
@@ -395,13 +419,13 @@ function createPluginView(
   async function resolve() {
     const pluginId = node.attrs.pluginId as string
     const projectId = optProjectId || usePages.getState().projectId
-    if (!pluginId || !projectId) return showStatus('Plugin not found', true)
+    if (!pluginId || !projectId) return showMissing(projectId)
     try {
       let plugin = (await loadPlugins(projectId)).find((p) => p.id === pluginId)
       // Cache may predate an upload made in another tab/dialog.
       if (!plugin && !destroyed) plugin = (await loadPlugins(projectId, true)).find((p) => p.id === pluginId)
       if (destroyed) return
-      if (!plugin) return showStatus('Plugin not found', true)
+      if (!plugin) return showMissing(projectId)
       pluginName = plugin.name
       paintHeader()
       const source = await loadSource(plugin)
@@ -446,7 +470,7 @@ function createPluginView(
       return true
     },
     stopEvent: (e: Event) =>
-      (e.target as HTMLElement | null)?.closest?.('.plugin-block-remove, .plugin-block-settings') != null,
+      (e.target as HTMLElement | null)?.closest?.('.plugin-block-remove, .plugin-block-settings, .plugin-block-reconnect') != null,
     ignoreMutation: () => true,
     destroy() {
       destroyed = true

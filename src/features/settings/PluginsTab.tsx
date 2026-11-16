@@ -509,7 +509,9 @@ function PluginRow(props: {
 
       {mode === 'confirm-delete' && (
         <div className="wks-hint wks-member-note">
-          Blocks using it stay in your documents and show as “plugin missing”.
+          Blocks and tabs using it stay in your documents with their saved data and show as
+          “plugin removed”. After re-adding this plugin (or another one), editors can use
+          “Reconnect…” on each block or tab to bring that data back.
         </div>
       )}
       {mode === 'icon' && isOwner && (

@@ -88,56 +88,67 @@ export function PluginPicker({ projectId, onPick, onClose }: PluginPickerProps) 
 let closeOpen: (() => void) | null = null
 
 /**
- * Opens the picker at document position `pos` (an empty paragraph left by the slash command).
- * Choosing a plugin replaces that paragraph with { type: 'pluginBlock', attrs: { pluginId, data: null } }.
+ * Mounts a floating PluginPicker below (or above) `at`, a viewport rect. Closes on outside
+ * mousedown, resize, Escape or a pick; only one is open at a time. Shared by the slash
+ * command and a missing plugin's "Reconnect…" control.
  */
-export function openPluginPicker(editor: Editor, pos: number): void {
+export function openFloatingPluginPicker(
+  projectId: string | null,
+  at: { left: number; top: number; bottom: number },
+  onPick: (plugin: Plugin) => void,
+  /** Escape inside the picker (not a pick or an outside click): callers may refocus. */
+  onEscape?: () => void,
+): void {
   closeOpen?.()
-  const projectId = pluginProjectId(editor)
 
   const host = document.createElement('div')
   host.className = 'mention-popup plugin-picker-popup'
   host.style.position = 'fixed'
-  const coords = editor.view.coordsAtPos(Math.min(pos, editor.state.doc.content.size))
   const width = Math.min(320, window.innerWidth - 16)
-  host.style.left = `${Math.max(8, Math.min(coords.left, window.innerWidth - width - 8))}px`
-  if (coords.bottom + 320 > window.innerHeight && coords.top > 320) {
-    host.style.bottom = `${window.innerHeight - coords.top + 4}px`
+  host.style.left = `${Math.max(8, Math.min(at.left, window.innerWidth - width - 8))}px`
+  if (at.bottom + 320 > window.innerHeight && at.top > 320) {
+    host.style.bottom = `${window.innerHeight - at.top + 4}px`
   } else {
-    host.style.top = `${coords.bottom + 4}px`
+    host.style.top = `${at.bottom + 4}px`
   }
   document.body.append(host)
   const root = createRoot(host)
 
   let closed = false
-  function close(refocus = true) {
+  function close() {
     if (closed) return
     closed = true
-    if (closeOpen === closeThis) closeOpen = null
+    if (closeOpen === close) closeOpen = null
     document.removeEventListener('mousedown', onOutside, true)
-    window.removeEventListener('resize', onResize)
+    window.removeEventListener('resize', close)
     // Defer unmount: close can run from inside a React handler of this root.
     queueMicrotask(() => { root.unmount(); host.remove() })
-    if (refocus && !editor.isDestroyed) editor.commands.focus()
   }
-  const closeThis = () => close(false)
-  closeOpen = closeThis
+  closeOpen = close
 
   function onOutside(e: MouseEvent) {
-    if (!host.contains(e.target as globalThis.Node)) close(false)
+    if (!host.contains(e.target as globalThis.Node)) close()
   }
-  const onResize = () => close(false)
   document.addEventListener('mousedown', onOutside, true)
-  window.addEventListener('resize', onResize)
+  window.addEventListener('resize', close)
 
-  function pick(plugin: Plugin) {
-    close(false)
+  root.render(
+    <PluginPicker projectId={projectId} onPick={(p) => { close(); onPick(p) }}
+      onClose={() => { close(); onEscape?.() }} />,
+  )
+}
+
+/**
+ * Opens the picker at document position `pos` (an empty paragraph left by the slash command).
+ * Choosing a plugin replaces that paragraph with { type: 'pluginBlock', attrs: { pluginId, data: null } }.
+ */
+export function openPluginPicker(editor: Editor, pos: number): void {
+  const coords = editor.view.coordsAtPos(Math.min(pos, editor.state.doc.content.size))
+  openFloatingPluginPicker(pluginProjectId(editor), coords, (plugin) => {
     if (editor.isDestroyed || !editor.isEditable) return
     const at = Math.min(pos, editor.state.doc.content.size)
     editor.chain().focus()
       .insertContentAt(at, { type: 'pluginBlock', attrs: { pluginId: plugin.id, data: null } })
       .run()
-  }
-
-  root.render(<PluginPicker projectId={projectId} onPick={pick} onClose={() => close()} />)
+  }, () => { if (!editor.isDestroyed) editor.commands.focus() })
 }
