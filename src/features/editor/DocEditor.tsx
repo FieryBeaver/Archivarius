@@ -10,6 +10,7 @@ import { BLOCK_ICONS } from './blockIcons'
 import { roleAllows, type Visibility } from '../../lib/visibility'
 import { pageMention } from './mentionExtension'
 import { ImageBlock, clickBelowLastBlock, imageDropHandler, imagePasteHandler } from './imageBlock'
+import { LINK_OPTIONS, linkClickHandler, openLinkFromClick } from './linkUi'
 import { MoveBlock } from './moveBlock'
 import { PluginBlock } from './pluginBlock'
 import { PluginPicker } from './PluginPicker'
@@ -260,7 +261,7 @@ function TabDoc({ page, canEdit, secretsVisible, status, initialContent, onChang
   const [setup] = useState(() => ({
     editable: canEdit,
     extensions: [
-      StarterKit,
+      StarterKit.configure({ link: LINK_OPTIONS }),
       pageMention(page.project_id, page.id),
       Callout,
       secretBlock(secretsVisible),
@@ -273,6 +274,8 @@ function TabDoc({ page, canEdit, secretsVisible, status, initialContent, onChang
       ? {
           handlePaste: imagePasteHandler(page.project_id),
           handleDrop: imageDropHandler(page.project_id),
+          // Links: click shows the edit bubble, Ctrl/Cmd+click opens (see linkUi.tsx).
+          handleClick: linkClickHandler,
           // Clicking under a trailing image/plugin block opens a paragraph after it.
           handleDOMEvents: {
             mousedown: clickBelowLastBlock,
@@ -288,7 +291,9 @@ function TabDoc({ page, canEdit, secretsVisible, status, initialContent, onChang
     onUpdate: ({ editor }) => { if (canEdit) onChange(editor.getJSON()) },
   })
 
-  function followMention(e: MouseEvent) {
+  function followMention(e: MouseEvent<HTMLElement>) {
+    // Read-only: a click on a link opens it in a new tab (edit mode: linkClickHandler).
+    if (!canEdit && openLinkFromClick(e)) return
     const id = (e.target as HTMLElement).closest<HTMLElement>('.mention')?.dataset.id
     if (id) navigate(pagePath(page.project_id, id))
   }

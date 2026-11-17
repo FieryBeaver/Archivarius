@@ -1,12 +1,12 @@
 import { TextSelection } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import { useLayoutEffect, useState, type KeyboardEvent } from 'react'
-import { createRoot } from 'react-dom/client'
+import { useState, type KeyboardEvent } from 'react'
 import { pageIcon } from '../../components/pageIcon'
 import type { Page } from '../../lib/types'
 import { useVisiblePages, usePages } from '../../state/pages'
 import { BLOCK_ICONS } from './blockIcons'
 import { showImageNote } from './imageBlock'
+import { LinkField, applyLink, linkElementAt, linkRangeAt, openFloating } from './linkUi'
 
 /*
  * Right-click on a text selection in an editable doc: "New subpage from selection" (creates a
@@ -66,37 +66,34 @@ async function newSubpage(t: Target): Promise<void> {
   }
 }
 
+type LinkRange = { from: number; to: number; href: string }
+
 interface MenuProps {
-  host: HTMLElement
-  x: number
-  y: number
+  view: EditorView
+  /** Non-empty text selection under the pointer (subpage / page link / add link), or null. */
+  target: Target | null
+  /** Existing link under the pointer (edit / remove), or null. */
+  link: LinkRange | null
   currentPageId: string
-  onNewSubpage(): void
-  onLink(page: Page): void
+  close(): void
 }
 
-function SelectionMenu({ host, x, y, currentPageId, onNewSubpage, onLink }: MenuProps) {
-  const [mode, setMode] = useState<'menu' | 'link'>('menu')
+function SelectionMenu({ view, target, link, currentPageId, close }: MenuProps) {
+  const [mode, setMode] = useState<'menu' | 'page' | 'url'>('menu')
   const [query, setQuery] = useState('')
   const [index, setIndex] = useState(0)
   const pages = useVisiblePages()
 
   const q = query.trim().toLowerCase()
-  const items = mode === 'link'
+  const items = mode === 'page'
     ? pages.filter((p) => p.id !== currentPageId && (!q || (p.title || 'Untitled').toLowerCase().includes(q))).slice(0, 8)
     : []
   const active = Math.min(index, Math.max(0, items.length - 1))
 
-  // At the pointer, flipped to stay inside the viewport; re-run when the content grows.
-  useLayoutEffect(() => {
-    const r = host.getBoundingClientRect()
-    let left = x
-    let top = y
-    if (left + r.width > window.innerWidth - 8) left = Math.max(8, x - r.width)
-    if (top + r.height > window.innerHeight - 8) top = Math.max(8, y - r.height)
-    host.style.left = `${left}px`
-    host.style.top = `${top}px`
-  }, [host, x, y, mode, items.length])
+  function linkPage(page: Page) {
+    close()
+    if (target && !replaceWithMention(target, page)) showImageNote('The text changed meanwhile — nothing was linked.')
+  }
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'ArrowDown' && items.length) {
@@ -107,23 +104,39 @@ function SelectionMenu({ host, x, y, currentPageId, onNewSubpage, onLink }: Menu
       setIndex((active - 1 + items.length) % items.length)
     } else if (e.key === 'Enter' && items[active]) {
       e.preventDefault()
-      onLink(items[active])
+      linkPage(items[active])
     }
+  }
+
+  const item = (icon: keyof typeof BLOCK_ICONS, label: string, run: () => void, danger = false) => (
+    <button type="button" role="menuitem" className={`mention-option slash-option${danger ? ' selection-menu-danger' : ''}`}
+      onMouseDown={(e) => { e.preventDefault(); run() }}>
+      <span className="slash-glyph" aria-hidden dangerouslySetInnerHTML={{ __html: BLOCK_ICONS[icon] }} />
+      <span className="mention-option-title">{label}</span>
+    </button>
+  )
+
+  if (mode === 'url') {
+    // Add a link to the selection, or edit the existing one (its full range).
+    const range = link ?? (target ? { from: target.from, to: target.to, href: '' } : null)
+    if (!range) return null
+    const refocus = () => { if (!view.isDestroyed) view.focus() }
+    return (
+      <LinkField initial={range.href} editing={!!link}
+        onApply={(href) => { close(); applyLink(view, range.from, range.to, href) }}
+        onRemove={() => { close(); applyLink(view, range.from, range.to, null) }}
+        onCancel={() => { close(); refocus() }} />
+    )
   }
 
   if (mode === 'menu') {
     return (
       <div className="mention-list selection-menu" role="menu" aria-label="Selection actions">
-        <button type="button" role="menuitem" className="mention-option slash-option"
-          onMouseDown={(e) => { e.preventDefault(); onNewSubpage() }}>
-          <span className="slash-glyph" aria-hidden dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.pagePlus }} />
-          <span className="mention-option-title">New subpage from selection</span>
-        </button>
-        <button type="button" role="menuitem" className="mention-option slash-option"
-          onMouseDown={(e) => { e.preventDefault(); setMode('link') }}>
-          <span className="slash-glyph" aria-hidden dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.link }} />
-          <span className="mention-option-title">Link to existing page…</span>
-        </button>
+        {target && item('pagePlus', 'New subpage from selection', () => { close(); void newSubpage(target) })}
+        {target && item('link', 'Link to existing page…', () => setMode('page'))}
+        {target && !link && item('link', 'Add link…', () => setMode('url'))}
+        {link && item('link', 'Edit link…', () => setMode('url'))}
+        {link && item('unlink', 'Remove link', () => { close(); applyLink(view, link.from, link.to, null) }, true)}
       </div>
     )
   }
@@ -138,71 +151,13 @@ function SelectionMenu({ host, x, y, currentPageId, onNewSubpage, onLink }: Menu
           <button key={p.id} type="button" role="option" aria-selected={i === active}
             className={`mention-option${i === active ? ' active' : ''}`}
             onMouseEnter={() => setIndex(i)}
-            onMouseDown={(e) => { e.preventDefault(); onLink(p) }}>
+            onMouseDown={(e) => { e.preventDefault(); linkPage(p) }}>
             <span>{pageIcon(p)}</span>
             <span className="mention-option-title">{p.title || 'Untitled'}</span>
           </button>
         ))}
       </div>
     </div>
-  )
-}
-
-let closeOpen: (() => void) | null = null
-
-function openSelectionMenu(target: Target, x: number, y: number): void {
-  closeOpen?.()
-
-  const host = document.createElement('div')
-  host.className = 'mention-popup selection-menu-popup'
-  host.style.position = 'fixed'
-  host.style.left = `${x}px`
-  host.style.top = `${y}px`
-  document.body.append(host)
-  const root = createRoot(host)
-
-  let closed = false
-  function close() {
-    if (closed) return
-    closed = true
-    if (closeOpen === close) closeOpen = null
-    document.removeEventListener('mousedown', onOutside, true)
-    document.removeEventListener('keydown', onKey, true)
-    window.removeEventListener('scroll', onScroll, true)
-    window.removeEventListener('resize', close)
-    window.removeEventListener('blur', close)
-    // Defer unmount: close can run from inside a React handler of this root.
-    queueMicrotask(() => { root.unmount(); host.remove() })
-  }
-  closeOpen = close
-
-  function onOutside(e: MouseEvent) {
-    if (!host.contains(e.target as globalThis.Node)) close()
-  }
-  function onKey(e: globalThis.KeyboardEvent) {
-    if (e.key !== 'Escape') return
-    e.preventDefault()
-    e.stopPropagation()
-    close()
-    if (!target.view.isDestroyed) target.view.focus()
-  }
-  // Scrolling the page closes the menu; scrolling inside it (the page list) doesn't.
-  function onScroll(e: Event) {
-    if (!host.contains(e.target as globalThis.Node)) close()
-  }
-  document.addEventListener('mousedown', onOutside, true)
-  document.addEventListener('keydown', onKey, true)
-  window.addEventListener('scroll', onScroll, true)
-  window.addEventListener('resize', close)
-  window.addEventListener('blur', close)
-
-  root.render(
-    <SelectionMenu host={host} x={x} y={y} currentPageId={target.pageId}
-      onNewSubpage={() => { close(); void newSubpage(target) }}
-      onLink={(page) => {
-        close()
-        if (!replaceWithMention(target, page)) showImageNote('The text changed meanwhile — nothing was linked.')
-      }} />,
   )
 }
 
@@ -218,33 +173,47 @@ function pointOnSelection(x: number, y: number): boolean {
   return false
 }
 
+/** The text-selection target under the pointer, or null (see selectionContextMenu). */
+function textTarget(view: EditorView, event: MouseEvent, pageId: string): Target | null {
+  const { selection, doc, schema } = view.state
+  if (!(selection instanceof TextSelection) || selection.empty || !schema.nodes.mention) return null
+  const { $from, $to } = selection
+  if ($from.parent.type.spec.code || $to.parent.type.spec.code) return null
+  if (!pointOnSelection(event.clientX, event.clientY)) return null
+  let { from, to } = selection
+  const raw = doc.textBetween(from, to, ' ', ' ')
+  if (!raw.trim()) return null
+  // Keep surrounding spaces outside the mention/link when the range is plain text in one block.
+  if ($from.sameParent($to) && raw.length === to - from) {
+    from += raw.length - raw.trimStart().length
+    to -= raw.length - raw.trimEnd().length
+  }
+  return { view, from, to, text: textOf(view, from, to), pageId }
+}
+
 /**
  * editorProps.handleDOMEvents.contextmenu (editable docs only). Takes over the right-click only
- * when it lands on a non-empty text selection outside image/plugin blocks and code; otherwise
- * returns false and the browser's own menu appears.
+ * when it lands on a non-empty text selection (outside image/plugin blocks and code) or on an
+ * existing link; otherwise returns false and the browser's own menu appears.
  */
 export function selectionContextMenu(pageId: string) {
   return (view: EditorView, event: MouseEvent): boolean => {
     if (!view.editable) return false
-    const { selection, doc, schema } = view.state
-    if (!(selection instanceof TextSelection) || selection.empty || !schema.nodes.mention) return false
     const el = event.target as HTMLElement | null
     if (el?.closest?.('.image-block, .plugin-block')) return false
-    const { $from, $to } = selection
-    if ($from.parent.type.spec.code || $to.parent.type.spec.code) return false
-    if (!pointOnSelection(event.clientX, event.clientY)) return false
-
-    let { from, to } = selection
-    const raw = doc.textBetween(from, to, ' ', ' ')
-    if (!raw.trim()) return false
-    // Keep surrounding spaces outside the mention when the range is plain text in one block.
-    if ($from.sameParent($to) && raw.length === to - from) {
-      from += raw.length - raw.trimStart().length
-      to -= raw.length - raw.trimEnd().length
+    const target = textTarget(view, event, pageId)
+    const a = linkElementAt(event.target, view.dom)
+    let link: LinkRange | null = null
+    if (a) {
+      try { link = linkRangeAt(view, view.posAtDOM(a, 0)) } catch { link = null }
+      if (link && !link.href) link = null
     }
+    if (!target && !link) return false
 
     event.preventDefault()
-    openSelectionMenu({ view, from, to, text: textOf(view, from, to), pageId }, event.clientX, event.clientY)
+    openFloating(event.clientX, event.clientY,
+      { className: 'selection-menu-popup', onEscape: () => { if (!view.isDestroyed) view.focus() } },
+      (close) => <SelectionMenu view={view} target={target} link={link} currentPageId={pageId} close={close} />)
     return true
   }
 }

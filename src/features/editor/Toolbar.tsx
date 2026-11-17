@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { usePages, visibilityRole } from '../../state/pages'
 import { BLOCK_ICONS } from './blockIcons'
 import { currentUserId } from './blocks'
+import { linkRangeAt, openLinkFieldForSelection } from './linkUi'
 import type { SaveStatus } from './useAutosave'
 
 const STATUS_TEXT: Record<SaveStatus, string> = {
@@ -48,6 +49,15 @@ export default function Toolbar({ editor, status }: { editor: Editor; status: Sa
   })
   const tools = canSecret ? [...TOOLS, SECRET_TOOL] : TOOLS
   const active = useEditorState({ editor, selector: ({ editor: e }) => [...TOOLS, SECRET_TOOL].map((t) => t.isActive(e)) })
+  // Link: applies to the selection, or edits the link under the caret; nothing to do otherwise.
+  const link = useEditorState({
+    editor,
+    selector: ({ editor: e }) => {
+      const inLink = e.isActive('link')
+      const usable = !e.state.selection.empty || (inLink && !!linkRangeAt(e.view, e.state.selection.from))
+      return { inLink, usable }
+    },
+  })
 
   return (
     <div className="editor-toolbar" role="toolbar">
@@ -59,6 +69,12 @@ export default function Toolbar({ editor, status }: { editor: Editor; status: Sa
           {tool.label}
         </button>
       ))}
+      <button title={link.inLink ? 'Edit link' : 'Add link (select text first)'} aria-pressed={link.inLink}
+        className={`editor-tool tool-link${link.inLink ? ' active' : ''}`} disabled={!link.usable}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => { openLinkFieldForSelection(editor.view) }}>
+        <span className="editor-tool-glyph" dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.link }} />
+      </button>
       <span className={`editor-status status-${status}`} aria-live="polite">{STATUS_TEXT[status]}</span>
     </div>
   )

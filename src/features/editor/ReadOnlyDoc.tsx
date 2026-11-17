@@ -6,6 +6,7 @@ import { pagePath, usePages } from '../../state/pages'
 import { Callout, secretBlock } from './blocks'
 import { pageMention } from './mentionExtension'
 import { ImageBlock } from './imageBlock'
+import { LINK_OPTIONS, openLinkFromClick } from './linkUi'
 import { PluginBlock } from './pluginBlock'
 import './editor.css'
 
@@ -19,7 +20,7 @@ export default function ReadOnlyDoc({ content }: { content: unknown }) {
   // Never editable, so the mention suggestion (which needs project/page ids) never fires.
   const [setup] = useState(() => ({
     editable: false,
-    extensions: [StarterKit, pageMention('', ''), Callout, secretBlock(false),
+    extensions: [StarterKit.configure({ link: LINK_OPTIONS }), pageMention('', ''), Callout, secretBlock(false),
       // Plugins resolve against the currently loaded project; always read-only here.
       PluginBlock.configure({ projectId: null, canEdit: false }),
       // Images render read-only (no handles/toolbar); the click-to-zoom lightbox still works.
@@ -35,7 +36,9 @@ export default function ReadOnlyDoc({ content }: { content: unknown }) {
     }
   }, [editor, content])
 
-  function followMention(e: MouseEvent) {
+  function followMention(e: MouseEvent<HTMLElement>) {
+    // Links open in a new tab (never the anchor's own navigation).
+    if (openLinkFromClick(e)) return
     const id = (e.target as HTMLElement).closest<HTMLElement>('.mention')?.dataset.id
     if (!id) return
     const target = usePages.getState().pages.find((p) => p.id === id)
