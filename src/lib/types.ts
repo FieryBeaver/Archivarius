@@ -99,6 +99,8 @@ export type MemberWithProfile = Member & {
   /** v0.7: assigned custom role, if any (role still holds its base capability). */
   custom_role_id: string | null
   custom_role_name: string | null
+  /** v0.10: the assigned custom role is edit-own-pages-only (false without one). */
+  custom_role_edit_own_only: boolean
 }
 
 /**
@@ -110,6 +112,11 @@ export interface ProjectRole {
   project_id: string
   name: string
   base: Role
+  /**
+   * v0.10: only meaningful for base 'editor' (DB check forbids it otherwise):
+   * members may write only pages they created or are listed in page_editors for.
+   */
+  edit_own_only: boolean
   created_at: string
 }
 

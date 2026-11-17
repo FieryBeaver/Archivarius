@@ -99,6 +99,9 @@ function AccessPanel({ page }: { page: Page }) {
     .filter((m) => m.role !== 'viewer')
     .sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : a.role === 'owner' ? -1 : 1))
   const hasEditors = listed.some((m) => m.role === 'editor')
+  // v0.10: on an "All editors" page, members of edit-own-only roles still need
+  // an explicit grant (their own pages are always theirs).
+  const ownOnly = listed.filter((m) => m.role === 'editor' && m.custom_role_edit_own_only)
 
   return (
     <>
@@ -141,6 +144,31 @@ function AccessPanel({ page }: { page: Page }) {
                 ? 'Owners can always edit. Viewers never can.'
                 : 'No editors in this world yet — invite some in Settings → Members.'}
             </p>
+          </>
+        )
+      )}
+      {!restricted && ownOnly.length > 0 && (
+        editors === undefined ? (
+          <p className="access-note">Loading members…</p>
+        ) : (
+          <>
+            <p className="access-pop-label">Also let edit</p>
+            <ul className="access-members" aria-label="Own-pages-only members allowed to edit">
+              {ownOnly.map((m) => {
+                const creator = m.user_id === page.created_by
+                return (
+                  <li key={m.user_id}>
+                    <label className={`access-member${creator ? ' fixed' : ''}`}>
+                      <input type="checkbox" checked={creator || editors.includes(m.user_id)} disabled={creator}
+                        onChange={(e) => void toggleEditor(m.user_id, e.target.checked)} />
+                      <span className="access-member-email" title={m.email}>{m.email}</span>
+                      <span className="access-member-role">{m.custom_role_name ?? m.role}</span>
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+            <p className="access-note">These members' roles edit only their own pages; tick to grant this one.</p>
           </>
         )
       )}

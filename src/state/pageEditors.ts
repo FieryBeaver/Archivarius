@@ -39,19 +39,28 @@ export const usePageEditors = create<PageEditorsState>((set) => ({
 }))
 
 /**
- * Whether the signed-in user may edit this page:
- * owner ⇒ true; editor ⇒ edit_access 'inherit' or listed in page_editors; viewer ⇒ false.
- * Refetches the editor list whenever the page (or its restriction) changes.
+ * Whether the signed-in user may edit this page (client mirror of can_edit_page):
+ * owner ⇒ true; viewer ⇒ false; editor ⇒
+ *   - secret page: only if they created it;
+ *   - edit_access 'inherit' or listed in page_editors;
+ *   - v0.10, edit-own-only custom role: additionally created it or listed in page_editors.
+ * Fetches/refetches the page's editor list whenever the answer depends on it.
  */
-export function useCanEditPage(page: Pick<Page, 'id' | 'edit_access'> | undefined): boolean {
+export function useCanEditPage(
+  page: Pick<Page, 'id' | 'edit_access' | 'created_by' | 'is_secret'> | undefined,
+): boolean {
   const role = usePages(effectiveRole)
+  // Only the user's real role carries the custom-role capability; a preview
+  // role ("view as …") never does.
+  const editOwnOnly = usePages((s) => s.editOwnOnly && s.viewAs === null)
   const userId = useAuth((s) => s.session?.user.id)
   const restricted = page?.edit_access === 'restricted'
   const pageId = page?.id
+  const mine = !!userId && page?.created_by === userId
   const editors = usePageEditors((s) => (pageId ? s.byPage[pageId] : undefined))
   const load = usePageEditors((s) => s.load)
 
-  const needsList = role === 'editor' && restricted && !!pageId
+  const needsList = role === 'editor' && !!pageId && (restricted || (editOwnOnly && !mine))
   useEffect(() => {
     if (needsList && pageId) void load(pageId)
   }, [needsList, pageId, load])
@@ -59,6 +68,9 @@ export function useCanEditPage(page: Pick<Page, 'id' | 'edit_access'> | undefine
   if (!page) return false
   if (role === 'owner') return true
   if (role !== 'editor') return false
-  if (!restricted) return true
-  return !!userId && !!editors?.includes(userId)
+  if (page.is_secret && !mine) return false
+  const listed = !!userId && !!editors?.includes(userId)
+  if (restricted && !listed) return false
+  if (editOwnOnly && !mine && !listed) return false
+  return true
 }

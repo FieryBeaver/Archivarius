@@ -18,6 +18,11 @@ interface PagesState {
   /** v0.7: the user's custom-role label, when one is assigned (display + plugins). */
   roleName: string | null
   /**
+   * v0.10: the user's custom role is "edit own pages only" — they may write
+   * only pages they created or are listed in page_editors for (RLS enforces).
+   */
+  editOwnOnly: boolean
+  /**
    * Preview role (v0.7): owners/editors can temporarily see the world as a lower
    * role. null = off. Client-side only — it hides what the client knows is
    * role-gated (secret pages/blocks, editing UI); RLS stays the real boundary.
@@ -51,23 +56,27 @@ export const usePages = create<PagesState>((set, get) => ({
   expanded: {},
   role: null,
   roleName: null,
+  editOwnOnly: false,
   viewAs: null,
   hideSecrets: false,
 
   async load(projectId) {
     if (get().projectId !== projectId) {
       set({
-        projectId, pages: [], expanded: {}, role: null, roleName: null, viewAs: null, hideSecrets: false,
+        projectId, pages: [], expanded: {}, role: null, roleName: null, editOwnOnly: false, viewAs: null, hideSecrets: false,
         status: 'loading', error: null,
       })
     }
     try {
       const [pages, membership] = await Promise.all([
         db.listPages(projectId),
-        db.getMyMembership(projectId).catch(() => ({ role: null, roleName: null })),
+        db.getMyMembership(projectId).catch((): db.MyMembership => ({ role: null, roleName: null, editOwnOnly: false })),
       ])
       if (get().projectId === projectId) {
-        set({ pages, role: membership.role, roleName: membership.roleName, status: 'ready' })
+        set({
+          pages, role: membership.role, roleName: membership.roleName,
+          editOwnOnly: membership.editOwnOnly, status: 'ready',
+        })
       }
     } catch (e) {
       if (get().projectId === projectId) set({ status: 'error', error: (e as Error).message })

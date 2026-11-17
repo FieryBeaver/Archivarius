@@ -173,3 +173,24 @@ Fixed: `src/lib/**`, `src/index.css`, `supabase/migrations/**`, `package.json`, 
 - Export/import: documents reference images by storage path → public URL; files are
   NOT inlined in exports (same as maps and covers). An imported world keeps pointing
   at the source world's image paths.
+
+## v0.10 contracts — edit-own-only roles
+
+- Schema (migration `20261117120000_edit_own_only.sql`): `project_roles.edit_own_only boolean not null default false`,
+  check `not edit_own_only or base = 'editor'`. Helper `edits_own_pages_only(project_id)` (security definer):
+  the caller is an editor whose assigned custom role has the flag.
+- `can_edit_page(p)` = the v0.7 rule (owner always; editor: secret ⇒ creator only, and `edit_access = 'inherit'`
+  or listed in `page_editors`) **plus**, for an edit-own-only editor, `created_by = auth.uid()` or listed in
+  `page_editors` (explicit grants win; a grant never opens someone else's secret). Pins/regions/events follow
+  via `can_edit_page`. `pages_insert` unchanged (they may create pages).
+- `pages_delete` adds the same own-or-granted condition; a BEFORE DELETE trigger
+  (`guard_page_delete_own_only`) also refuses cascaded deletes of child pages they couldn't delete directly.
+- `project_members(p)` returns `custom_role_edit_own_only boolean` (false without a custom role).
+- Types/db: `ProjectRole.edit_own_only`, `MemberWithProfile.custom_role_edit_own_only`;
+  `createProjectRole(projectId, name, base, editOwnOnly = false)`, `updateProjectRole(id, { name?, edit_own_only? })`;
+  `getMyMembership()` → `MyMembership { role, roleName, editOwnOnly }`, stored as `usePages().editOwnOnly`.
+- Client mirror: `useCanEditPage(page)` (needs `id, edit_access, created_by, is_secret`) applies the same rule;
+  the flag is ignored while previewing a role. Owners grant extra pages to edit-own-only members from the
+  page's edit-access popover ("Also let edit" on "All editors" pages; the checklist on restricted pages).
+- Known gap (accepted): the sidebar tree may still offer rename/drag/delete on pages such a member can't
+  edit; RLS refuses and the UI reverts.

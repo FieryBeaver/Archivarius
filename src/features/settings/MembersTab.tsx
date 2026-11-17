@@ -60,7 +60,10 @@ export function MembersTab({ ctx }: { ctx: SettingsContext }) {
     const prev = members
     setRowError(null)
     setMembers(sortMembers(members.map((x) => (x.user_id === m.user_id
-      ? { ...x, role: nextBase, custom_role_id: nextCustomId, custom_role_name: custom?.name ?? null }
+      ? {
+          ...x, role: nextBase, custom_role_id: nextCustomId, custom_role_name: custom?.name ?? null,
+          custom_role_edit_own_only: !!custom?.edit_own_only,
+        }
       : x))))
     setPend(m.user_id, true)
     try {
@@ -129,6 +132,7 @@ export function MembersTab({ ctx }: { ctx: SettingsContext }) {
                         {m.custom_role_name ?? ROLE_LABEL[m.role]}
                       </span>
                     )}
+                    {m.custom_role_edit_own_only && <OwnPagesTag />}
                   </div>
                   {isOwner && (
                     <div className="wks-member-controls">
@@ -150,7 +154,7 @@ export function MembersTab({ ctx }: { ctx: SettingsContext }) {
                         <>
                           <span className="wks-tip" title={lastOwner ? LAST_OWNER_TIP : undefined}>
                             <select
-                              className="wks-select"
+                              className="wks-select wks-role-select"
                               value={m.custom_role_id ? `custom:${m.custom_role_id}` : `base:${m.role}`}
                               disabled={lastOwner || busy}
                               aria-label={`Role for ${m.email}`}
@@ -161,7 +165,7 @@ export function MembersTab({ ctx }: { ctx: SettingsContext }) {
                                 <optgroup label="Custom roles">
                                   {customRoles.map((r) => (
                                     <option key={r.id} value={`custom:${r.id}`}>
-                                      {r.name} ({ROLE_LABEL[r.base].toLowerCase()})
+                                      {r.name} ({r.edit_own_only ? 'own pages' : ROLE_LABEL[r.base].toLowerCase()})
                                     </option>
                                   ))}
                                 </optgroup>
@@ -209,11 +213,11 @@ export function MembersTab({ ctx }: { ctx: SettingsContext }) {
 function ManageRoles(props: { projectId: string; roles: ProjectRole[]; onChanged: () => Promise<void> }) {
   const [name, setName] = useState('')
   const [base, setBase] = useState<Role>('editor')
+  const [ownOnly, setOwnOnly] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const add = async () => {
-    const value = name.trim()
+  const create = async (value: string, roleBase: Role, editOwnOnly: boolean) => {
     if (!value || busy) return
     if (props.roles.some((r) => r.name.toLowerCase() === value.toLowerCase())) {
       setError('A role with that name already exists.')
@@ -222,11 +226,27 @@ function ManageRoles(props: { projectId: string; roles: ProjectRole[]; onChanged
     setBusy(true)
     setError(null)
     try {
-      await db.createProjectRole(props.projectId, value, base)
+      await db.createProjectRole(props.projectId, value, roleBase, roleBase === 'editor' && editOwnOnly)
       setName('')
+      setOwnOnly(false)
       await props.onChanged()
     } catch (e) {
       setError((e as Error).message || 'Could not create the role.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const add = () => create(name.trim(), base, ownOnly)
+
+  const toggleOwnOnly = async (r: ProjectRole) => {
+    if (busy || r.base !== 'editor') return
+    setBusy(true)
+    setError(null)
+    try {
+      await db.updateProjectRole(r.id, { edit_own_only: !r.edit_own_only })
+      await props.onChanged()
+    } catch (e) {
+      setError((e as Error).message || 'Could not update the role.')
     } finally {
       setBusy(false)
     }
@@ -252,12 +272,23 @@ function ManageRoles(props: { projectId: string; roles: ProjectRole[]; onChanged
       {props.roles.length > 0 && (
         <ul className="wks-members">
           {props.roles.map((r) => (
-            <li key={r.id} className="wks-member">
+            <li key={r.id} className="wks-member wks-role-row">
               <div className="wks-member-main">
                 <div className="wks-member-email">{r.name}</div>
                 <span className={`wks-badge wks-badge-${r.base}`}>{ROLE_LABEL[r.base]} permissions</span>
+                {r.edit_own_only && <OwnPagesTag />}
               </div>
               <div className="wks-member-controls">
+                {r.base === 'editor' && (
+                  <button type="button" className="btn-ghost wks-btn" disabled={busy}
+                    aria-pressed={r.edit_own_only}
+                    title={r.edit_own_only
+                      ? 'Let members with this role edit every page editors can edit'
+                      : 'Limit members with this role to pages they create'}
+                    onClick={() => { void toggleOwnOnly(r) }}>
+                    {r.edit_own_only ? 'Allow all pages' : 'Own pages only'}
+                  </button>
+                )}
                 <button type="button" className="btn-danger wks-btn wks-icon-btn" disabled={busy}
                   aria-label={`Delete role ${r.name}`} title="Delete role (members keep its base role)"
                   onClick={() => { void remove(r) }}>
@@ -267,6 +298,17 @@ function ManageRoles(props: { projectId: string; roles: ProjectRole[]; onChanged
             </li>
           ))}
         </ul>
+      )}
+      {props.roles.length === 0 && (
+        <div className="wks-row-between">
+          <div className="wks-hint">
+            Running a game? A Player role lets members write their own pages without touching yours.
+          </div>
+          <button type="button" className="btn-ghost wks-btn" disabled={busy}
+            onClick={() => { void create('Player', 'editor', true) }}>
+            Create “Player” role
+          </button>
+        </div>
       )}
       <div className="wks-invite">
         <input className="wks-input wks-invite-email" placeholder="Role name, e.g. Co-GM"
@@ -282,6 +324,19 @@ function ManageRoles(props: { projectId: string; roles: ProjectRole[]; onChanged
           {busy ? 'Adding…' : 'Add role'}
         </button>
       </div>
+      {base === 'editor' && (
+        <label className="wks-check">
+          <input type="checkbox" checked={ownOnly} disabled={busy}
+            onChange={(e) => setOwnOnly(e.target.checked)} />
+          <span>
+            Can only edit pages they create
+            <span className="wks-hint wks-check-hint">
+              They can still read everything that isn’t secret, and you can grant extra
+              pages via each page’s edit access.
+            </span>
+          </span>
+        </label>
+      )}
       {error && <p className="wks-error" role="alert">{error}</p>}
       {!error && (
         <div className="wks-hint">
@@ -358,5 +413,14 @@ function InviteRow(props: { projectId: string; onAdded: () => Promise<void> }) {
         <div className="wks-hint">They need an Archivarius account first.</div>
       )}
     </form>
+  )
+}
+
+/** v0.10: marks a custom role (or a member holding one) limited to their own pages. */
+function OwnPagesTag() {
+  return (
+    <span className="wks-badge wks-badge-own" title="Can only edit pages they create (plus pages granted to them)">
+      own pages
+    </span>
   )
 }

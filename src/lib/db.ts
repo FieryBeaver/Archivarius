@@ -74,10 +74,12 @@ export async function listMembers(projectId: string): Promise<MemberWithProfile[
   const rows = ok(data, error) as {
     user_id: string; role: Role; email: string
     custom_role_id: string | null; custom_role_name: string | null
+    custom_role_edit_own_only: boolean | null
   }[]
   return rows.map((r) => ({
     project_id: projectId, user_id: r.user_id, role: r.role, email: r.email,
     custom_role_id: r.custom_role_id ?? null, custom_role_name: r.custom_role_name ?? null,
+    custom_role_edit_own_only: !!r.custom_role_edit_own_only,
   }))
 }
 
@@ -89,10 +91,27 @@ export async function listProjectRoles(projectId: string): Promise<ProjectRole[]
   return ok(data, error)
 }
 
-/** Owner only (RLS). A custom role is a label over a base capability. */
-export async function createProjectRole(projectId: string, name: string, base: Role): Promise<ProjectRole> {
+/**
+ * Owner only (RLS). A custom role is a label over a base capability.
+ * v0.10: `editOwnOnly` (editor base only; ignored otherwise) limits writes to
+ * pages the member created or was granted via page_editors.
+ */
+export async function createProjectRole(
+  projectId: string, name: string, base: Role, editOwnOnly = false,
+): Promise<ProjectRole> {
   const { data, error } = await supabase
-    .from('project_roles').insert({ project_id: projectId, name: name.trim(), base }).select().single()
+    .from('project_roles')
+    .insert({ project_id: projectId, name: name.trim(), base, edit_own_only: base === 'editor' && editOwnOnly })
+    .select().single()
+  return ok(data, error)
+}
+
+/** Owner only (RLS). v0.10: rename a role or toggle edit_own_only (editor base only, DB-checked). */
+export async function updateProjectRole(
+  id: string, patch: Partial<Pick<ProjectRole, 'name' | 'edit_own_only'>>,
+): Promise<ProjectRole> {
+  const row = { ...patch, ...(patch.name !== undefined ? { name: patch.name.trim() } : {}) }
+  const { data, error } = await supabase.from('project_roles').update(row).eq('id', id).select().single()
   return ok(data, error)
 }
 
@@ -102,18 +121,34 @@ export async function deleteProjectRole(id: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+/** The signed-in user's membership in a project (see getMyMembership). */
+export interface MyMembership {
+  role: Role | null
+  /** Display label: the custom role's name when one is assigned. */
+  roleName: string | null
+  /** v0.10: the custom role limits writes to own/granted pages (mirrors can_edit_page). */
+  editOwnOnly: boolean
+}
+
 /** The signed-in user's base role plus their display label (custom name when assigned). */
-export async function getMyMembership(projectId: string): Promise<{ role: Role | null; roleName: string | null }> {
+export async function getMyMembership(projectId: string): Promise<MyMembership> {
+  const none: MyMembership = { role: null, roleName: null, editOwnOnly: false }
   const { data: u } = await supabase.auth.getUser()
-  if (!u.user) return { role: null, roleName: null }
+  if (!u.user) return none
   const { data, error } = await supabase
     .from('members').select('role,custom_role_id')
     .eq('project_id', projectId).eq('user_id', u.user.id).maybeSingle()
   const row = ok(data, error) as { role: Role; custom_role_id: string | null } | null
-  if (!row) return { role: null, roleName: null }
-  if (!row.custom_role_id) return { role: row.role, roleName: null }
-  const { data: r } = await supabase.from('project_roles').select('name').eq('id', row.custom_role_id).maybeSingle()
-  return { role: row.role, roleName: (r as { name: string } | null)?.name ?? null }
+  if (!row) return none
+  if (!row.custom_role_id) return { role: row.role, roleName: null, editOwnOnly: false }
+  const { data: r } = await supabase
+    .from('project_roles').select('name,edit_own_only').eq('id', row.custom_role_id).maybeSingle()
+  const custom = r as { name: string; edit_own_only: boolean } | null
+  return {
+    role: row.role,
+    roleName: custom?.name ?? null,
+    editOwnOnly: row.role === 'editor' && !!custom?.edit_own_only,
+  }
 }
 
 /** Owner only (RLS). Throws 'No account with that email' if nobody signed up with it. */

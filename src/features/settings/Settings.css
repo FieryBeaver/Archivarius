@@ -234,6 +234,26 @@
 }
 .wks-badge-owner { color: var(--chip-fg); background: var(--chip-bg); border-color: var(--chip-border); }
 .wks-badge-editor { color: var(--text-dim); }
+.wks-badge-own { text-transform: none; letter-spacing: normal; font-weight: 500; }
+
+/* v0.10: custom-role rows — the name keeps a minimum width and the tags wrap
+   under it instead of overflowing into the controls. */
+.wks-role-row .wks-member-main { flex-wrap: wrap; row-gap: var(--s1); }
+.wks-role-row .wks-member-email { flex: 0 1 auto; min-width: 6ch; }
+.wks-role-row .wks-member-controls { flex-shrink: 0; }
+/* Member role picker: long custom-role labels must not stretch the row. */
+.wks-role-select { width: auto; max-width: 11rem; text-overflow: ellipsis; overflow: hidden; }
+
+.wks-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  font-size: var(--fs-md);
+  color: var(--text);
+  cursor: pointer;
+}
+.wks-check > input { margin-top: 3px; flex-shrink: 0; }
+.wks-check-hint { display: block; }
 
 /* ---------- import / export ---------- */
 
