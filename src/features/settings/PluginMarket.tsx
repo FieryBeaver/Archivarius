@@ -70,8 +70,16 @@ export function PluginMarket(props: {
     return () => { live = false }
   }, [])
 
+  // Refresh/Retry bump reloadKey and set forceRef: that one load bypasses both the session cache
+  // and the browser HTTP cache (cache: 'reload'). Provider switches still use the session cache.
   const [reloadKey, setReloadKey] = useState(0)
-  useEffect(() => fetchIndex(current, reloadKey > 0), [fetchIndex, current, reloadKey])
+  const forceRef = useRef(false)
+  const reload = () => { forceRef.current = true; setReloadKey((k) => k + 1) }
+  useEffect(() => {
+    const force = forceRef.current
+    forceRef.current = false
+    return fetchIndex(current, force)
+  }, [fetchIndex, current, reloadKey])
 
   const label = (url: string) => (url === OFFICIAL_PROVIDER_URL ? 'Official' : names[url] || hostOf(url))
 
@@ -224,7 +232,7 @@ export function PluginMarket(props: {
           {providers.map((url) => <option key={url} value={url}>{label(url)}</option>)}
         </select>
         <button type="button" className="btn-ghost wks-btn" disabled={state.status === 'loading'}
-          title="Reload this provider’s catalog" onClick={() => setReloadKey((k) => k + 1)}>
+          title="Reload this provider’s catalog" onClick={reload}>
           {state.status === 'loading' ? 'Loading…' : 'Refresh'}
         </button>
         {isOwner && current !== OFFICIAL_PROVIDER_URL && (
@@ -266,7 +274,7 @@ export function PluginMarket(props: {
       {state.status === 'error' && (
         <div className="wks-row-between">
           <p className="wks-error" role="alert">{state.error}</p>
-          <button type="button" className="wks-btn" onClick={() => setReloadKey((k) => k + 1)}>Retry</button>
+          <button type="button" className="wks-btn" onClick={reload}>Retry</button>
         </div>
       )}
       {state.status === 'loading' && <div className="wks-hint">Loading catalog…</div>}

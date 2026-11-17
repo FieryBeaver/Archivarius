@@ -103,7 +103,12 @@ export function customProviders(prefs: ProjectPrefs | null | undefined): string[
 
 /* ---------- fetching ---------- */
 
-async function getText(url: string, maxBytes: number, what: string): Promise<{ text: string; url: string }> {
+async function getText(
+  url: string,
+  maxBytes: number,
+  what: string,
+  cache: RequestCache = 'no-cache',
+): Promise<{ text: string; url: string }> {
   const ctrl = new AbortController()
   const timer = window.setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
   let res: Response
@@ -113,7 +118,9 @@ async function getText(url: string, maxBytes: number, what: string): Promise<{ t
       method: 'GET',
       credentials: 'omit',
       referrerPolicy: 'no-referrer',
-      cache: 'no-cache',
+      // 'no-cache' revalidates with the server (jsDelivr sends days-long cache headers);
+      // 'reload' (explicit Refresh) bypasses the browser HTTP cache entirely.
+      cache,
       redirect: 'follow',
       signal: ctrl.signal,
     })
@@ -199,8 +206,8 @@ export function parseIndex(text: string, baseUrl: string): MarketIndex {
   }
 }
 
-async function fetchIndexFrom(url: string): Promise<MarketIndex> {
-  const { text, url: finalUrl } = await getText(url, INDEX_MAX_BYTES, 'provider')
+async function fetchIndexFrom(url: string, cache: RequestCache = 'no-cache'): Promise<MarketIndex> {
+  const { text, url: finalUrl } = await getText(url, INDEX_MAX_BYTES, 'provider', cache)
   return parseIndex(text, finalUrl)
 }
 
@@ -208,7 +215,8 @@ async function fetchIndexFrom(url: string): Promise<MarketIndex> {
 const indexCache = new Map<string, Promise<MarketIndex>>()
 
 /**
- * Loads a provider's index, cached per session. `refresh` drops the cached copy first.
+ * Loads a provider's index, cached per session. `refresh` drops the cached copy first and
+ * fetches with cache: 'reload' (bypassing the browser HTTP cache); otherwise 'no-cache'.
  * Official: jsDelivr first, then raw.githubusercontent.com once if that fails for any reason.
  * Failures are not cached, so the next call retries.
  */
@@ -216,13 +224,14 @@ export function loadIndex(providerUrl: string, refresh = false): Promise<MarketI
   if (refresh) indexCache.delete(providerUrl)
   const cached = indexCache.get(providerUrl)
   if (cached) return cached
+  const cache: RequestCache = refresh ? 'reload' : 'no-cache'
   const p = (async () => {
-    if (providerUrl !== OFFICIAL_PROVIDER_URL) return fetchIndexFrom(providerUrl)
+    if (providerUrl !== OFFICIAL_PROVIDER_URL) return fetchIndexFrom(providerUrl, cache)
     try {
-      return await fetchIndexFrom(OFFICIAL_PROVIDER_URL)
+      return await fetchIndexFrom(OFFICIAL_PROVIDER_URL, cache)
     } catch (first) {
       try {
-        return await fetchIndexFrom(OFFICIAL_PROVIDER_FALLBACK_URL)
+        return await fetchIndexFrom(OFFICIAL_PROVIDER_FALLBACK_URL, cache)
       } catch {
         throw first
       }
@@ -269,7 +278,7 @@ export async function downloadPlugin(index: MarketIndex, entry: MarketEntry): Pr
   if (url.protocol !== 'https:') throw new Error(`“${entry.name}” is not served over https.`)
   let text: string
   try {
-    ;({ text } = await getText(url.href, PLUGIN_MAX_BYTES, 'plugin file'))
+    ;({ text } = await getText(url.href, PLUGIN_MAX_BYTES, 'plugin file', 'no-cache'))
   } catch (e) {
     const msg = (e as Error)?.message ?? ''
     throw new Error(msg.includes('too large') ? oversize(entry.name, PLUGIN_MAX_BYTES + 1) : `${entry.name}: ${msg}`)
