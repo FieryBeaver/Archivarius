@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as db from '../../lib/db'
 import { renderIcon } from '../../lib/icons'
 import type { Plugin, ProjectPrefs } from '../../lib/types'
 import { useProjectPrefs } from '../../state/project'
 import {
-  MAX_CUSTOM_PROVIDERS, OFFICIAL_PROVIDER_URL, customProviders, downloadPlugin, loadIndex, primeIndex,
-  probeProvider, providerUrlProblem, type MarketEntry, type MarketIndex,
+  MAX_CUSTOM_PROVIDERS, OFFICIAL_PROVIDER_URL, customProviders, downloadPlugin, isOfficialProvider, loadIndex,
+  normalizeProviderUrl, primeIndex, probeProvider, providerUrlProblem, type MarketEntry, type MarketIndex,
 } from './pluginMarket'
 
 /** Shown for market entries without a renderable icon (same as PluginsTab's default). */
@@ -83,16 +83,45 @@ export function PluginMarket(props: {
   const [providerError, setProviderError] = useState<string | null>(null)
   const [providerNote, setProviderNote] = useState<string | null>(null)
 
-  const savePrefs = async (next: ProjectPrefs) => {
+  const savePrefs = async (next: ProjectPrefs): Promise<ProjectPrefs> => {
     const p = await db.updateProjectPrefs(projectId, next)
-    setStorePrefs(projectId, p.prefs ?? next)
+    const stored = p.prefs ?? next
+    setStorePrefs(projectId, stored)
+    return stored
   }
 
+  const cancelAdd = () => { setAdding(false); setDraft(''); setProviderError(null) }
+
+  // Escape in the URL field cancels the form only. A native listener on the input itself runs
+  // before SettingsDialog's document-level Escape handler, which skips defaultPrevented events.
+  const urlInputRef = useRef<HTMLInputElement>(null)
+  const cancelAddRef = useRef(cancelAdd)
+  cancelAddRef.current = cancelAdd
+  useEffect(() => {
+    const el = urlInputRef.current
+    if (!el) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      e.stopPropagation()
+      cancelAddRef.current()
+    }
+    el.addEventListener('keydown', onKey)
+    return () => el.removeEventListener('keydown', onKey)
+  }, [adding])
+
   const addProvider = async () => {
-    const url = draft.trim()
-    const problem = providerUrlProblem(url)
+    const problem = providerUrlProblem(draft)
     if (problem) { setProviderError(problem); return }
-    if (providers.includes(url)) { setProviderError('That provider is already in the list.'); return }
+    const url = normalizeProviderUrl(draft)
+    if (isOfficialProvider(url)) {
+      setProviderError('That registry is already available as Official.')
+      return
+    }
+    if (custom.includes(url)) {
+      setProviderError(`That registry is already available as “${label(url)}”.`)
+      return
+    }
     if (custom.length >= MAX_CUSTOM_PROVIDERS) {
       setProviderError(`A world can have at most ${MAX_CUSTOM_PROVIDERS} custom providers.`)
       return
@@ -103,7 +132,8 @@ export function PluginMarket(props: {
     props.setBusy(true)
     try {
       const index = await probeProvider(url)
-      await savePrefs({ ...prefs, pluginProviders: [...custom, url] })
+      const stored = await savePrefs({ ...prefs, pluginProviders: [...custom, url] })
+      if (!customProviders(stored).includes(url)) throw new Error('The provider could not be saved. Please try again.')
       primeIndex(url, index)
       setNames((n) => ({ ...n, [url]: index.name }))
       setProviderNote(`Added “${index.name}” · ${index.plugins.length} plugin${index.plugins.length === 1 ? '' : 's'}.`)
@@ -217,16 +247,12 @@ export function PluginMarket(props: {
 
       {isOwner && adding && (
         <form className="wks-market-addprov"
-          onSubmit={(e) => { e.preventDefault(); void addProvider() }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setAdding(false); setProviderError(null) }
-          }}>
-          <input className="wks-input" type="url" inputMode="url" autoFocus spellCheck={false}
+          onSubmit={(e) => { e.preventDefault(); void addProvider() }}>
+          <input ref={urlInputRef} className="wks-input" type="url" inputMode="url" autoFocus spellCheck={false}
             aria-label="Provider index URL" placeholder="https://example.com/plugins/index.json"
             value={draft} disabled={probing}
             onChange={(e) => { setDraft(e.target.value); setProviderError(null) }} />
-          <button type="button" className="btn-ghost wks-btn" disabled={probing}
-            onClick={() => { setAdding(false); setDraft(''); setProviderError(null) }}>
+          <button type="button" className="btn-ghost wks-btn" disabled={probing} onClick={cancelAdd}>
             Cancel
           </button>
           <button type="submit" className="btn-primary wks-btn" disabled={probing || !draft.trim()}>

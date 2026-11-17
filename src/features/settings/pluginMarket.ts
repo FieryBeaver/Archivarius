@@ -75,8 +75,15 @@ export function providerUrlProblem(raw: string): string | null {
   return null
 }
 
-function isOfficial(url: string): boolean {
-  return url === OFFICIAL_PROVIDER_URL || url === OFFICIAL_PROVIDER_FALLBACK_URL
+/** Canonical form of a provider URL (trimmed, URL-normalized) so duplicates compare equal. */
+export function normalizeProviderUrl(raw: string): string {
+  try { return new URL(raw.trim()).href } catch { return raw.trim() }
+}
+
+/** True for either of Official's URLs (jsDelivr or its raw.githubusercontent fallback). */
+export function isOfficialProvider(url: string): boolean {
+  const u = normalizeProviderUrl(url)
+  return u === OFFICIAL_PROVIDER_URL || u === OFFICIAL_PROVIDER_FALLBACK_URL
 }
 
 /** The world's custom providers, cleaned (https only, deduped, no Official, capped). */
@@ -86,8 +93,8 @@ export function customProviders(prefs: ProjectPrefs | null | undefined): string[
   const out: string[] = []
   for (const v of raw) {
     if (typeof v !== 'string') continue
-    const url = v.trim()
-    if (!url || providerUrlProblem(url) || isOfficial(url) || out.includes(url)) continue
+    const url = normalizeProviderUrl(v)
+    if (!url || providerUrlProblem(url) || isOfficialProvider(url) || out.includes(url)) continue
     out.push(url)
     if (out.length >= MAX_CUSTOM_PROVIDERS) break
   }
@@ -235,7 +242,7 @@ export function primeIndex(providerUrl: string, index: MarketIndex): void {
 export async function probeProvider(url: string): Promise<MarketIndex> {
   const problem = providerUrlProblem(url)
   if (problem) throw new Error(problem)
-  return fetchIndexFrom(url.trim())
+  return fetchIndexFrom(normalizeProviderUrl(url))
 }
 
 /* ---------- plugin files ---------- */
