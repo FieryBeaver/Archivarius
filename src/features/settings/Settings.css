@@ -244,6 +244,8 @@
 /* Member role picker: long custom-role labels must not stretch the row. */
 .wks-role-select { width: auto; max-width: 11rem; text-overflow: ellipsis; overflow: hidden; }
 
+.wks-warn { margin: 0; color: var(--danger); }
+
 .wks-check {
   display: flex;
   align-items: flex-start;

@@ -324,6 +324,11 @@ function ManageRoles(props: { projectId: string; roles: ProjectRole[]; onChanged
           {busy ? 'Adding…' : 'Add role'}
         </button>
       </div>
+      {base === 'owner' && (
+        <p className="wks-hint wks-warn" role="note">
+          Owner permissions: full access, sees all secrets, manages members and settings.
+        </p>
+      )}
       {base === 'editor' && (
         <label className="wks-check">
           <input type="checkbox" checked={ownOnly} disabled={busy}

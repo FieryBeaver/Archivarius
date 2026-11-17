@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as db from '../lib/db'
 import type { MemberWithProfile, Page } from '../lib/types'
 import { usePageEditors } from '../state/pageEditors'
 import { usePages } from '../state/pages'
+import { ancestorIds } from '../state/pageTree'
 import Popover from './Popover'
 import { ShieldGlyph } from './UiIcons'
 
@@ -10,7 +11,7 @@ type Access = Page['edit_access']
 
 const CHOICES: { value: Access; title: string; hint: string }[] = [
   { value: 'inherit', title: 'All editors', hint: 'Everyone with the editor role can edit this page.' },
-  { value: 'restricted', title: 'Restricted', hint: 'Only owners and the editors you pick below.' },
+  { value: 'restricted', title: 'Restricted', hint: 'Only owners and the editors you pick below (plus their subpages).' },
 ]
 
 /**
@@ -58,6 +59,25 @@ function AccessPanel({ page }: { page: Page }) {
   const [error, setError] = useState<string | null>(null)
   const restricted = page.edit_access === 'restricted'
 
+  // v0.10 subtree grants: a listing on any ancestor also covers this page.
+  const pages = usePages((s) => s.pages)
+  const byPage = usePageEditors((s) => s.byPage)
+  const ancestors = useMemo(() => {
+    const byId = new Map(pages.map((p) => [p.id, p]))
+    return ancestorIds(pages, page.id).flatMap((id) => byId.get(id) ?? [])
+  }, [pages, page.id])
+  useEffect(() => {
+    const cached = usePageEditors.getState().byPage
+    for (const a of ancestors) if (!(a.id in cached)) void loadEditors(a.id)
+  }, [ancestors, loadEditors])
+  /** user id → title of the nearest ancestor that grants them this page. */
+  const inheritedVia = useMemo(() => {
+    const via = new Map<string, string>()
+    for (const a of ancestors) for (const uid of byPage[a.id] ?? []) if (!via.has(uid)) via.set(uid, a.title)
+    return via
+  }, [ancestors, byPage])
+  const viaTitles = [...new Set(inheritedVia.values())]
+
   useEffect(() => {
     let live = true
     db.listMembers(page.project_id).then(
@@ -94,14 +114,18 @@ function AccessPanel({ page }: { page: Page }) {
     }
   }
 
-  // Viewers can never edit, so they aren't offered; owners always can.
+  const RANK = { owner: 0, editor: 1, viewer: 2 } as const
+  // Viewers can never edit, so they're only offered on secret pages, where a
+  // grant lets them SEE the page and its subpages. Owners always can.
   const listed = (members ?? [])
-    .filter((m) => m.role !== 'viewer')
-    .sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : a.role === 'owner' ? -1 : 1))
+    .filter((m) => m.role !== 'viewer' || page.is_secret)
+    .sort((a, b) => RANK[a.role] - RANK[b.role] || a.email.localeCompare(b.email))
   const hasEditors = listed.some((m) => m.role === 'editor')
-  // v0.10: on an "All editors" page, members of edit-own-only roles still need
-  // an explicit grant (their own pages are always theirs).
-  const ownOnly = listed.filter((m) => m.role === 'editor' && m.custom_role_edit_own_only)
+  // v0.10: on an "All editors" page, members who can't already reach it need
+  // an explicit grant: edit-own-only members always; on a secret page every
+  // non-owner (secrets are hidden from them otherwise).
+  const ownOnly = listed.filter((m) => m.role !== 'owner'
+    && (page.is_secret || (m.role === 'editor' && m.custom_role_edit_own_only)))
 
   return (
     <>
@@ -127,13 +151,16 @@ function AccessPanel({ page }: { page: Page }) {
             <ul className="access-members" aria-label="Allowed editors">
               {listed.map((m) => {
                 const owner = m.role === 'owner'
+                const via = !editors.includes(m.user_id) ? inheritedVia.get(m.user_id) : undefined
+                const fixed = owner || !!via
                 return (
                   <li key={m.user_id}>
-                    <label className={`access-member${owner ? ' fixed' : ''}`}>
-                      <input type="checkbox" checked={owner || editors.includes(m.user_id)} disabled={owner}
+                    <label className={`access-member${fixed ? ' fixed' : ''}`}
+                      title={via ? `Has access via “${via}”` : undefined}>
+                      <input type="checkbox" checked={fixed || editors.includes(m.user_id)} disabled={fixed}
                         onChange={(e) => void toggleEditor(m.user_id, e.target.checked)} />
                       <span className="access-member-email" title={m.email}>{m.email}</span>
-                      <span className="access-member-role">{m.role}</span>
+                      <span className="access-member-role">{via ? 'inherited' : m.role}</span>
                     </label>
                   </li>
                 )
@@ -141,7 +168,7 @@ function AccessPanel({ page }: { page: Page }) {
             </ul>
             <p className="access-note">
               {hasEditors
-                ? 'Owners can always edit. Viewers never can.'
+                ? 'Ticked members can edit this page and everything under it. Owners always can; viewers never can.'
                 : 'No editors in this world yet — invite some in Settings → Members.'}
             </p>
           </>
@@ -152,25 +179,44 @@ function AccessPanel({ page }: { page: Page }) {
           <p className="access-note">Loading members…</p>
         ) : (
           <>
-            <p className="access-pop-label">Also let edit</p>
-            <ul className="access-members" aria-label="Own-pages-only members allowed to edit">
+            <p className="access-pop-label">
+              {page.is_secret ? 'Also give access' : 'Also let edit'} — applies to this page and everything under it
+            </p>
+            <ul className="access-members" aria-label="Members granted this page and its subpages">
               {ownOnly.map((m) => {
                 const creator = m.user_id === page.created_by
+                const via = !editors.includes(m.user_id) ? inheritedVia.get(m.user_id) : undefined
+                const fixed = creator || !!via
                 return (
                   <li key={m.user_id}>
-                    <label className={`access-member${creator ? ' fixed' : ''}`}>
-                      <input type="checkbox" checked={creator || editors.includes(m.user_id)} disabled={creator}
+                    <label className={`access-member${fixed ? ' fixed' : ''}`}
+                      title={via ? `Has access via “${via}”` : undefined}>
+                      <input type="checkbox" checked={fixed || editors.includes(m.user_id)} disabled={fixed}
                         onChange={(e) => void toggleEditor(m.user_id, e.target.checked)} />
                       <span className="access-member-email" title={m.email}>{m.email}</span>
-                      <span className="access-member-role">{m.custom_role_name ?? m.role}</span>
+                      <span className="access-member-role">{via ? 'inherited' : m.custom_role_name ?? m.role}</span>
                     </label>
                   </li>
                 )
               })}
             </ul>
-            <p className="access-note">These members' roles edit only their own pages; tick to grant this one.</p>
+            <p className="access-note">
+              {page.is_secret
+                ? 'Ticked editors can see and edit this secret subtree; ticked viewers can see it.'
+                : 'These members’ roles edit only their own pages; tick to grant this subtree.'}
+            </p>
           </>
         )
+      )}
+      {page.is_secret && (
+        <p className="access-note">
+          This page is secret: members you grant here can also see it and its subpages.
+        </p>
+      )}
+      {viaTitles.length > 0 && (
+        <p className="access-note">
+          Some members have access via {viaTitles.map((t) => `“${t}”`).join(', ')}.
+        </p>
       )}
       {error && <p className="error-text">{error}</p>}
     </>

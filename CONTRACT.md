@@ -194,3 +194,34 @@ Fixed: `src/lib/**`, `src/index.css`, `supabase/migrations/**`, `package.json`, 
   page's edit-access popover ("Also let edit" on "All editors" pages; the checklist on restricted pages).
 - Known gap (accepted): the sidebar tree may still offer rename/drag/delete on pages such a member can't
   edit; RLS refuses and the UI reverts.
+
+### v0.10 subtree grants (migration `20261117140000_subtree_grants.sql`)
+- A `page_editors` row on page X grants its member X **and every page under X**. Helper
+  `has_page_grant(p)` (security definer): caller listed on p or any ancestor (walk up `parent_id`, depth cap 50).
+- Read (`can_read_page`, `pages_select`): a secret page is also readable with `has_page_grant` — any member
+  role, viewers included. Pins/regions/events/mentions/backlinks follow via `can_read_page`.
+- Edit (`can_edit_page`, `pages_update`): for editors, every former direct-`page_editors` check (restricted pages,
+  edit-own-only roles) accepts `has_page_grant`, and the secret condition becomes
+  `not is_secret or created_by = me or has_page_grant`. Viewers never edit.
+- Delete: `pages_delete` uses `has_page_grant` the same way. `guard_page_delete_own_only` runs only on the
+  directly deleted row (`pg_trigger_depth() = 1`) and vets its whole subtree while the tree is intact
+  (cascaded rows can't resolve ancestor grants because their parent is already gone).
+- A grant lets you edit a secret page, not expose it: trigger `guard_page_secret_toggle` lets only owners and
+  the page's creator change `is_secret`.
+- A non-owner's new page under a secret parent is created secret (`inherit_parent_secret`), so content added
+  inside a hidden subtree doesn't leak. It stays visible to its creator, the subtree's grantees and owners.
+- Revoking a grant removes access to the subtree except pages the member created (creator rules still apply:
+  their own secret pages stay visible/editable to them while they're an editor).
+- Client: `useCanEditPage` walks the loaded ancestor chain and treats a cached editor list on any ancestor as
+  a grant (loads the chain's lists as needed). Granted secret pages simply arrive from the server; the store
+  only filters secrets while previewing as a viewer or with "Hide secrets" on. The edit-access popover marks
+  members granted via an ancestor ("inherited") and, on secret pages, offers grants to every non-owner.
+
+### Secrecy matrix (current, v0.10)
+| secret page created by | owners | its creator | granted members (page or ancestor) | other editors / viewers |
+|---|---|---|---|---|
+| an owner | see + edit | see + edit | see (+ edit if editor) | hidden |
+| an editor/player | see + edit | see + edit while editor (a demoted viewer loses it) | see (+ edit if editor) | hidden |
+
+- Owners always see and edit everything. Co-GM = a custom role with base `owner` (offered in Settings →
+  Members; the sync trigger sets `members.role = 'owner'`).
