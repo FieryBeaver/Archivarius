@@ -20,6 +20,11 @@ export interface ProjectPrefs {
   imageWarnBytes?: number
   /** Compress oversize uploads without asking. Default false. */
   autoCompress?: boolean
+  /**
+   * Plugin market: extra provider index.json URLs (https) besides the built-in Official
+   * registry, in the order added. Default []. Owners edit it in Settings → Plugins.
+   */
+  pluginProviders?: string[]
 }
 
 export interface Member {

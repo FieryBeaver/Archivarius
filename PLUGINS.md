@@ -326,3 +326,59 @@ inventory list. Copy into `character-sheet.html` and upload it.
 - [ ] Colors come from `theme`, with fallbacks.
 - [ ] `resize` sent on load and whenever height changes.
 - [ ] `set-data` debounced, sends the full JSON-serializable state, stays small.
+
+## Plugin market & providers
+
+Settings → Plugins has a **Get plugins** section that browses plugin registries
+("providers") and adds a plugin to the world in one click. Everyone in a world can
+browse; only owners can add plugins or change the provider list. Manual upload of your
+own `.html` file (above the market) works exactly as before.
+
+### The official registry
+
+The built-in provider, shown as **Official**, is the
+[FieryBeaver/Archivarius-Plugins](https://github.com/FieryBeaver/Archivarius-Plugins)
+repository. Archivarius reads its index from
+`https://cdn.jsdelivr.net/gh/FieryBeaver/Archivarius-Plugins@main/index.json` and, if that
+request fails, retries once from
+`https://raw.githubusercontent.com/FieryBeaver/Archivarius-Plugins/main/index.json`.
+
+To publish a plugin there, open a pull request against that repository that adds your
+plugin file (one self-contained HTML file following this guide, at most 256 KB) and its
+entry in `index.json`. See the repository's README for the folder layout and review rules.
+
+### The provider contract (host your own registry)
+
+- A provider is a URL to an index.json; relative paths inside resolve against that URL's directory (new URL(file, indexUrl)).
+- index.json: { name, description?, homepage?, plugins: [ { slug, name, version, author, blurb, tags: string[], license, file, bytes, icon? } ] }
+
+Details Archivarius relies on:
+
+- Serve over **https** with CORS enabled (`Access-Control-Allow-Origin: *`); the app fetches
+  the index and the plugin files from the browser with plain anonymous GET requests. No
+  cookies, credentials, referrer or user data are sent.
+- `slug`, `name` and `file` are required; entries missing any of them (or with a duplicate
+  `slug`) are skipped. `file` is usually relative (`plugins/my-sheet/plugin.html`) but may be
+  an absolute https URL.
+- `bytes` is the file size. Entries over 256 KB are shown as "Too large"; the downloaded file
+  is checked again and must look like HTML.
+- `icon` is optional: a Game Icons name from the app's icon picker (for example
+  `gi:GiDaggers`) or a single emoji. Unknown names fall back to the default plugin icon.
+- `homepage` is shown as a link only if it is an https URL. The index itself can be at most 1 MB.
+- The plugin keeps the entry's `name` when added. A world that already has a plugin with
+  the same name (case-insensitive) shows it as "Added ✓".
+
+A static host is all you need: a GitHub repository served through jsDelivr or
+raw.githubusercontent.com, GitHub Pages, or any CDN with CORS.
+
+### Adding a custom provider
+
+In **Settings → Plugins → Get plugins**, an owner clicks **Add provider…** and pastes the
+https URL of the index.json. Archivarius fetches it and saves it only if it parses and has a
+`plugins` array, then shows the provider's name. Custom providers (up to 10) are saved per
+world in the world's preferences (`projects.prefs.pluginProviders`), so every member sees
+them. Select a provider in the list to browse it. **Remove provider** drops it from the list
+and leaves plugins already added from it in place. Official cannot be removed.
+
+Plugins from any provider run in the same sandbox as uploaded ones, but they still see the
+data of the blocks they are placed in. Only add providers you trust.

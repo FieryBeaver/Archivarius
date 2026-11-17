@@ -583,6 +583,26 @@
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius);
 }
+.wks-market-providers { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.wks-market-select { flex: 1 1 180px; }
+.wks-market-addprov { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.wks-market-addprov .wks-input { flex: 1 1 240px; width: auto; }
+.wks-market-card .wks-member-main { align-items: flex-start; }
+.wks-market-version { font-size: var(--fs-xs); font-weight: 400; color: var(--muted); }
+.wks-market-blurb { font-size: var(--fs-sm); color: var(--text); line-height: 1.4; margin-top: 2px; }
+.wks-market-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.wks-market-tag {
+  padding: 0 6px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 18px;
+  color: var(--chip-fg);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.wks-market-tag:hover { background: var(--chip-bg-hover); }
 .wks-plugins-empty-icon { color: var(--accent); flex-shrink: 0; line-height: 1; }
 .wks-kbd {
   padding: 0 5px;

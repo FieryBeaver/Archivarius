@@ -6,6 +6,7 @@ import type { Plugin } from '../../lib/types'
 import { STARTER_PLUGINS, type StarterPlugin } from './defaultPlugins'
 import type { SettingsContext } from './SettingsDialog'
 import { ROLE_LABEL } from './roles'
+import { PluginMarket } from './PluginMarket'
 
 /** Shown for plugins without an icon of their own (also the tab icon). */
 export const DEFAULT_PLUGIN_ICON = 'gi:GiRuneStone'
@@ -92,6 +93,10 @@ export function PluginsTab({ ctx }: { ctx: SettingsContext }) {
       {isOwner && <UploadForm projectId={project.id} setBusy={setBusy} onUploaded={load} />}
 
       {isOwner && <StarterPlugins projectId={project.id} plugins={plugins} setBusy={setBusy} onAdded={load} />}
+
+      {/* v0.11: plugin market — browse provider registries (members see it; owners add). */}
+      <PluginMarket projectId={project.id} projectPrefs={project.prefs} isOwner={isOwner}
+        plugins={plugins} setBusy={setBusy} onAdded={load} />
 
       <div className="wks-field">
         <div className="wks-label">Plugins{plugins ? ` · ${plugins.length}` : ''}</div>
