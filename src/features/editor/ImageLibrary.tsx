@@ -4,19 +4,23 @@ import { createRoot } from 'react-dom/client'
 import * as db from '../../lib/db'
 import { effectiveRole, usePages } from '../../state/pages'
 import { BLOCK_ICONS } from './blockIcons'
-import { imageProjectId } from './imageBlock'
+import { imageProjectId, insertImageAtMarker, markPosition, markedPosition, unmarkPosition, uploadAndInsertImages } from './imageBlock'
 
 interface ImageLibraryProps {
   projectId: string | null
   onPick(path: string): void
+  /**
+   * A file chosen with "Upload image…". The popup closes and the editor takes over (size dialog,
+   * "Adding image…" placeholder at the stored position, upload, insert) — see openImageLibrary.
+   */
+  onUpload(file: File): void
   onClose(): void
 }
 
 /** The world's uploaded document images: pick one, upload a new one, or (owners) delete one. */
-export function ImageLibrary({ projectId, onPick, onClose }: ImageLibraryProps) {
+export function ImageLibrary({ projectId, onPick, onUpload, onClose }: ImageLibraryProps) {
   const [images, setImages] = useState<db.DocImage[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
   const [confirming, setConfirming] = useState<db.DocImage | null>(null)
   const [deleting, setDeleting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -60,19 +64,10 @@ export function ImageLibrary({ projectId, onPick, onClose }: ImageLibraryProps) 
     return () => document.removeEventListener('keydown', onKey, true)
   }, [])
 
-  async function upload(file: File | undefined) {
+  function upload(file: File | undefined) {
     if (!file || !projectId) return
-    const problem = db.docImageProblem(file)
-    if (problem) return setError(problem)
-    setError(null)
-    setUploading(true)
-    try {
-      const { path } = await db.uploadDocImage(projectId, file)
-      onPick(path)
-    } catch (e) {
-      setError(`Couldn’t upload: ${(e as Error).message}`)
-      setUploading(false)
-    }
+    if (!file.type.startsWith('image/')) return setError(`“${file.name || 'That file'}” isn’t an image.`)
+    onUpload(file)
   }
 
   async function confirmDelete() {
@@ -98,14 +93,14 @@ export function ImageLibrary({ projectId, onPick, onClose }: ImageLibraryProps) 
     <div className="mention-list image-library" role="dialog" aria-label="Insert image" tabIndex={-1}
       ref={rootRef}>
       <div className="image-library-head">
-        <button type="button" className="btn-primary image-library-upload" disabled={uploading || !projectId}
+        <button type="button" className="btn-primary image-library-upload" disabled={!projectId}
           onClick={() => fileRef.current?.click()}>
           <span aria-hidden dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.upload }} />
-          {uploading ? 'Uploading…' : 'Upload image…'}
+          Upload image…
         </button>
         <span className="image-library-hint">up to {db.DOC_IMAGE_MAX_BYTES / (1024 * 1024)} MB</span>
         <input ref={fileRef} type="file" accept="image/*" hidden
-          onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = '' }} />
+          onChange={(e) => { upload(e.target.files?.[0]); e.target.value = '' }} />
       </div>
       {error && <div className="image-library-error" role="alert">{error}</div>}
       {empty && <div className="mention-empty image-library-empty">{empty}</div>}
@@ -142,15 +137,21 @@ export function ImageLibrary({ projectId, onPick, onClose }: ImageLibraryProps) 
 
 let closeOpen: (() => void) | null = null
 
+interface LibraryHandlers {
+  onPick(path: string): void
+  onUpload(file: File): void
+  /** Closed without a pick or upload; `escape` = by the Escape key. */
+  onDismiss?(escape: boolean): void
+}
+
 /**
  * Mounts a floating ImageLibrary below (or above) `at`, a viewport rect. Closes on outside
- * mousedown, resize, Escape or a pick; only one is open at a time.
+ * mousedown, resize, Escape, a pick or an upload choice; only one is open at a time.
  */
 export function openFloatingImageLibrary(
   projectId: string | null,
   at: { left: number; top: number; bottom: number },
-  onPick: (path: string) => void,
-  onEscape?: () => void,
+  handlers: LibraryHandlers,
 ): void {
   closeOpen?.()
 
@@ -161,7 +162,7 @@ export function openFloatingImageLibrary(
   host.style.width = `${width}px`
   host.style.left = `${Math.max(8, Math.min(at.left, window.innerWidth - width - 8))}px`
   // Below the caret line when it fits, else on whichever side has more room — never over the
-  // line itself (the old clamp could slide the popup up over it). Height shrinks to fit.
+  // line itself. Height shrinks to fit.
   const room = 420
   const below = window.innerHeight - at.bottom - 12
   const above = at.top - 12
@@ -176,39 +177,85 @@ export function openFloatingImageLibrary(
   const root = createRoot(host)
 
   let closed = false
-  function close() {
+  /** `action` = closed by a pick/upload (not a dismissal). */
+  function close(action = false, escape = false) {
     if (closed) return
     closed = true
-    if (closeOpen === close) closeOpen = null
+    if (closeOpen === dismiss) closeOpen = null
     document.removeEventListener('mousedown', onOutside, true)
-    window.removeEventListener('resize', close)
+    window.removeEventListener('resize', dismiss)
     // Defer unmount: close can run from inside a React handler of this root.
     queueMicrotask(() => { root.unmount(); host.remove() })
+    if (!action) handlers.onDismiss?.(escape)
   }
-  closeOpen = close
+  const dismiss = () => close()
+  closeOpen = dismiss
 
   function onOutside(e: MouseEvent) {
-    if (!host.contains(e.target as globalThis.Node)) close()
+    const t = e.target as HTMLElement | null
+    if (host.contains(t) || t?.closest?.('[data-floating-keep]')) return
+    close()
   }
   document.addEventListener('mousedown', onOutside, true)
-  window.addEventListener('resize', close)
+  window.addEventListener('resize', dismiss)
 
   root.render(
-    <ImageLibrary projectId={projectId} onPick={(path) => { close(); onPick(path) }}
-      onClose={() => { close(); onEscape?.() }} />,
+    <ImageLibrary projectId={projectId}
+      onPick={(path) => { close(true); handlers.onPick(path) }}
+      onUpload={(file) => { close(true); handlers.onUpload(file) }}
+      onClose={() => close(false, true)} />,
   )
 }
 
 /**
- * Opens the library at document position `pos` (an empty paragraph left by the slash command).
- * Picking an image inserts { type: 'imageBlock', attrs: { path } } there.
+ * Opens the library for document position `pos` (the empty paragraph the slash command left).
+ * The position is marked at once with an invisible anchor that follows edits (the same
+ * decoration mechanism as paste/drop upload placeholders), so a pick or an upload — however
+ * long the size dialog and upload take — lands exactly there:
+ *  - pick: { type: 'imageBlock', attrs: { path } } replaces the empty paragraph at the anchor;
+ *  - upload: the paste/drop flow runs at the anchor (dialog, "Adding image…" placeholder, insert).
  */
+/**
+ * Viewport rect of the caret line at `pos` for placing the popup. Falls back to the middle of
+ * the editor when the measurement is unusable (zero/NaN, e.g. a view that isn't laid out).
+ */
+function anchorRect(view: Editor['view'], pos: number): { left: number; top: number; bottom: number } {
+  let r: { left: number; top: number; bottom: number } | null = null
+  try { r = view.coordsAtPos(pos) } catch { r = null }
+  const usable = r && [r.left, r.top, r.bottom].every(Number.isFinite) && (r.left !== 0 || r.top !== 0 || r.bottom !== 0)
+  if (usable && r) return { left: r.left, top: r.top, bottom: r.bottom }
+  const box = view.dom.getBoundingClientRect()
+  const midY = box.height ? Math.min(box.top + box.height / 2, window.innerHeight / 2) : window.innerHeight / 3
+  const left = box.width ? box.left + Math.max(0, box.width / 2 - 190) : Math.max(8, window.innerWidth / 2 - 190)
+  return { left, top: midY, bottom: midY }
+}
+
 export function openImageLibrary(editor: Editor, pos: number): void {
-  const coords = editor.view.coordsAtPos(Math.min(pos, editor.state.doc.content.size))
+  const view = editor.view
+  const start = Math.max(0, Math.min(pos, editor.state.doc.content.size))
+  // Measure BEFORE marking: the marker is a hidden widget at this very position, and
+  // coordsAtPos would then measure it (an all-zero rect → popup pinned to the window's corner).
+  const coords = anchorRect(view, start)
+  const marker = markPosition(view, start)
   const projectId = imageProjectId(editor) || usePages.getState().projectId
-  openFloatingImageLibrary(projectId, coords, (path) => {
-    if (editor.isDestroyed || !editor.isEditable) return
-    const at = Math.min(pos, editor.state.doc.content.size)
-    editor.chain().focus().insertContentAt(at, { type: 'imageBlock', attrs: { path } }).run()
-  }, () => { if (!editor.isDestroyed) editor.commands.focus() })
+  const where = () => (marker ? markedPosition(view, marker) : null) ?? Math.min(start, view.state.doc.content.size)
+
+  openFloatingImageLibrary(projectId, coords, {
+    onPick(path) {
+      if (editor.isDestroyed || !editor.isEditable) return
+      if (marker) insertImageAtMarker(view, marker, start, path)
+      else editor.chain().focus().insertContentAt(where(), { type: 'imageBlock', attrs: { path } }).run()
+    },
+    onUpload(file) {
+      if (editor.isDestroyed || !editor.isEditable) return
+      const at = where()
+      if (marker) unmarkPosition(view, marker)
+      uploadAndInsertImages(view, projectId, [file], at)
+    },
+    onDismiss(escape) {
+      if (editor.isDestroyed) return
+      if (marker) unmarkPosition(view, marker)
+      if (escape) editor.commands.focus()
+    },
+  })
 }

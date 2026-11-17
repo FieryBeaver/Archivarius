@@ -225,3 +225,12 @@ Fixed: `src/lib/**`, `src/index.css`, `supabase/migrations/**`, `package.json`, 
 
 - Owners always see and edit everything. Co-GM = a custom role with base `owner` (offered in Settings →
   Members; the sync trigger sets `members.role = 'owner'`).
+- v0.9 oversize uploads: `projects.prefs jsonb` (migration `20261117160000_project_prefs.sql`),
+  type `ProjectPrefs { imageWarnBytes?: number; autoCompress?: boolean }`,
+  `db.updateProjectPrefs(projectId, prefs)` (owners, existing `projects_update` policy).
+  `useProjectPrefs` / `prefsFor(projectId)` in `src/state/project.ts` (set by ProjectLayout).
+  Every image upload goes through `prepareImageUpload(file, prefsFor(projectId))`
+  (`src/lib/prepareImageUpload.tsx`, compression in `src/lib/imageCompress.ts`): over the
+  threshold (default 1 MB) it offers a compressed WebP/JPEG copy (long edge ≤ 2048 px; maps
+  keep their pixel size) or the original; over the 10 MB cap only the compressed copy.
+  SVG/GIF are never re-encoded. Floating popups should ignore clicks inside `[data-floating-keep]`.

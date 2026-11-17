@@ -1,8 +1,10 @@
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { Plugin, PluginKey, Selection, TextSelection, type EditorState } from '@tiptap/pm/state'
+import { Plugin, PluginKey, Selection, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { Node, mergeAttributes, type Editor } from '@tiptap/react'
 import * as db from '../../lib/db'
+import { prepareImageUpload } from '../../lib/prepareImageUpload'
+import { prefsFor } from '../../state/project'
 import { glyphElement, type BlockIconName } from './blockIcons'
 import { makeDragHandle } from './blocks'
 
@@ -101,7 +103,8 @@ export function showImageNote(message: string): void {
 
 // ---------- upload placeholders (paste / drop) ----------
 
-type PlaceholderMeta = { add: { id: string; pos: number } } | { remove: { id: string } }
+/** kind 'anchor' = an invisible position marker (e.g. while the image library is open). */
+type PlaceholderMeta = { add: { id: string; pos: number; kind?: 'anchor' } } | { remove: { id: string } }
 
 const uploadKey = new PluginKey<DecorationSet>('imageUploads')
 
@@ -109,7 +112,16 @@ function placeholderWidget(): HTMLElement {
   const el = document.createElement('div')
   el.className = 'image-upload-placeholder'
   el.contentEditable = 'false'
-  el.append(glyphElement('image', 'image-upload-placeholder-glyph'), document.createTextNode('Uploading image…'))
+  // Covers the oversize-image dialog wait as well as the upload itself.
+  el.append(glyphElement('image', 'image-upload-placeholder-glyph'), document.createTextNode('Adding image…'))
+  return el
+}
+
+/** Invisible, but laid out inline (not display:none) so caret measurements next to it stay sane. */
+function anchorWidget(): HTMLElement {
+  const el = document.createElement('span')
+  el.className = 'image-upload-anchor'
+  el.setAttribute('aria-hidden', 'true')
   return el
 }
 
@@ -124,7 +136,8 @@ function uploadPlaceholderPlugin(): Plugin<DecorationSet> {
         const meta = tr.getMeta(uploadKey) as PlaceholderMeta | undefined
         if (meta && 'add' in meta) {
           // side: 1 so a node inserted at the same spot lands before the remaining placeholders.
-          const deco = Decoration.widget(meta.add.pos, placeholderWidget, { id: meta.add.id, side: 1 })
+          const render = meta.add.kind === 'anchor' ? anchorWidget : placeholderWidget
+          const deco = Decoration.widget(meta.add.pos, render, { id: meta.add.id, side: 1 })
           next = next.add(tr.doc, [deco])
         } else if (meta && 'remove' in meta) {
           next = next.remove(next.find(undefined, undefined, (spec) => spec.id === meta.remove.id))
@@ -144,16 +157,70 @@ function placeholderPos(state: EditorState, id: string): number | null {
 }
 
 /**
+ * Marks `pos` with an invisible anchor that follows later edits (same mechanism as the upload
+ * placeholders). Returns its id, or null when the image plugin isn't installed.
+ */
+export function markPosition(view: EditorView, pos: number): string | null {
+  if (view.isDestroyed || !uploadKey.getState(view.state)) return null
+  const id = crypto.randomUUID()
+  const at = Math.max(0, Math.min(pos, view.state.doc.content.size))
+  view.dispatch(view.state.tr.setMeta(uploadKey, { add: { id, pos: at, kind: 'anchor' } } satisfies PlaceholderMeta))
+  return id
+}
+
+/** Where a marker (anchor or placeholder) currently is; null if gone (its text was deleted). */
+export function markedPosition(view: EditorView, id: string): number | null {
+  return view.isDestroyed ? null : placeholderPos(view.state, id)
+}
+
+/** Removes a marker. */
+export function unmarkPosition(view: EditorView, id: string): void {
+  if (view.isDestroyed) return
+  view.dispatch(view.state.tr.setMeta(uploadKey, { remove: { id } } satisfies PlaceholderMeta))
+}
+
+/**
+ * Puts an image block at `where` in `tr`: an empty paragraph there (e.g. the one the slash
+ * command left) is replaced, unless other pending uploads also sit in it; otherwise the block
+ * is fitted in at that position.
+ */
+function placeImage(tr: Transaction, where: number, node: PMNode, state: EditorState): void {
+  const $w = tr.doc.resolve(where)
+  const parent = $w.parent
+  if ($w.depth > 0 && parent.type.name === 'paragraph' && parent.content.size === 0) {
+    const others = uploadKey.getState(state)?.find($w.start(), $w.end()).length ?? 0
+    if (others <= 1) {
+      tr.replaceWith($w.before(), $w.after(), node)
+      return
+    }
+  }
+  tr.replaceRangeWith(where, where, node)
+}
+
+/** Inserts an image block at a marker's position and removes the marker, in one step. */
+export function insertImageAtMarker(view: EditorView, id: string, fallbackPos: number, path: string): void {
+  if (view.isDestroyed) return
+  const type = view.state.schema.nodes.imageBlock
+  const tr = view.state.tr.setMeta(uploadKey, { remove: { id } } satisfies PlaceholderMeta)
+  const where = placeholderPos(view.state, id) ?? Math.min(fallbackPos, view.state.doc.content.size)
+  if (type) placeImage(tr, where, type.create({ path }), view.state)
+  view.dispatch(tr.scrollIntoView())
+  view.focus()
+}
+
+/**
  * Uploads `files` one by one and inserts an imageBlock for each at `pos` (in order).
- * Non-images and over-size files are rejected with a note before anything uploads.
+ * Non-images are rejected with a note before anything uploads. Images over the world's size
+ * threshold go through prepareImageUpload (compress / original / cancel) one at a time.
  */
 export function uploadAndInsertImages(view: EditorView, projectId: string | null, files: File[], pos: number): void {
   if (!projectId) {
     showImageNote('Couldn’t upload: no world is open.')
     return
   }
-  const problems = files.map((f) => db.docImageProblem(f)).filter((p): p is string => !!p)
-  const valid = files.filter((f) => !db.docImageProblem(f))
+  const isImage = (f: File) => f.type.startsWith('image/')
+  const problems = files.filter((f) => !isImage(f)).map((f) => `“${f.name || 'That file'}” isn’t an image.`)
+  const valid = files.filter(isImage)
   if (problems.length) showImageNote(problems.length > 1 ? `${problems[0]} (and ${problems.length - 1} more skipped)` : problems[0])
   if (!valid.length || !uploadKey.getState(view.state)) return
 
@@ -165,8 +232,11 @@ export function uploadAndInsertImages(view: EditorView, projectId: string | null
     for (const job of jobs) {
       let path: string | null = null
       let failure: string | null = null
+      let cancelled = false
       try {
-        path = (await db.uploadDocImage(projectId, job.file)).path
+        const chosen = await prepareImageUpload(job.file, prefsFor(projectId))
+        if (!chosen || view.isDestroyed) cancelled = true
+        else path = (await db.uploadDocImage(projectId, chosen)).path
       } catch (e) {
         failure = (e as Error).message
       }
@@ -175,9 +245,9 @@ export function uploadAndInsertImages(view: EditorView, projectId: string | null
       const tr = view.state.tr.setMeta(uploadKey, { remove: { id: job.id } } satisfies PlaceholderMeta)
       const where = placeholderPos(view.state, job.id)
       const type = view.state.schema.nodes.imageBlock
-      if (path && where != null && type) tr.replaceRangeWith(where, where, type.create({ path }))
+      if (path && where != null && type) placeImage(tr, where, type.create({ path }), view.state)
       view.dispatch(tr)
-      if (failure) showImageNote(`Couldn’t upload image: ${failure}`)
+      if (failure && !cancelled) showImageNote(`Couldn’t upload image: ${failure}`)
     }
   })()
 }

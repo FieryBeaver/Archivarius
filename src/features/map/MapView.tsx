@@ -57,7 +57,9 @@ function MapViewInner({ page, canEdit }: Props): JSX.Element {
     setUploading(true)
     setError(null)
     try {
-      setImage(await uploadAndAttachMapImage(page, file))
+      // null: the uploader cancelled the oversize-image dialog; keep the current image.
+      const next = await uploadAndAttachMapImage(page, file)
+      if (next) setImage(next)
     } catch (e) {
       setError(errorMessage(e))
     } finally {

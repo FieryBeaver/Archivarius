@@ -69,7 +69,8 @@ const SLASH_ITEMS: SlashItem[] = [
     id: 'image', title: 'Image…', keywords: 'image picture photo upload illustration art library', glyph: { icon: 'image' },
     run: (e, r) => {
       e.chain().focus().deleteRange(r).run()
-      openImageLibrary(e, e.state.selection.from)
+      // r.from is where the "/image" text was: the caret after deleting it.
+      openImageLibrary(e, r.from)
     },
   },
 ]

@@ -10,6 +10,16 @@ export interface Project {
   theme: ThemeOverrides | null
   /** v0.7: cover image for the worlds list (path in the maps bucket); null = plain card */
   cover_path: string | null
+  /** v0.9: per-world preferences (all keys optional); null/absent = defaults. */
+  prefs?: ProjectPrefs | null
+}
+
+/** v0.9: `projects.prefs` jsonb. Owners edit it in Settings → General. */
+export interface ProjectPrefs {
+  /** Uploads larger than this (bytes) offer compression. Default 1 MB. */
+  imageWarnBytes?: number
+  /** Compress oversize uploads without asking. Default false. */
+  autoCompress?: boolean
 }
 
 export interface Member {

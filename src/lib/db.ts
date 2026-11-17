@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import type {
   AnyProjectExport, Member, MemberWithProfile, Mention, Page, PageKind, PageTab, PageTemplate,
-  Pin, Plugin, PluginExport, Project, ProjectExport, ProjectRole, Region, Role, ThemeOverrides, WorldEvent,
+  Pin, Plugin, PluginExport, Project, ProjectExport, ProjectPrefs, ProjectRole, Region, Role, ThemeOverrides, WorldEvent,
 } from './types'
 
 function ok<T>(data: T | null, error: { message: string } | null): T {
@@ -47,6 +47,12 @@ export async function renameProject(id: string, name: string): Promise<Project> 
 /** Owner only (RLS). null resets to the default theme. */
 export async function updateProjectTheme(projectId: string, theme: ThemeOverrides | null): Promise<Project> {
   const { data, error } = await supabase.from('projects').update({ theme }).eq('id', projectId).select().single()
+  return ok(data, error)
+}
+
+/** v0.9, owner only (RLS): replaces the world's preferences (null = defaults). */
+export async function updateProjectPrefs(projectId: string, prefs: ProjectPrefs | null): Promise<Project> {
+  const { data, error } = await supabase.from('projects').update({ prefs }).eq('id', projectId).select().single()
   return ok(data, error)
 }
 

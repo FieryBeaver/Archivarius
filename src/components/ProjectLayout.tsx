@@ -4,7 +4,7 @@ import * as db from '../lib/db'
 import type { Project, ThemeOverrides } from '../lib/types'
 import { usePages } from '../state/pages'
 import { usePanelStore } from '../state/panel'
-import { useProjectRefresh } from '../state/project'
+import { useProjectPrefs, useProjectRefresh } from '../state/project'
 import BacklinksPanel from './BacklinksPanel'
 import ContextPanel from './ContextPanel'
 import EmptyState from './EmptyState'
@@ -110,6 +110,11 @@ export default function ProjectLayout() {
   const project = useProject(projectId, projectVersion)
   const theme = themeVars(project?.theme)
   useRootTheme(theme)
+  // v0.9: world preferences (upload compression threshold…) for non-React readers.
+  const setPrefs = useProjectPrefs((s) => s.setPrefs)
+  useEffect(() => {
+    if (project !== undefined) setPrefs(projectId, project?.prefs ?? null)
+  }, [project, projectId, setPrefs])
   const previewOpen = usePanelStore((s) => s.previewPageId !== null)
   const closePreview = usePanelStore((s) => s.closePreview)
   const load = usePages((s) => s.load)

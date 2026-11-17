@@ -649,3 +649,14 @@
 }
 
 .wks-actions-start { justify-content: flex-start; }
+
+/* v0.9: General → Uploads (image compression threshold). */
+.wks-upload-size {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+.wks-upload-size .wks-input-narrow { width: 5.5em; flex: 0 0 auto; }

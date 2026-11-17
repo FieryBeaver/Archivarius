@@ -1,6 +1,8 @@
 import { updatePage, uploadMapImage } from '../../lib/db'
+import { prepareImageUpload } from '../../lib/prepareImageUpload'
 import type { Page } from '../../lib/types'
 import { usePages } from '../../state/pages'
+import { prefsFor } from '../../state/project'
 
 export interface MapImage {
   path: string
@@ -27,9 +29,16 @@ export async function readFileImageSize(file: File): Promise<{ w: number; h: num
   }
 }
 
-/** Uploads a map image and stores its path + natural size on the page. */
-export async function uploadAndAttachMapImage(page: Page, file: File): Promise<MapImage> {
-  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file')
+/**
+ * Uploads a map image and stores its path + natural size on the page. Over the world's size
+ * threshold the uploader may compress it first (v0.9); null = they cancelled.
+ */
+export async function uploadAndAttachMapImage(page: Page, original: File): Promise<MapImage | null> {
+  if (!original.type.startsWith('image/')) throw new Error('Please choose an image file')
+  // Keep the pixel size when compressing: pins/regions are stored in image pixels, and a
+  // replaced image must keep the same coordinate space.
+  const file = await prepareImageUpload(original, prefsFor(page.project_id), { maxEdge: Infinity })
+  if (!file) return null
   const { w, h } = await readFileImageSize(file)
   if (!w || !h) throw new Error('The image has no dimensions')
   const { path } = await uploadMapImage(page.project_id, file)
