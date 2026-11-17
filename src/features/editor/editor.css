@@ -1039,3 +1039,10 @@
   .doc-tab-eye { width: 28px; height: 28px; opacity: 0.6; }
   .doc-tab-confirm button { height: 32px; padding: 0 10px; }
 }
+
+/* ---------- selection context menu (v0.9) ---------- */
+
+.selection-menu-popup { z-index: 60; }
+.selection-menu { min-width: min(240px, calc(100vw - 16px)); }
+.selection-menu .slash-glyph { display: inline-flex; justify-content: center; color: var(--accent-2); }
+.selection-menu .mention-option:hover { background: var(--hover); color: var(--text); }

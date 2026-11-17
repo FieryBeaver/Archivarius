@@ -33,7 +33,7 @@ interface PagesState {
   setViewAs(role: Role | null): void
   setHideSecrets(hide: boolean): void
   /** v0.7: with a template, the new page copies its name/icon/content/tabs. */
-  create(parentId: string | null, kind: PageKind, template?: PageTemplate): Promise<Page>
+  create(parentId: string | null, kind: PageKind, template?: PageTemplate, extra?: { title?: string }): Promise<Page>
   /** Optimistic update; reverts and rethrows on failure. */
   update(id: string, attrs: Partial<Page>): Promise<void>
   /** Local-only patch, for state already persisted elsewhere (e.g. editor autosave). */
@@ -74,7 +74,7 @@ export const usePages = create<PagesState>((set, get) => ({
     }
   },
 
-  async create(parentId, kind, template) {
+  async create(parentId, kind, template, extra) {
     const projectId = get().projectId
     if (!projectId) throw new Error('no project loaded')
     const siblings = childrenOf(get().pages, parentId)
@@ -88,6 +88,8 @@ export const usePages = create<PagesState>((set, get) => ({
         content: template.content,
         tabs: template.tabs,
       } : {}),
+      // v0.9: e.g. "New subpage from selection" titles the page with the selected text.
+      ...(extra?.title ? { title: extra.title } : {}),
     })
     set((s) => ({
       pages: [...s.pages, page],

@@ -14,6 +14,7 @@ import { MoveBlock } from './moveBlock'
 import { PluginBlock } from './pluginBlock'
 import { PluginPicker } from './PluginPicker'
 import PluginTabView from './PluginTabView'
+import { selectionContextMenu } from './SelectionMenu'
 import { SlashCommand } from './slashCommand'
 import TabBar from './TabBar'
 import Toolbar from './Toolbar'
@@ -273,7 +274,11 @@ function TabDoc({ page, canEdit, secretsVisible, status, initialContent, onChang
           handlePaste: imagePasteHandler(page.project_id),
           handleDrop: imageDropHandler(page.project_id),
           // Clicking under a trailing image/plugin block opens a paragraph after it.
-          handleDOMEvents: { mousedown: clickBelowLastBlock },
+          handleDOMEvents: {
+            mousedown: clickBelowLastBlock,
+            // Right-click on selected text: "New subpage from selection" / "Link to existing page…".
+            contextmenu: selectionContextMenu(page.id),
+          },
         }
       : {},
     content: (initialContent as JSONContent | null) ?? '',
