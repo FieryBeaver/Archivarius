@@ -959,6 +959,26 @@
   color: var(--muted);
 }
 
+/* ---------- live updates (v0.11) ---------- */
+
+.doc-remote-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+  margin: 0 0 var(--s3);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--accent-line, var(--border));
+  border-radius: var(--radius);
+  background: var(--accent-soft, var(--panel-2));
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.doc-remote-banner > span {
+  flex: 1 1 auto;
+}
+
 /* ---------- plugin tabs (v0.7) ---------- */
 
 .plugin-tab {

@@ -5,6 +5,7 @@ import * as db from '../../lib/db'
 import { pageIconOf } from '../../lib/icons'
 import type { Page, WorldEvent } from '../../lib/types'
 import { usePanelStore } from '../../state/panel'
+import { usePageBump } from '../../state/realtime'
 import EventCard from './EventCard'
 import EventForm from './EventForm'
 import type { EventDraft } from './EventForm'
@@ -55,6 +56,19 @@ export default function TimelineView({ page, canEdit }: { page: Page; canEdit: b
       cancelled = true
     }
   }, [page.id])
+
+  // ---- v0.11: another member changed this timeline — refetch quietly (keeps an open form) ----
+  const liveBump = usePageBump(page.id)
+  useEffect(() => {
+    if (!liveBump) return
+    let cancelled = false
+    db.listEvents(page.id)
+      .then((rows) => { if (!cancelled) setEvents(rows) })
+      .catch(() => { /* keep what we have */ })
+    return () => {
+      cancelled = true
+    }
+  }, [liveBump, page.id])
 
   // ---- resolve titles of linked pages for the chips ----
   useEffect(() => {

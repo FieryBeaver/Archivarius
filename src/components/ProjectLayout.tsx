@@ -5,6 +5,7 @@ import type { Project, ThemeOverrides } from '../lib/types'
 import { usePages } from '../state/pages'
 import { usePanelStore } from '../state/panel'
 import { useProjectPrefs, useProjectRefresh } from '../state/project'
+import { useLive, useRealtime } from '../state/realtime'
 import BacklinksPanel from './BacklinksPanel'
 import ContextPanel from './ContextPanel'
 import EmptyState from './EmptyState'
@@ -166,6 +167,16 @@ export default function ProjectLayout() {
     load(projectId)
   }, [projectId, load])
 
+  // v0.11: live updates from other members while this world is open.
+  useRealtime(project ? projectId : undefined)
+  const notice = useLive((s) => s.notice)
+  const setNotice = useLive((s) => s.setNotice)
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(() => setNotice(null), 6000)
+    return () => clearTimeout(t)
+  }, [notice, setNotice])
+
   // A preview belongs to the world it was opened in.
   useEffect(() => {
     closePreview()
@@ -237,6 +248,12 @@ export default function ProjectLayout() {
       <ContextPanel projectId={projectId} isMobile={isMobile} />
 
       {switcherOpen && <QuickSwitcher onClose={() => setSwitcherOpen(false)} />}
+      {notice && (
+        <div className="layout-toast" role="status">
+          <span>{notice}</span>
+          <button className="btn-ghost" onClick={() => setNotice(null)}>Dismiss</button>
+        </div>
+      )}
       {settingsOpen && project && (
         <ErrorBoundary resetKey={project.id} fallback={(error) => (
           <div className="layout-toast" role="alert">

@@ -17,6 +17,7 @@ import {
 } from '../../lib/db'
 import type { Page, Pin, Region } from '../../lib/types'
 import { usePanelStore } from '../../state/panel'
+import { usePageBump } from '../../state/realtime'
 import EditPopup from './EditPopup'
 import { escapeHtml, pinHtml, safeColor } from './iconHtml'
 import {
@@ -220,6 +221,27 @@ export default function MapCanvas({
       cancelled = true
     }
   }, [page.id, report])
+
+  // v0.11: another member changed this map's pins/regions — refetch, keeping our unsaved edits on top.
+  const liveBump = usePageBump(page.id)
+  useEffect(() => {
+    if (!liveBump) return
+    let cancelled = false
+    Promise.all([listPins(page.id), listRegions(page.id)])
+      .then(([p, r]) => {
+        if (cancelled) return
+        const mine = <T extends { id: string }>(row: T): T => {
+          const local = pending.current.get(row.id)
+          return local ? { ...row, ...local.attrs } : row
+        }
+        setPins(p.map(mine))
+        setRegions(r.map(mine))
+      })
+      .catch(() => { /* keep what we have; the next change or focus retries */ })
+    return () => {
+      cancelled = true
+    }
+  }, [liveBump, page.id])
 
   // ---------- map init (StrictMode-safe: cleanup fully removes the instance) ----------
 

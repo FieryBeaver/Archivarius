@@ -3,6 +3,7 @@ import * as db from '../../lib/db'
 import { renderIcon } from '../../lib/icons'
 import IconPicker from '../../components/IconPicker'
 import type { Plugin } from '../../lib/types'
+import { useLiveVersion } from '../../state/realtime'
 import { STARTER_PLUGINS, type StarterPlugin } from './defaultPlugins'
 import type { SettingsContext } from './SettingsDialog'
 import { ROLE_LABEL } from './roles'
@@ -69,7 +70,9 @@ export function PluginsTab({ ctx }: { ctx: SettingsContext }) {
     }
   }, [project.id])
 
-  useEffect(() => { void load() }, [load])
+  // v0.11: also refetch when another owner changes plugins.
+  const livePlugins = useLiveVersion('plugins')
+  useEffect(() => { void load() }, [load, livePlugins])
 
   const replaceInList = (p: Plugin) =>
     setPlugins((list) => (list ? list.map((x) => (x.id === p.id ? p : x)) : list))

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as db from '../../lib/db'
 import { useAuth } from '../../state/auth'
+import { useLiveVersion } from '../../state/realtime'
 import type { MemberWithProfile, ProjectRole, Role } from '../../lib/types'
 import type { SettingsContext } from './SettingsDialog'
 import { LAST_OWNER_TIP, ROLES, ROLE_LABEL } from './roles'
@@ -41,7 +42,9 @@ export function MembersTab({ ctx }: { ctx: SettingsContext }) {
     }
   }, [project.id])
 
-  useEffect(() => { void load() }, [load])
+  // v0.11: also refetch when members/roles change elsewhere.
+  const liveMembers = useLiveVersion('members')
+  useEffect(() => { void load() }, [load, liveMembers])
 
   const ownerCount = members?.filter((m) => m.role === 'owner').length ?? 0
   const isLastOwner = (m: MemberWithProfile) => m.role === 'owner' && ownerCount <= 1

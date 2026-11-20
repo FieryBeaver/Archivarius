@@ -9,6 +9,41 @@ function ok<T>(data: T | null, error: { message: string } | null): T {
   return data as T
 }
 
+// ---------- live-update notifications (v0.11, see CONTRACT.md "realtime") ----------
+
+/**
+ * What a successful write changed, announced to other clients of the open world.
+ * `ids` are page ids for page-scoped kinds ('pages', 'content', 'pins', 'regions',
+ * 'events' (= the map/timeline page), 'page_editors'), otherwise the row ids
+ * ('plugins', 'project_roles', 'project') or user ids ('members').
+ * 'content' = only content/tabs of those pages changed (autosave); 'pages' = anything
+ * structural (create, rename, move, delete, secrecy, edit access…).
+ */
+export type ChangeKind =
+  | 'pages' | 'content' | 'pins' | 'regions' | 'events'
+  | 'page_editors' | 'plugins' | 'members' | 'project_roles' | 'project'
+
+export type ChangeNotifier = (kind: ChangeKind, ids: string[]) => void
+
+let changeNotifier: ChangeNotifier | null = null
+
+/** Installed by src/state/realtime.ts while a world is open (null to remove). */
+export function setChangeNotifier(fn: ChangeNotifier | null): void {
+  changeNotifier = fn
+}
+
+/** Called by the mutation helpers below after the write succeeded. Never throws. */
+function notify(kind: ChangeKind, ids: (string | null | undefined)[]): void {
+  try {
+    changeNotifier?.(kind, ids.filter((id): id is string => !!id))
+  } catch {
+    /* live updates are best-effort */
+  }
+}
+
+/** Only content/tabs (autosave) — cheap 'content' notification instead of a structural one. */
+const CONTENT_KEYS = new Set(['content', 'tabs'])
+
 // ---------- projects ----------
 
 export async function listProjects(): Promise<Project[]> {
@@ -41,19 +76,25 @@ export async function canCreateWorlds(): Promise<boolean> {
 
 export async function renameProject(id: string, name: string): Promise<Project> {
   const { data, error } = await supabase.from('projects').update({ name }).eq('id', id).select().single()
-  return ok(data, error)
+  const row = ok(data, error)
+  notify('project', [id])
+  return row
 }
 
 /** Owner only (RLS). null resets to the default theme. */
 export async function updateProjectTheme(projectId: string, theme: ThemeOverrides | null): Promise<Project> {
   const { data, error } = await supabase.from('projects').update({ theme }).eq('id', projectId).select().single()
-  return ok(data, error)
+  const row = ok(data, error)
+  notify('project', [projectId])
+  return row
 }
 
 /** v0.9, owner only (RLS): replaces the world's preferences (null = defaults). */
 export async function updateProjectPrefs(projectId: string, prefs: ProjectPrefs | null): Promise<Project> {
   const { data, error } = await supabase.from('projects').update({ prefs }).eq('id', projectId).select().single()
-  return ok(data, error)
+  const row = ok(data, error)
+  notify('project', [projectId])
+  return row
 }
 
 /** Owner only (RLS). Cascades to members, pages and everything under them. */
@@ -109,7 +150,9 @@ export async function createProjectRole(
     .from('project_roles')
     .insert({ project_id: projectId, name: name.trim(), base, edit_own_only: base === 'editor' && editOwnOnly })
     .select().single()
-  return ok(data, error)
+  const role = ok(data, error) as ProjectRole
+  notify('project_roles', [role.id])
+  return role
 }
 
 /** Owner only (RLS). v0.10: rename a role or toggle edit_own_only (editor base only, DB-checked). */
@@ -118,13 +161,16 @@ export async function updateProjectRole(
 ): Promise<ProjectRole> {
   const row = { ...patch, ...(patch.name !== undefined ? { name: patch.name.trim() } : {}) }
   const { data, error } = await supabase.from('project_roles').update(row).eq('id', id).select().single()
-  return ok(data, error)
+  const role = ok(data, error)
+  notify('project_roles', [id])
+  return role
 }
 
 /** Owner only (RLS). Members holding it keep their base role (FK set-null). */
 export async function deleteProjectRole(id: string): Promise<void> {
   const { error } = await supabase.from('project_roles').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  notify('project_roles', [id])
 }
 
 /** The signed-in user's membership in a project (see getMyMembership). */
@@ -167,6 +213,7 @@ export async function addMemberByEmail(projectId: string, email: string, role: R
     if (ins.error.code === '23505') throw new Error('Already a member')
     throw new Error(ins.error.message)
   }
+  notify('members', [userId])
 }
 
 /**
@@ -180,6 +227,7 @@ export async function updateMemberRole(
     .from('members').update({ role, custom_role_id: customRoleId })
     .eq('project_id', projectId).eq('user_id', userId)
   if (error) throw new Error(error.message)
+  notify('members', [userId])
 }
 
 /** Owner only (RLS). */
@@ -187,6 +235,7 @@ export async function removeMember(projectId: string, userId: string): Promise<v
   const { error } = await supabase
     .from('members').delete().eq('project_id', projectId).eq('user_id', userId)
   if (error) throw new Error(error.message)
+  notify('members', [userId])
 }
 
 // ---------- pages ----------
@@ -202,6 +251,12 @@ export async function getPage(id: string): Promise<Page> {
   return ok(data, error)
 }
 
+/** v0.11: the given pages that the caller can still read (missing ids = gone or hidden). */
+export async function getPagesByIds(ids: string[]): Promise<Page[]> {
+  if (ids.length === 0) return []
+  return selectIn<Page>('pages', 'id', [...new Set(ids)])
+}
+
 export async function createPage(
   projectId: string,
   attrs: {
@@ -212,18 +267,24 @@ export async function createPage(
 ): Promise<Page> {
   const { data, error } = await supabase
     .from('pages').insert({ project_id: projectId, ...attrs }).select().single()
-  return ok(data, error)
+  const page = ok(data, error) as Page
+  notify('pages', [page.id])
+  return page
 }
 
 export async function updatePage(id: string, attrs: Partial<Page>): Promise<Page> {
   const { data, error } = await supabase
     .from('pages').update(attrs).eq('id', id).select().single()
-  return ok(data, error)
+  const page = ok(data, error)
+  const keys = Object.keys(attrs)
+  notify(keys.length > 0 && keys.every((k) => CONTENT_KEYS.has(k)) ? 'content' : 'pages', [id])
+  return page
 }
 
 export async function deletePage(id: string): Promise<void> {
   const { error } = await supabase.from('pages').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  notify('pages', [id])
 }
 
 // ---------- page tabs ----------
@@ -258,6 +319,7 @@ export async function addPageEditor(pageId: string, projectId: string, userId: s
   const { error } = await supabase
     .from('page_editors').insert({ page_id: pageId, project_id: projectId, user_id: userId })
   if (error && error.code !== '23505') throw new Error(error.message)
+  if (!error) notify('page_editors', [pageId])
 }
 
 /** Owner only (RLS). */
@@ -265,6 +327,7 @@ export async function removePageEditor(pageId: string, userId: string): Promise<
   const { error } = await supabase
     .from('page_editors').delete().eq('page_id', pageId).eq('user_id', userId)
   if (error) throw new Error(error.message)
+  notify('page_editors', [pageId])
 }
 
 /** Lightweight page list for @mention autocomplete. */
@@ -330,17 +393,23 @@ export async function listPins(mapPageId: string): Promise<Pin[]> {
 
 export async function createPin(pin: Omit<Pin, 'id'>): Promise<Pin> {
   const { data, error } = await supabase.from('pins').insert(pin).select().single()
-  return ok(data, error)
+  const row = ok(data, error) as Pin
+  notify('pins', [row.map_page_id])
+  return row
 }
 
 export async function updatePin(id: string, attrs: Partial<Pin>): Promise<Pin> {
   const { data, error } = await supabase.from('pins').update(attrs).eq('id', id).select().single()
-  return ok(data, error)
+  const row = ok(data, error) as Pin
+  notify('pins', [row.map_page_id])
+  return row
 }
 
 export async function deletePin(id: string): Promise<void> {
-  const { error } = await supabase.from('pins').delete().eq('id', id)
+  // Returning the parent page id lets other clients refresh just that view.
+  const { data, error } = await supabase.from('pins').delete().eq('id', id).select('map_page_id')
   if (error) throw new Error(error.message)
+  notify('pins', ((data ?? []) as Pick<Pin, 'map_page_id'>[]).map((r) => r.map_page_id))
 }
 
 export async function listRegions(mapPageId: string): Promise<Region[]> {
@@ -350,17 +419,23 @@ export async function listRegions(mapPageId: string): Promise<Region[]> {
 
 export async function createRegion(region: Omit<Region, 'id'>): Promise<Region> {
   const { data, error } = await supabase.from('regions').insert(region).select().single()
-  return ok(data, error)
+  const row = ok(data, error) as Region
+  notify('regions', [row.map_page_id])
+  return row
 }
 
 export async function updateRegion(id: string, attrs: Partial<Region>): Promise<Region> {
   const { data, error } = await supabase.from('regions').update(attrs).eq('id', id).select().single()
-  return ok(data, error)
+  const row = ok(data, error) as Region
+  notify('regions', [row.map_page_id])
+  return row
 }
 
 export async function deleteRegion(id: string): Promise<void> {
-  const { error } = await supabase.from('regions').delete().eq('id', id)
+  // Returning the parent page id lets other clients refresh just that view.
+  const { data, error } = await supabase.from('regions').delete().eq('id', id).select('map_page_id')
   if (error) throw new Error(error.message)
+  notify('regions', ((data ?? []) as Pick<Region, 'map_page_id'>[]).map((r) => r.map_page_id))
 }
 
 // ---------- map image upload ----------
@@ -478,7 +553,9 @@ export async function uploadCoverImage(projectId: string, file: File): Promise<{
 export async function updateProjectCover(projectId: string, coverPath: string | null): Promise<Project> {
   const { data, error } = await supabase
     .from('projects').update({ cover_path: coverPath }).eq('id', projectId).select().single()
-  return ok(data, error)
+  const row = ok(data, error)
+  notify('project', [projectId])
+  return row
 }
 
 // ---------- plugins (v0.6) ----------
@@ -526,6 +603,7 @@ export async function createPlugin(
     await supabase.storage.from('plugins').remove([source_path])
     throw new Error(error.message)
   }
+  notify('plugins', [id])
   return data as Plugin
 }
 
@@ -544,6 +622,7 @@ export async function updatePlugin(
     plugin = ok(data, error) as Plugin
   }
   if (file !== undefined) await uploadPluginSource(plugin.source_path, file, true)
+  notify('plugins', [pluginId])
   return plugin
 }
 
@@ -560,6 +639,7 @@ export async function deletePlugin(plugin: Plugin | string): Promise<void> {
   } else p = plugin
   const { error } = await supabase.from('plugins').delete().eq('id', p.id)
   if (error) throw new Error(error.message)
+  notify('plugins', [p.id])
   const rm = await supabase.storage.from('plugins').remove([p.source_path])
   if (rm.error) throw new Error(rm.error.message)
 }
@@ -611,17 +691,23 @@ export async function listEvents(timelinePageId: string): Promise<WorldEvent[]> 
 
 export async function createEvent(ev: Omit<WorldEvent, 'id'>): Promise<WorldEvent> {
   const { data, error } = await supabase.from('events').insert(ev).select().single()
-  return ok(data, error)
+  const row = ok(data, error) as WorldEvent
+  notify('events', [row.timeline_page_id])
+  return row
 }
 
 export async function updateEvent(id: string, attrs: Partial<WorldEvent>): Promise<WorldEvent> {
   const { data, error } = await supabase.from('events').update(attrs).eq('id', id).select().single()
-  return ok(data, error)
+  const row = ok(data, error) as WorldEvent
+  notify('events', [row.timeline_page_id])
+  return row
 }
 
 export async function deleteEvent(id: string): Promise<void> {
-  const { error } = await supabase.from('events').delete().eq('id', id)
+  // Returning the parent page id lets other clients refresh just that view.
+  const { data, error } = await supabase.from('events').delete().eq('id', id).select('timeline_page_id')
   if (error) throw new Error(error.message)
+  notify('events', ((data ?? []) as Pick<WorldEvent, 'timeline_page_id'>[]).map((r) => r.timeline_page_id))
 }
 
 // ---------- export / import ----------

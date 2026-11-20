@@ -25,26 +25,34 @@ function patchCache(pageId: string, payload: SavePayload): void {
   else patchLocal(pageId, { tabs: payload.tabs, content: payload.tabs[0].content })
 }
 
-async function persist(pageId: string, payload: SavePayload): Promise<void> {
+/** Saves the payload; resolves to the saved row's updated_at (v0.11 live updates). */
+async function persist(pageId: string, payload: SavePayload): Promise<string> {
   if (payload.kind === 'tabs') {
     // Also syncs page.content (= tabs[0]) and mentions across every tab.
-    await db.savePageTabs(pageId, payload.tabs)
-    return
+    return (await db.savePageTabs(pageId, payload.tabs)).updated_at
   }
   const { pages } = usePages.getState()
-  await db.updatePage(pageId, { content: payload.content })
+  const saved = await db.updatePage(pageId, { content: payload.content })
   // Skip mentions of pages that no longer exist (would violate the FK).
   const known = new Set(pages.map((p) => p.id))
   await db.replaceMentions(pageId, extractMentionIds(payload.content).filter((id) => known.has(id)))
+  return saved.updated_at
 }
 
-/** Debounced autosave. Pending changes are flushed on unmount and on demand via `flush`. */
-export function useAutosave(pageId: string) {
+/**
+ * Debounced autosave. Pending changes are flushed on unmount and on demand via `flush`.
+ * v0.11: `getSavedAt()` is the updated_at of the newest row this editor knows it matches
+ * (seeded with the page's, advanced by every save of ours), so live updates can tell a
+ * foreign change from an echo (`setSavedAt` after adopting a newer row); `settled()` waits for in-flight saves, `hasPending()`
+ * reports unsaved (debounced) edits and `discard()` drops them.
+ */
+export function useAutosave(pageId: string, initialSavedAt?: string) {
   const [status, setStatus] = useState<SaveStatus>('idle')
   const pending = useRef<SavePayload | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // Saves run one after another so an older write can never land last.
   const queue = useRef<Promise<void>>(Promise.resolve())
+  const savedAt = useRef<string | undefined>(initialSavedAt)
 
   const flush = useCallback(() => {
     clearTimeout(timer.current)
@@ -55,7 +63,10 @@ export function useAutosave(pageId: string) {
     queue.current = queue.current
       .then(() => persist(pageId, payload))
       .then(
-        () => { if (!pending.current) setStatus('saved') },
+        (at) => {
+          savedAt.current = at
+          if (!pending.current) setStatus('saved')
+        },
         () => setStatus('error'),
       )
   }, [pageId])
@@ -69,5 +80,15 @@ export function useAutosave(pageId: string) {
 
   useEffect(() => flush, [flush])
 
-  return { status, schedule, flush }
+  const getSavedAt = useCallback(() => savedAt.current, [])
+  const setSavedAt = useCallback((at: string) => { savedAt.current = at }, [])
+  const settled = useCallback(() => queue.current, [])
+  const hasPending = useCallback(() => pending.current !== null, [])
+  const discard = useCallback(() => {
+    clearTimeout(timer.current)
+    pending.current = null
+    setStatus('idle')
+  }, [])
+
+  return { status, schedule, flush, getSavedAt, setSavedAt, settled, hasPending, discard }
 }
