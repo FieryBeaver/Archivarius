@@ -234,3 +234,84 @@ Fixed: `src/lib/**`, `src/index.css`, `supabase/migrations/**`, `package.json`, 
   threshold (default 1 MB) it offers a compressed WebP/JPEG copy (long edge ≤ 2048 px; maps
   keep their pixel size) or the original; over the 10 MB cap only the compressed copy.
   SVG/GIF are never re-encoded. Floating popups should ignore clicks inside `[data-floating-keep]`.
+
+### v0.10 secret subtrees (migration `20261120120000_secret_subtree.sql`) — supersedes the matrix above
+- Secrecy is a **subtree property**: a page is hidden when it OR ANY ANCESTOR is secret.
+  `passes_secret_chain(p)` (security definer): true for owners; true when the caller holds a subtree grant
+  on p (`has_page_grant(p)`: listed on p or any ancestor, so a grant on or above the blocking secret page,
+  or on a page inside the hidden subtree, opens that path); otherwise false if any secret page on p's chain
+  (p included) was not created by the caller while they are an editor.
+- Used by `can_read_page`, `can_edit_page` (the editor secret clause), `pages_select`, `pages_update`
+  (with-check) and `pages_delete`. `pages_select`/`pages_update` keep the row's own secret clause too: it vets
+  a row the statement is inserting, which the chain walk can't see yet. Pins/regions/events/mentions follow
+  via `can_read_page` / `can_edit_page`.
+- Moves change visibility, so trigger `guard_page_move_secret` (non-owners only): the destination must pass
+  `passes_secret_chain` for them, and someone else's page may only be moved into a subtree containing a secret
+  page if they hold a grant there. `guard_page_secret_toggle` / `inherit_parent_secret` unchanged.
+- Revoking a grant on a secret root also hides pages the member created inside it (the blocking secret page is
+  the owner's, not theirs).
+
+| page is hidden by a secret page S (itself or an ancestor) created by | owners | S's creator (while editor) | members granted on the page or above | everyone else |
+|---|---|---|---|---|
+| an owner | see + edit | see + edit | see (+ edit if editor) | hidden |
+| an editor/player | see + edit | see + edit | see (+ edit if editor) | hidden |
+
+  (A page under several secret ancestors is visible only if every one of them lets the caller through, or a
+  grant covers it.)
+- Client: `secretSources(pages)` (page id → the page hiding it), `secretAncestorOf(pages, id)`,
+  `useHiddenVia(pageId)` (title of the hiding ancestor). `useVisiblePages` (preview-as-player / hide-secrets),
+  PageView, ContextPanel and BacklinksPanel use effective secrecy; Breadcrumbs/QuickSwitcher/sidebar get it
+  through `useVisiblePages`. Tree rows hidden only by inheritance are dimmed like secret rows (tooltip
+  "Hidden with “<ancestor>”"); PageTitle shows a static "Hidden with parent" pill. The own secret toggle is
+  independent.
+
+## v0.11 contracts — realtime
+
+- Migration `20261120140000_realtime.sql`: tables `pages, pins, regions, events, page_editors, plugins, members,
+  project_roles` are in the `supabase_realtime` publication (default replica identity). Helper
+  `realtime_topic_project(topic) -> uuid` ('project:<uuid>' → uuid, anything else → null). Policies on
+  `realtime.messages` (select + insert, `to authenticated`, `extension = 'broadcast'`): only members of that project
+  (any role) may join, receive or send on a private `project:<uuid>` topic.
+- postgres_changes and RLS (verified locally): INSERT/UPDATE events are delivered only when the subscriber can SELECT
+  the row (secret / secret-subtree pages are not delivered to members who can't see them). Realtime evaluates RLS
+  when it decodes the WAL (≈ ms later), against the table's state at that time. DELETE events are never delivered on
+  a filtered subscription (old row = primary key only), and a row that becomes invisible to someone produces nothing
+  for them — the broadcast below covers both.
+- Channels per open world (ProjectLayout → `useRealtime(projectId)` in `src/state/realtime.ts`; torn down on world
+  switch, unmount and sign-out):
+  1. `live-pg:<projectId>:<n>` — postgres_changes on `pages`, `page_editors`, `plugins`, `members`, `project_roles`,
+     each filtered `project_id=eq.<projectId>`. (pins/regions/events have no project_id; they are signalled by
+     broadcast only.)
+  2. `project:<projectId>` — private broadcast (`config: { private: true }`), event `'change'`, payload
+     `{ v: 1, kind: ChangeKind, ids: string[], from: <per-tab client id> }`.
+- `ChangeKind` (db.ts) and its `ids`: `'pages'` (structural: create/rename/move/delete/secret/edit access/icon/tags…;
+  page ids), `'content'` (only content/tabs — autosave; page ids), `'pins' | 'regions'` (map page ids), `'events'`
+  (timeline page ids), `'page_editors'` (page ids), `'plugins'` (plugin ids), `'members'` (user ids),
+  `'project_roles'` (role ids), `'project'` (project id: rename/theme/prefs/cover).
+- Sending: the db.ts mutation helpers call `notify(kind, ids)` after a successful write; `src/state/realtime.ts`
+  installs the notifier with `db.setChangeNotifier` and broadcasts (websocket when joined, else `httpSend`). Features
+  never send directly. New write helpers in db.ts must call `notify`. Not announced: mentions, templates, storage-only
+  changes, export/import, deleteProject.
+- Receiving: own broadcasts are ignored (`from`), others are batched for 300 ms and applied idempotently:
+  - `pages`, `page_editors`, `members`, `project_roles` → background re-fetch of the page list + own membership
+    (same as `usePages.load` for the loaded world: expanded / preview / hide-secrets kept; a failure leaves the store
+    as is). Pages whose `updated_at` changed get bumped; pages that disappeared are recorded in `useLive().vanished`.
+  - `content` → re-fetch just those rows (`db.getPagesByIds`) and patch them into the store; bump them.
+  - `pins` / `regions` / `events` → bump those pages (MapCanvas / TimelineView refetch their rows; map pins with
+    unsaved local edits keep them on top).
+  - `page_editors` → also refresh cached `usePageEditors` lists; `members`/`project_roles` → `useLiveVersion('members')`
+    (MembersTab refetches); `plugins` → `invalidatePlugins(projectId)` + `useLiveVersion('plugins')`;
+    `project` → `refreshProject()`.
+  - postgres_changes events wait 1.2 s; those explained by a broadcast (sent or received in the last 5 s, keyed
+    `table:id`) are dropped, the rest are treated like the matching broadcast kind (pages → structural).
+  - Safety net: window focus / tab visible (at most every 5 s) and every channel re-join run a full refresh of all
+    of the above.
+- Store (`src/state/realtime.ts`): `useLive` `{ bumps, versions, vanished, notice }`; hooks `usePageBump(pageId)`,
+  `useLiveVersion('members' | 'plugins')`. ProjectLayout shows `notice` as a toast.
+- Open document (DocEditor): on a bump it waits for its own in-flight save, re-fetches the row and compares
+  `updated_at` with the newest version it knows (`useAutosave(...).getSavedAt()`), then the content (key-order-
+  insensitive). Foreign change + no unsaved edits → applied in place (`setContent`, not undoable, no update event,
+  caret clamped — it can jump) when the tab layout is unchanged and a document tab is open, otherwise the editor
+  remounts on the same tab. Foreign change + unsaved edits → banner "This page was updated by someone else —
+  Reload / Keep mine" (Keep mine: our next save overwrites theirs; last write wins).
+- Open page removed or hidden by someone else's change → PageView navigates to the world home and sets the notice.

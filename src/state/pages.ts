@@ -113,6 +113,8 @@ export const usePages = create<PagesState>((set, get) => ({
     get().patchLocal(id, attrs)
     try {
       await db.updatePage(id, attrs)
+      // v0.11: a live refresh fetched mid-flight may have put the old values back.
+      get().patchLocal(id, attrs)
     } catch (e) {
       get().patchLocal(id, prev)
       throw e
@@ -217,9 +219,66 @@ export function visibilityRole(s: Pick<PagesState, 'role' | 'viewAs' | 'hideSecr
   return s.hideSecrets ? 'viewer' : effectiveRole(s)
 }
 
-/** The loaded pages, minus secret ones while previewing as a viewer. */
+/**
+ * v0.10: secrecy is a subtree property — a page is hidden when it or any
+ * ancestor is secret (mirrors passes_secret_chain in the DB). Returns, for
+ * every effectively-secret page, the page that hides it (itself or the
+ * nearest secret ancestor). One pass over the tree.
+ */
+export function secretSources(pages: Page[]): Map<string, Page> {
+  const byId = new Map(pages.map((p) => [p.id, p]))
+  const memo = new Map<string, Page | null>()
+  const resolve = (p: Page, depth: number): Page | null => {
+    const known = memo.get(p.id)
+    if (known !== undefined) return known
+    memo.set(p.id, null) // cycle guard
+    const parent = p.parent_id ? byId.get(p.parent_id) : undefined
+    const src = p.is_secret ? p : parent && depth < 50 ? resolve(parent, depth + 1) : null
+    memo.set(p.id, src)
+    return src
+  }
+  const out = new Map<string, Page>()
+  for (const p of pages) {
+    const src = resolve(p, 0)
+    if (src) out.set(p.id, src)
+  }
+  return out
+}
+
+/** The nearest secret ANCESTOR (not the page itself) hiding this page, if any. */
+export function secretAncestorOf(pages: Page[], pageId: string): Page | undefined {
+  const byId = new Map(pages.map((p) => [p.id, p]))
+  const seen = new Set<string>()
+  let cur = byId.get(pageId)?.parent_id
+  while (cur && !seen.has(cur)) {
+    seen.add(cur)
+    const p = byId.get(cur)
+    if (!p) return undefined
+    if (p.is_secret) return p
+    cur = p.parent_id
+  }
+  return undefined
+}
+
+/**
+ * Title of the secret ancestor that hides this page (inherited secrecy), or
+ * null when no ancestor is secret. The page's own flag is not considered.
+ */
+export function useHiddenVia(pageId: string | null | undefined): string | null {
+  return usePages((s) => {
+    if (!pageId) return null
+    const src = secretAncestorOf(s.pages, pageId)
+    return src ? src.title || 'Untitled' : null
+  })
+}
+
+/** The loaded pages, minus effectively-secret ones (self or ancestor) while secrets are hidden. */
 export function useVisiblePages(): Page[] {
   const pages = usePages((s) => s.pages)
   const hide = usePages(hidesSecrets)
-  return useMemo(() => (hide ? pages.filter((p) => !p.is_secret) : pages), [pages, hide])
+  return useMemo(() => {
+    if (!hide) return pages
+    const hidden = secretSources(pages)
+    return pages.filter((p) => !hidden.has(p.id))
+  }, [pages, hide])
 }

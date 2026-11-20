@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as db from '../lib/db'
 import type { Page } from '../lib/types'
 import { PageIcon } from '../lib/icons'
-import { hidesSecrets, pagePath, usePages } from '../state/pages'
+import { hidesSecrets, pagePath, secretSources, usePages } from '../state/pages'
 import { EyeOffGlyph } from './UiIcons'
 
 type Backlink = Pick<Page, 'id' | 'title' | 'kind'>
@@ -21,7 +21,9 @@ export default function BacklinksPanel({ projectId, pageId }: Props) {
   const pages = usePages((s) => s.pages)
   // A viewer's RLS never returns mentions from secret pages; mirror that while previewing.
   const hideSecrets = usePages(hidesSecrets)
-  const backlinks = hideSecrets ? rows.filter((b) => !pages.find((p) => p.id === b.id)?.is_secret) : rows
+  // v0.10: a page under a secret ancestor counts as secret too.
+  const hidden = useMemo(() => (hideSecrets ? secretSources(pages) : null), [pages, hideSecrets])
+  const backlinks = hidden ? rows.filter((b) => !hidden.has(b.id)) : rows
   // Only matters on mobile, where the panel sits below the content (the toggle is hidden on desktop).
   const [collapsed, setCollapsed] = useState(true)
 

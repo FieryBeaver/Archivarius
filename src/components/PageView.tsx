@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import DocEditor from '../features/editor/DocEditor'
 import type { Page } from '../lib/types'
 import { useCanEditPage } from '../state/pageEditors'
-import { hidesSecrets, usePages } from '../state/pages'
+import { hidesSecrets, useHiddenVia, usePages } from '../state/pages'
+import { useLive } from '../state/realtime'
 import EmptyState from './EmptyState'
 import ErrorBoundary from './ErrorBoundary'
 import PageTitle from './PageTitle'
@@ -36,6 +37,8 @@ export default function PageView() {
   const setHideSecrets = usePages((s) => s.setHideSecrets)
   // Per page: restricted pages are writable only by owners and listed page editors.
   const canEdit = useCanEditPage(page)
+  // v0.10: a page under a secret ancestor is hidden along with it.
+  const hiddenVia = useHiddenVia(page?.id)
 
   // Reveal the page in the tree (re-run when it moves under a new parent).
   const foundId = page?.id
@@ -44,12 +47,28 @@ export default function PageView() {
     if (foundId) expandTo(foundId)
   }, [foundId, parentId, expandTo])
 
+  // v0.11: the open page was deleted (or hidden from us) by someone else — go to the world home.
+  const lastTitle = useRef<string | null>(null)
+  const pageTitle = page ? page.title || 'Untitled' : null
+  useEffect(() => {
+    if (pageTitle !== null) lastTitle.current = pageTitle
+  }, [pageTitle])
+  const vanished = useLive((s) => !!pageId && !!s.vanished[pageId])
+  const gone = status === 'ready' && !page && vanished
+  useEffect(() => {
+    if (!gone) return
+    const title = lastTitle.current
+    useLive.getState().setNotice(
+      `${title ? `“${title}”` : 'This page'} was deleted or is no longer shared with you.`)
+    navigate(`/project/${projectId}`, { replace: true })
+  }, [gone, navigate, projectId])
+
   if (status !== 'ready') return null
   if (!page) {
     return <EmptyState glyph="✧" title="Page not found" message="This page has wandered off the map."
       actionLabel="Back to the world" onAction={() => navigate(`/project/${projectId}`)} />
   }
-  if (page.is_secret && hideSecrets) {
+  if ((page.is_secret || hiddenVia !== null) && hideSecrets) {
     if (previewing) {
       return <EmptyState glyph="🔒" title="Hidden from players"
         message="This page is a secret — players don't see it at all."

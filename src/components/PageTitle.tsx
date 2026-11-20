@@ -3,7 +3,7 @@ import { pageIconOf, renderIcon } from '../lib/icons'
 import type { Page } from '../lib/types'
 import { useAuth } from '../state/auth'
 import { useCanEditPage } from '../state/pageEditors'
-import { effectiveRole, usePages } from '../state/pages'
+import { effectiveRole, useHiddenVia, usePages } from '../state/pages'
 import Breadcrumbs from './Breadcrumbs'
 import EditAccessControl from './EditAccessControl'
 import IconPicker from './IconPicker'
@@ -19,6 +19,8 @@ export default function PageTitle({ page }: { page: Page }) {
   const myId = useAuth((s) => s.session?.user.id)
   // Owners toggle secrecy anywhere; editors on pages they created.
   const canSecret = isOwner || (role === 'editor' && !!myId && page.created_by === myId)
+  // v0.10: hidden by a secret ancestor (the page's own toggle stays independent).
+  const hiddenVia = useHiddenVia(page.id)
   const [value, setValue] = useState(page.title)
   const [error, setError] = useState<string | null>(null)
   const [iconAnchor, setIconAnchor] = useState<DOMRect | null>(null)
@@ -64,6 +66,11 @@ export default function PageTitle({ page }: { page: Page }) {
         ) : page.is_secret && (
           <span className="page-secret-toggle on static" title="Secret — hidden from others">
             <EyeOffGlyph /><span>Secret</span>
+          </span>
+        )}
+        {!page.is_secret && hiddenVia !== null && (
+          <span className="page-secret-toggle on static" title={`Hidden with “${hiddenVia}” (a secret page above this one)`}>
+            <EyeOffGlyph /><span>Hidden with parent</span>
           </span>
         )}
       </div>

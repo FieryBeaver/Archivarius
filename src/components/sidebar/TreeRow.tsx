@@ -19,6 +19,8 @@ interface Props {
   canEdit: boolean
   /** Owners only: the secret toggle and menu item (secrets are GM machinery). */
   canSecret: boolean
+  /** v0.10: title of the secret ancestor hiding this (non-secret) page, if any. */
+  hiddenVia?: string | null
   /** Reordering makes no sense in a filtered view; actions still work. */
   dragDisabled?: boolean
   onOpen: () => void
@@ -50,7 +52,7 @@ export default function TreeRow(props: Props) {
     transition,
   } as CSSProperties
   const className = ['tree-row', selected && 'selected', isDragging && 'dragging', popup && 'menu-open',
-    row.page.is_secret && 'secret']
+    (row.page.is_secret || props.hiddenVia != null) && 'secret']
     .filter(Boolean).join(' ')
 
   return (
@@ -78,7 +80,10 @@ export default function TreeRow(props: Props) {
             if (title !== null && title !== row.page.title) props.onRename(title)
           }} />
       ) : (
-        <span className="tree-title">{row.page.title || 'Untitled'}</span>
+        <span className="tree-title"
+          title={props.hiddenVia != null ? `Hidden with “${props.hiddenVia || 'Untitled'}”` : undefined}>
+          {row.page.title || 'Untitled'}
+        </span>
       )}
 
       {!props.canSecret && row.page.is_secret && (

@@ -9,7 +9,7 @@ import * as db from '../../lib/db'
 import type { Page, PageKind, PageTemplate } from '../../lib/types'
 import { useAuth } from '../../state/auth'
 import { ancestorIds, buildTree, descendantIds, flattenTree } from '../../state/pageTree'
-import { effectiveRole, pagePath, useCanEdit, usePages, useVisiblePages } from '../../state/pages'
+import { effectiveRole, pagePath, secretSources, useCanEdit, usePages, useVisiblePages } from '../../state/pages'
 import { dropPosition, getProjection } from './dnd'
 import TreeRow from './TreeRow'
 
@@ -52,6 +52,8 @@ export default function PageTree({ projectId, onNavigate, filter }: PageTreeProp
   const { expanded, create, update, remove, toggle } = usePages()
   // Secret pages drop out while previewing as a viewer (their non-secret children surface as roots, like RLS).
   const pages = useVisiblePages()
+  // v0.10: rows hidden only by a secret ancestor are dimmed like secret rows.
+  const secretSrc = useMemo(() => secretSources(pages), [pages])
   const canEdit = useCanEdit()
   // Owners toggle secrecy anywhere; editors only on pages they created.
   const role = usePages(effectiveRole)
@@ -146,6 +148,7 @@ export default function PageTree({ projectId, onNavigate, filter }: PageTreeProp
               expanded={!!effExpanded[row.id]}
               canEdit={canEdit}
               canSecret={canSecretPage(row.page)}
+              hiddenVia={row.page.is_secret ? null : secretSrc.get(row.id)?.title ?? null}
               dragDisabled={filtering}
               onOpen={() => open(row.id)}
               onToggle={() => { if (!filtering) toggle(row.id) }}
