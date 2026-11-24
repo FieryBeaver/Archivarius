@@ -124,7 +124,7 @@ function PreviewBody({ page }: { page: Page }) {
   // page.content mirrors tabs[0], which may be restricted: preview the first tab this role sees.
   const tabs = page.tabs?.length ? page.tabs.filter((t) => roleAllows(t.visibleTo, role)) : null
   if (tabs && tabs.length === 0) return <p className="preview-muted">Nothing here is shared with you yet.</p>
-  const content = tabs ? tabs.find((t) => !t.plugin)?.content : page.content
+  const content = tabs ? tabs.find((t) => !t.plugin && !t.map)?.content : page.content
   if (!content) return <p className="preview-muted">This page is empty.</p>
   return (
     <ErrorBoundary resetKey={page.id}>

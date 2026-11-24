@@ -11,7 +11,9 @@ import { Callout, secretBlock } from './blocks'
 import { BLOCK_ICONS } from './blockIcons'
 import { roleAllows, type Visibility } from '../../lib/visibility'
 import { pageMention } from './mentionExtension'
-import { ImageBlock, clickBelowLastBlock, imageDropHandler, imagePasteHandler } from './imageBlock'
+import { ImageBlock, clickBelowLastBlock, imageDropHandler, imagePasteHandler, showImageNote } from './imageBlock'
+import { MapTabPicker } from './MapTabPicker'
+import MapTabView from './MapTabView'
 import { LINK_OPTIONS, linkClickHandler, openLinkFromClick } from './linkUi'
 import { MoveBlock } from './moveBlock'
 import { PluginBlock } from './pluginBlock'
@@ -44,9 +46,9 @@ function stableJson(value: unknown): string {
       : v)
 }
 
-/** Everything about the tab strip except tab contents / plugin data. */
+/** Everything about the tab strip except tab contents / plugin data (incl. which map a map tab shows). */
 function tabShape(tabs: PageTab[]): string {
-  return stableJson(tabs.map((t) => [t.id, t.title, t.visibleTo ?? null, t.plugin?.pluginId ?? null]))
+  return stableJson(tabs.map((t) => [t.id, t.title, t.visibleTo ?? null, t.plugin?.pluginId ?? null, t.map?.mapPageId ?? null]))
 }
 
 
@@ -92,8 +94,12 @@ function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorI
   const [renamingId, setRenamingId] = useState<string | null>(null)
   // Latest JSON of the legacy single doc, needed when its tabs get materialized.
   const legacyContent = useRef<unknown>(page.content)
-  // The tab strip's "+" menu: pick a document tab or a plugin tab.
-  const [addMenu, setAddMenu] = useState<{ anchor: DOMRect; mode: 'menu' | 'plugin' } | null>(null)
+  // The tab strip's "+" menu: pick a document tab, a plugin tab or a map tab.
+  const [addMenu, setAddMenu] = useState<{ anchor: DOMRect; mode: 'menu' | 'plugin' | 'map' } | null>(null)
+  const navigate = useNavigate()
+  // addNewMapTab awaits a page insert: don't touch a remounted/closed editor's tabs afterwards.
+  const alive = useRef(true)
+  useEffect(() => () => { alive.current = false }, [])
 
   // ---------- v0.11 live updates from other members ----------
   // The open tab's TipTap instance (null while a plugin tab / nothing is shown).
@@ -125,6 +131,12 @@ function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorI
     const editor = editorRef.current
     const sameShape = remoteTabs && local ? tabShape(remoteTabs) === tabShape(local) : !remoteTabs && !local
     const active = remoteTabs?.find((t) => t.id === activeRef.current)
+    // A map tab open and only other tabs' text changed: adopt the tabs without remounting the map.
+    if (sameShape && remoteTabs && active?.map) {
+      tabsRef.current = remoteTabs
+      setTabs(remoteTabs)
+      return
+    }
     if (!sameShape || !editor || editor.isDestroyed || (remoteTabs && (!active || active.plugin))) {
       onReload(activeRef.current)
       return
@@ -232,6 +244,32 @@ function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorI
     activate(tab.id)
   }
 
+  /** A tab showing a map page; the map page keeps its own image, pins and regions. */
+  function addMapTab(map: Page, title = map.title || 'Map') {
+    const tab: PageTab = { id: newTabId(), title, content: EMPTY_DOC, map: { mapPageId: map.id } }
+    commit([...baseTabs(), tab])
+    activate(tab.id)
+  }
+
+  /** "New map": a map page under this note, shown in a new tab (upload happens in the tab). */
+  async function addNewMapTab() {
+    try {
+      const map = await usePages.getState().create(page.id, 'map', undefined, {
+        title: `${page.title.trim() || 'Untitled'} map`,
+      })
+      if (alive.current) addMapTab(map, 'Map')
+    } catch (e) {
+      showImageNote(`Couldn't create the map: ${(e as Error).message}`)
+    }
+  }
+
+  /** Point a map tab at another map page (e.g. its map was deleted). */
+  function relinkMapTab(tabId: string, map: Page) {
+    const current = tabsRef.current
+    if (!current) return
+    commit(current.map((t) => (t.id === tabId && t.map ? { ...t, map: { mapPageId: map.id } } : t)))
+  }
+
   /** Persist a plugin tab's data (same debounced tabs save as typing). */
   const onPluginData = useCallback((tabId: string, data: unknown) => {
     const current = tabsRef.current
@@ -305,12 +343,16 @@ function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorI
           canOwnerOnly={vRole === 'owner'}
           onSelect={select} onAdd={(anchor) => setAddMenu({ anchor, mode: 'menu' })}
           onStartRename={setRenamingId} onRename={rename} onDelete={remove}
-          onSetVisibility={setVisibility} />
+          onSetVisibility={setVisibility}
+          onOpenMap={(id) => {
+            const mapPageId = tabsRef.current?.find((t) => t.id === id)?.map?.mapPageId
+            if (mapPageId) navigate(pagePath(page.project_id, mapPageId))
+          }} />
       )}
       {addMenu && (
         <Popover anchor={addMenu.anchor} onClose={() => setAddMenu(null)}
-          width={addMenu.mode === 'plugin' ? 300 : 200}
-          className={addMenu.mode === 'plugin' ? 'tab-plugin-pick' : undefined}>
+          width={addMenu.mode === 'menu' ? 200 : 300}
+          className={addMenu.mode === 'menu' ? undefined : 'tab-plugin-pick'}>
           {addMenu.mode === 'menu' ? (
             <>
               <button className="popover-item" role="menuitem" onClick={() => { setAddMenu(null); add() }}>
@@ -320,7 +362,16 @@ function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorI
                 onClick={() => setAddMenu({ anchor: addMenu.anchor, mode: 'plugin' })}>
                 <span aria-hidden dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.plugin }} /><span>Plugin tab…</span>
               </button>
+              <button className="popover-item" role="menuitem"
+                onClick={() => setAddMenu({ anchor: addMenu.anchor, mode: 'map' })}>
+                <span aria-hidden>🗺</span><span>Map tab…</span>
+              </button>
             </>
+          ) : addMenu.mode === 'map' ? (
+            <MapTabPicker
+              onNew={() => { setAddMenu(null); void addNewMapTab() }}
+              onPick={(m) => { setAddMenu(null); addMapTab(m) }}
+              onClose={() => setAddMenu(null)} />
           ) : (
             <PluginPicker projectId={page.project_id}
               onPick={(p) => { setAddMenu(null); addPluginTab(p) }}
@@ -338,6 +389,11 @@ function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorI
       )}
       {nothingShown ? (
         <p className="doc-tabs-none">Nothing on this page is shared with you yet.</p>
+      ) : activeTab?.map ? (
+        <MapTabView key={`${activeTab.id}:${activeTab.map.mapPageId}`} page={page}
+          mapPageId={activeTab.map.mapPageId} canEditNote={canEdit}
+          onRemove={(tabs?.length ?? 0) > 1 ? () => remove(activeTab.id) : undefined}
+          onRelink={(m) => relinkMapTab(activeTab.id, m)} />
       ) : activeTab?.plugin ? (
         <PluginTabView key={`${activeTab.id}:${activeTab.plugin.pluginId}`} page={page}
           pluginId={activeTab.plugin.pluginId} data={activeTab.plugin.data} canEdit={canEdit}

@@ -157,6 +157,12 @@ export interface PageTab {
    * stays an empty doc so the tabs[0]-mirrors-content invariant holds.
    */
   plugin?: { pluginId: string; data: unknown } | null
+  /**
+   * When set, the tab shows this map page (kind 'map') instead of a document; `content`
+   * stays an empty doc like plugin tabs. The map page owns its image, pins and regions
+   * (and their RLS); the tab only links to it, so deleting the tab never deletes the map.
+   */
+  map?: { mapPageId: string } | null
   /** Who sees the tab (lib/visibility.ts); absent = everyone. Client-side gating. */
   visibleTo?: 'all' | 'editors' | 'owners'
 }

@@ -7,6 +7,8 @@ export interface TabItem {
   id: string
   title: string
   visibleTo?: Visibility
+  /** Set on map tabs: the menu offers "Open map page". */
+  map?: { mapPageId: string } | null
 }
 
 interface TabBarProps {
@@ -25,6 +27,8 @@ interface TabBarProps {
   onRename(id: string, title: string | null): void
   onDelete(id: string): void
   onSetVisibility(id: string, visibleTo: Visibility): void
+  /** Map tabs: navigate to the linked map page. */
+  onOpenMap?(id: string): void
 }
 
 const MAX_TITLE = 60
@@ -57,7 +61,7 @@ function RenameInput({ tab, onDone }: { tab: TabItem; onDone(title: string | nul
 /** Document tab strip between the page header and the editor. */
 export default function TabBar({
   tabs, activeId, canEdit, canOwnerOnly, renamingId, onSelect, onAdd, onStartRename, onRename, onDelete,
-  onSetVisibility,
+  onSetVisibility, onOpenMap,
 }: TabBarProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ id: string; anchor: DOMRect } | null>(null)
@@ -133,6 +137,12 @@ export default function TabBar({
             onClick={() => { setMenu(null); onStartRename(menuTab.id) }}>
             <span>✎</span><span>Rename</span>
           </button>
+          {menuTab.map && onOpenMap && (
+            <button className="popover-item" role="menuitem"
+              onClick={() => { setMenu(null); onOpenMap(menuTab.id) }}>
+              <span aria-hidden>🗺</span><span>Open map page</span>
+            </button>
+          )}
           <div className="popover-sep" role="separator" />
           <div className="popover-heading">Visible to</div>
           {VISIBILITIES.filter((v) => v !== 'owners' || canOwnerOnly || menuTab.visibleTo === 'owners').map((v) => {

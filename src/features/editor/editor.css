@@ -1124,3 +1124,21 @@
 .link-bubble-btn { flex-shrink: 0; height: 26px; padding: 0 8px; font-size: var(--fs-sm); }
 .selection-menu .selection-menu-danger:hover { color: var(--danger); background: var(--danger-soft); }
 .selection-menu .selection-menu-danger:hover .slash-glyph { color: var(--danger); }
+
+/* ---------- map tabs: a map page embedded as a note tab ---------- */
+
+.map-tab { margin-top: var(--s3); display: flex; flex-direction: column; gap: var(--s1); }
+.map-tab-head { display: flex; justify-content: flex-end; }
+.map-tab-open { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+.map-tab-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+  min-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.map-tab-frame > * { flex: 1 1 auto; min-height: 0; }
+.map-tab-missing .plugin-tab-missing-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }

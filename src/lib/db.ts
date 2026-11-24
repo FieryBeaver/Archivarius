@@ -785,7 +785,8 @@ export function isSupportedExport(data: unknown): data is AnyProjectExport {
  * are regenerated; references (parent_id, mentions incl. inside every tab,
  * pin/region/event targets) are remapped, dangling ones dropped/nulled.
  * map_image_path is cleared (images aren't exported). Plugins (v0.6, optional)
- * are re-uploaded and pluginBlock pluginIds remapped. Page editors aren't
+ * are re-uploaded and pluginBlock pluginIds remapped; map tabs point at the imported
+ * map pages. Page editors aren't
  * exported, so restricted pages are editable only by the importer (owner).
  */
 export async function importProject(input: AnyProjectExport, name?: string): Promise<Project> {
@@ -848,6 +849,11 @@ export async function importProject(input: AnyProjectExport, name?: string): Pro
             // v0.7 plugin tabs: point at the re-uploaded plugin (data copied untouched).
             if (tab.plugin && typeof tab.plugin === 'object' && typeof tab.plugin.pluginId === 'string') {
               tab.plugin = { ...tab.plugin, pluginId: pluginMap.get(tab.plugin.pluginId) ?? tab.plugin.pluginId }
+            }
+            // Map tabs: point at the imported copy of the map page. A map that wasn't in the
+            // export keeps its old id and renders "Map unavailable" (MapTabView checks the project).
+            if (tab.map && typeof tab.map === 'object' && typeof tab.map.mapPageId === 'string') {
+              tab.map = { mapPageId: idMap.get(tab.map.mapPageId) ?? tab.map.mapPageId }
             }
             return tab
           })
