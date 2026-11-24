@@ -92,6 +92,13 @@ App name is **Archivarius** (rename from WorldKeeper done in foundation step).
 - `savePageTabs(pageId, tabs: PageTab[])` — also syncs content + mentions (all tabs)
 - Export format v2 `'archivarius-export'` (importer accepts v1 too); includes
   theme, edit_access, tabs; excludes page_editors (user ids don't transfer).
+- Export format v3 = `.zip` (`src/lib/transferZip.ts`, lazy-loaded with fflate):
+  `world.json` (v2 payload + `project.cover_path` + `assets[]
+  {archivePath, originalPath, kind: 'map'|'doc'|'cover'|'library', contentType}`) and
+  `images/…`. Import re-uploads the images into the new world and rewrites
+  `map_image_path`, imageBlock paths (all tabs, events) and the cover; a failed import
+  deletes the half-built world. Guards: ≤ 500 MB unpacked, ≤ 2000 entries, no `..`/absolute
+  names, magic-byte sniffing (png/jpeg/gif/webp/avif/bmp/svg). Plain `.json` stays v2.
 
 ### Cross-feature contracts
 - `src/state/panel.ts` (Agent A): `usePanelStore` zustand store:
@@ -171,8 +178,8 @@ Fixed: `src/lib/**`, `src/index.css`, `supabase/migrations/**`, `package.json`, 
   by the first path segment via `plugin_object_project(name)`. Every `maps` path must
   therefore start with `<project_id>/`. Public URLs still serve without auth.
 - Export/import: documents reference images by storage path → public URL; files are
-  NOT inlined in exports (same as maps and covers). An imported world keeps pointing
-  at the source world's image paths.
+  NOT inlined in JSON exports (same as maps and covers). A JSON-imported world keeps
+  pointing at the source world's image paths; the .zip export (v3) carries the files.
 
 ## v0.10 contracts — edit-own-only roles
 

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { remapDocIds, remapTab } from './transferFormat'
 import type {
   AnyProjectExport, Member, MemberWithProfile, Mention, Page, PageKind, PageTab, PageTemplate,
   Pin, Plugin, PluginExport, Project, ProjectExport, ProjectPrefs, ProjectRole, Region, Role, ThemeOverrides, WorldEvent,
@@ -48,6 +49,11 @@ const CONTENT_KEYS = new Set(['content', 'tabs'])
 
 export async function listProjects(): Promise<Project[]> {
   const { data, error } = await supabase.from('projects').select().order('created_at')
+  return ok(data, error)
+}
+
+export async function getProject(id: string): Promise<Project> {
+  const { data, error } = await supabase.from('projects').select().eq('id', id).single()
   return ok(data, error)
 }
 
@@ -527,6 +533,27 @@ export async function listProjectImages(projectId: string): Promise<DocImage[]> 
     })
 }
 
+/**
+ * Bytes of any object in the `maps` bucket (map, document or cover image). Tries the
+ * authenticated download first; falls back to the public URL, which also serves paths
+ * outside worlds the caller belongs to (e.g. images carried over by an older JSON import).
+ */
+export async function downloadMapsObject(path: string): Promise<Uint8Array> {
+  const { data, error } = await supabase.storage.from('maps').download(path, {}, { cache: 'no-store' })
+  if (!error && data) return new Uint8Array(await data.arrayBuffer())
+  const res = await fetch(mapImageUrl(path), { cache: 'no-store' })
+  if (!res.ok) throw new Error(error?.message || `HTTP ${res.status}`)
+  return new Uint8Array(await res.arrayBuffer())
+}
+
+/** Removes objects from the `maps` bucket (owner/editor of their world, RLS). */
+export async function removeMapsObjects(paths: string[]): Promise<void> {
+  for (const part of chunks(paths, 100)) {
+    const { error } = await supabase.storage.from('maps').remove(part)
+    if (error) throw new Error(error.message)
+  }
+}
+
 /** Removes an image from storage. Documents that use it keep the node (it renders as missing). */
 export async function deleteProjectImage(path: string): Promise<void> {
   const { error } = await supabase.storage.from('maps').remove([path])
@@ -784,12 +811,15 @@ export function isSupportedExport(data: unknown): data is AnyProjectExport {
  * Creates a new project from an export (v2, or legacy v1 WorldKeeper). All ids
  * are regenerated; references (parent_id, mentions incl. inside every tab,
  * pin/region/event targets) are remapped, dangling ones dropped/nulled.
- * map_image_path is cleared (images aren't exported). Plugins (v0.6, optional)
- * are re-uploaded and pluginBlock pluginIds remapped; map tabs point at the imported
- * map pages. Page editors aren't
+ * map_image_path is cleared (JSON exports carry no images) unless `opts.prepare`
+ * (the .zip import, lib/transferZip.ts) supplied the image's new storage path. Plugins
+ * (v0.6, optional) are re-uploaded and pluginBlock pluginIds remapped; map tabs point at
+ * the imported map pages. Page editors aren't
  * exported, so restricted pages are editable only by the importer (owner).
  */
-export async function importProject(input: AnyProjectExport, name?: string): Promise<Project> {
+export async function importProject(
+  input: AnyProjectExport, name?: string, opts?: ImportOptions,
+): Promise<Project> {
   if (!isSupportedExport(input)) throw new Error('Not an Archivarius export file')
   // normalise v1 -> v2 shape
   const data: ProjectExport = input.format === 'archivarius-export' ? input : {
@@ -800,6 +830,8 @@ export async function importProject(input: AnyProjectExport, name?: string): Pro
     pages: (input.pages ?? []).map((p) => ({ ...p, edit_access: 'inherit', tabs: null })),
   }
   let project = await createProject(name?.trim() || data.project?.name || 'Imported world')
+  // first thing after the row exists, so a failing caller always learns which world to clean up
+  const images = opts?.prepare ? await opts.prepare(project) : null
   if (data.project?.theme) project = await updateProjectTheme(project.id, data.project.theme)
 
   const idMap = new Map<string, string>()
@@ -813,7 +845,7 @@ export async function importProject(input: AnyProjectExport, name?: string): Pro
     const created = await createPlugin(project.id, { name: p.name || 'Plugin', icon: p.icon ?? null, file: p.source })
     pluginMap.set(p.id, created.id)
   }
-  const remapContent = (content: unknown) => remapDocIds(content, idMap, pluginMap)
+  const remapContent = (content: unknown) => remapDocIds(content, idMap, pluginMap, images?.imagePaths)
 
   // order pages so parents precede children (depth levels); orphans become roots
   const byId = new Map((data.pages ?? []).map((p) => [p.id, p]))
@@ -838,25 +870,13 @@ export async function importProject(input: AnyProjectExport, name?: string): Pro
         kind: p.kind,
         is_secret: p.is_secret,
         content: remapContent(p.content),
-        map_image_path: null,
+        map_image_path: (p.map_image_path && images?.imagePaths.get(p.map_image_path)) || null,
         map_w: p.map_w,
         map_h: p.map_h,
         edit_access: p.edit_access === 'restricted' ? 'restricted' : 'inherit',
         tags: Array.isArray(p.tags) ? p.tags : [],
         tabs: Array.isArray(p.tabs)
-          ? p.tabs.map((t) => {
-            const tab: PageTab = { ...t, content: remapContent(t.content) }
-            // v0.7 plugin tabs: point at the re-uploaded plugin (data copied untouched).
-            if (tab.plugin && typeof tab.plugin === 'object' && typeof tab.plugin.pluginId === 'string') {
-              tab.plugin = { ...tab.plugin, pluginId: pluginMap.get(tab.plugin.pluginId) ?? tab.plugin.pluginId }
-            }
-            // Map tabs: point at the imported copy of the map page. A map that wasn't in the
-            // export keeps its old id and renders "Map unavailable" (MapTabView checks the project).
-            if (tab.map && typeof tab.map === 'object' && typeof tab.map.mapPageId === 'string') {
-              tab.map = { mapPageId: idMap.get(tab.map.mapPageId) ?? tab.map.mapPageId }
-            }
-            return tab
-          })
+          ? p.tabs.map((t) => remapTab(t, idMap, pluginMap, images?.imagePaths))
           : null,
       },
       d: depth(p),
@@ -894,32 +914,22 @@ export async function importProject(input: AnyProjectExport, name?: string): Pro
     content: remapContent(e.content), target_page_id: remap(e.target_page_id),
   })))
 
+  if (images?.coverPath) project = await updateProjectCover(project.id, images.coverPath)
   return project
 }
 
-/**
- * Deep-copies TipTap JSON, remapping mention node ids (attrs.id) to new page ids
- * and pluginBlock plugin ids (attrs.pluginId) to new plugin ids. Unknown ids are
- * left as-is (they render as missing). pluginBlock `data` is copied untouched.
- */
-function remapDocIds(content: unknown, idMap: Map<string, string>, pluginMap: Map<string, string>): unknown {
-  if (Array.isArray(content)) return content.map((c) => remapDocIds(c, idMap, pluginMap))
-  if (!content || typeof content !== 'object') return content
-  const node = content as Record<string, unknown>
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(node)) {
-    // never walk into plugin data: it is opaque user JSON, not TipTap
-    out[k] = node.type === 'pluginBlock' && k === 'attrs' ? v : remapDocIds(v, idMap, pluginMap)
-  }
-  if (node.type === 'mention' && out.attrs && typeof out.attrs === 'object') {
-    const attrs = out.attrs as Record<string, unknown>
-    if (typeof attrs.id === 'string' && idMap.has(attrs.id)) out.attrs = { ...attrs, id: idMap.get(attrs.id) }
-  }
-  if (node.type === 'pluginBlock' && out.attrs && typeof out.attrs === 'object') {
-    const attrs = out.attrs as Record<string, unknown>
-    if (typeof attrs.pluginId === 'string' && pluginMap.has(attrs.pluginId)) {
-      out.attrs = { ...attrs, pluginId: pluginMap.get(attrs.pluginId) }
-    }
-  }
-  return out
+/** Images a .zip import already uploaded into the new world (see importProject's `opts`). */
+export interface ImportedImages {
+  /** Source-world storage path → the new world's copy. Unlisted paths are left as-is. */
+  imagePaths: ReadonlyMap<string, string>
+  /** The new world's cover (already uploaded), or null. */
+  coverPath: string | null
+}
+
+export interface ImportOptions {
+  /**
+   * Runs right after the new world row is created, before anything else is written:
+   * the .zip import records the world (for cleanup) and uploads its images here.
+   */
+  prepare?: (project: Project) => Promise<ImportedImages>
 }

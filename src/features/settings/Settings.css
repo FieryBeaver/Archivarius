@@ -291,6 +291,15 @@
   from { transform: translateX(-100%); }
   to { transform: translateX(300%); }
 }
+/* known progress (n of m images): width set inline via --wks-pct */
+.wks-progress-bar.is-determinate::after {
+  width: var(--wks-pct, 0%);
+  animation: none;
+  transition: width 0.2s var(--ease);
+}
+.wks-warnings { margin: 0; color: var(--muted); font-size: var(--fs-sm); }
+.wks-warnings > summary { cursor: pointer; color: var(--text); }
+.wks-warnings ul { margin: var(--s2) 0 0; padding-left: 1.2em; max-height: 10em; overflow-y: auto; overflow-wrap: anywhere; }
 
 /* ---------- about ---------- */
 

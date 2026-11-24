@@ -202,6 +202,29 @@ export interface ProjectExportV1 {
 /** Anything importProject accepts. */
 export type AnyProjectExport = ProjectExport | ProjectExportV1
 
+/** Where an image in a .zip export was used (the first use wins when it has several). */
+export type ExportAssetKind = 'map' | 'doc' | 'cover' | 'library'
+
+/** One image carried in a .zip export (`world.json` lists them; bytes live at `archivePath`). */
+export interface ExportAsset {
+  /** `images/<file>` inside the zip. */
+  archivePath: string
+  /** Storage path in the source world's `maps` bucket — what pages/cover reference. */
+  originalPath: string
+  kind: ExportAssetKind
+  contentType: string
+}
+
+/**
+ * v3 = the `world.json` inside a .zip export: the v2 payload plus the world's cover
+ * and the list of images stored next to it in the archive (see lib/transferZip.ts).
+ */
+export interface ProjectExportV3 extends Omit<ProjectExport, 'version' | 'project'> {
+  version: 3
+  project: { name: string; theme: ThemeOverrides | null; cover_path: string | null }
+  assets: ExportAsset[]
+}
+
 // ---------- v0.7 ----------
 
 /**
