@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { useScriptingApi } from './api/browser'
 import Login from './components/Login'
 import PageView from './components/PageView'
 import PrivacyPage from './components/PrivacyPage'
@@ -14,6 +15,8 @@ export default function App() {
   const loading = useAuth((s) => s.loading)
 
   useEffect(startAuthListener, [])
+  // window.archivarius (API.md) while signed in.
+  useScriptingApi(session?.user.id)
 
   if (loading) return <div className="app-splash">Archivarius</div>
 

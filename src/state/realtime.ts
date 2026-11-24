@@ -81,7 +81,11 @@ export function useLiveVersion(kind: 'members' | 'plugins'): number {
   return useLive((s) => s.versions[kind])
 }
 
-function bumpPages(ids: Iterable<string>) {
+/**
+ * Signals that these pages changed (views re-read them). Also used by the scripting API
+ * (src/api/browser.ts) for its own writes, which realtime ignores as this tab's echoes.
+ */
+export function bumpPages(ids: Iterable<string>) {
   const list = [...ids]
   if (list.length === 0) return
   useLive.setState((s) => {

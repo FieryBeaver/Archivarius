@@ -263,6 +263,8 @@ export async function createPage(
     title?: string; parent_id?: string | null; kind?: PageKind; position?: number
     /** v0.7: prefilled from a template. */
     icon?: string | null; content?: unknown; tabs?: PageTab[] | null
+    /** Scripting API: created secret (no visible-then-hidden window for other members). */
+    is_secret?: boolean
   },
 ): Promise<Page> {
   const { data, error } = await supabase

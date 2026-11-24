@@ -6,6 +6,7 @@ import { usePages } from '../state/pages'
 import { usePanelStore } from '../state/panel'
 import { useProjectPrefs, useProjectRefresh } from '../state/project'
 import { useLive, useRealtime } from '../state/realtime'
+import { useScriptingWorld } from '../api/browser'
 import BacklinksPanel from './BacklinksPanel'
 import ContextPanel from './ContextPanel'
 import EmptyState from './EmptyState'
@@ -169,6 +170,8 @@ export default function ProjectLayout() {
 
   // v0.11: live updates from other members while this world is open.
   useRealtime(project ? projectId : undefined)
+  // window.archivarius targets this world by default.
+  useScriptingWorld(project ? projectId : undefined)
   const notice = useLive((s) => s.notice)
   const setNotice = useLive((s) => s.setNotice)
   useEffect(() => {
