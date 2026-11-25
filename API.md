@@ -70,6 +70,7 @@ Properties (a snapshot, refreshed by every method call): `id`, `title`, `icon`, 
 | `rename(title)` | `await n.rename('Ravenholm Ruins')` |
 | `move(parentIdOrTitle \| null)` — `null` = top level | `await n.move('Old Town')` |
 | `hide()` / `show()` — set / clear the secret flag | `await n.hide()` |
+| `duplicate()` → Note — copies the page **and every page under it** next to it, titled "… copy"; links between the copied pages point at the copies | `const c = await n.duplicate()` |
 | `delete()` — deletes the page **and every page under it** | `await n.delete()` |
 | `refresh()` — re-read title, parent, flags | `await n.refresh()` |
 

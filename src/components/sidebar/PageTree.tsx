@@ -49,7 +49,7 @@ interface PageTreeProps {
 export default function PageTree({ projectId, onNavigate, filter }: PageTreeProps) {
   const navigate = useNavigate()
   const { pageId } = useParams()
-  const { expanded, create, update, remove, toggle } = usePages()
+  const { expanded, create, update, remove, duplicate, toggle } = usePages()
   // Secret pages drop out while previewing as a viewer (their non-secret children surface as roots, like RLS).
   const pages = useVisiblePages()
   // v0.10: rows hidden only by a secret ancestor are dimmed like secret rows.
@@ -155,6 +155,7 @@ export default function PageTree({ projectId, onNavigate, filter }: PageTreeProp
               onAddChild={(kind, template) => addChild(row.id, kind, template)}
               onSaveTemplate={row.page.kind === 'doc' ? () => saveTemplate(row.page) : undefined}
               onRename={(title) => attempt(update(row.id, { title }))}
+              onDuplicate={() => attempt(duplicate(row.id).then((copy) => open(copy.id)))}
               onToggleSecret={() => attempt(update(row.id, { is_secret: !row.page.is_secret }))}
               onDelete={() => deletePage(row.page)} />
           ))}

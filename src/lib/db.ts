@@ -295,6 +295,126 @@ export async function deletePage(id: string): Promise<void> {
   notify('pages', [id])
 }
 
+// ---------- duplicate (copy a page and its subtree) ----------
+
+/** RLS / permission refusals, as PostgREST and the DB triggers word them. */
+const REFUSED = /row-level security|permission denied|42501|violates.*polic/i
+
+/**
+ * Copies a page and every subpage the caller can see, inserted as a sibling right after
+ * the original. Only the root copy is retitled "<title> copy". Copied: title, icon, kind,
+ * secret flag (a DB trigger may still force secrecy under a secret parent), tags, content
+ * and every tab (plugin tab data rides along inside the tab), map image path/size (the
+ * same storage object, not a copy), and the pins, regions and timeline events of copied
+ * map/timeline pages. Mentions, map tabs and pin/region/event targets that point INTO the
+ * subtree are remapped to the copies; references to pages outside it are left as-is.
+ * Not copied: edit access / page editors (copies are 'inherit', owned by the caller).
+ * Outgoing mentions are recorded like a save (pages the caller can't see are skipped).
+ * All-or-nothing: if any step fails, the copies already made are deleted again.
+ * Returns the copies, root first, parents before children.
+ */
+export async function duplicatePage(pageId: string): Promise<Page[]> {
+  const original = await getPage(pageId)
+  const pages = await listPages(original.project_id)
+  const label = `'${original.title || 'Untitled'}'`
+
+  // the subtree, level by level (parents before children); guarded against cycles
+  const levels: Page[][] = [[original]]
+  const seen = new Set([original.id])
+  for (;;) {
+    const prev = new Set(levels.at(-1)!.map((p) => p.id))
+    const next = pages
+      .filter((p) => p.parent_id && prev.has(p.parent_id) && !seen.has(p.id))
+      .sort((a, b) => a.position - b.position)
+    if (next.length === 0) break
+    next.forEach((p) => seen.add(p.id))
+    levels.push(next)
+  }
+  const idMap = new Map<string, string>()
+  for (const p of levels.flat()) idMap.set(p.id, crypto.randomUUID())
+  const noPlugins = new Map<string, string>()
+  const remap = (id: string | null): string | null => (id ? idMap.get(id) ?? id : null)
+
+  // right after the original among its siblings
+  const siblings = pages.filter((p) => p.parent_id === original.parent_id).sort((a, b) => a.position - b.position)
+  const after = siblings[siblings.findIndex((p) => p.id === original.id) + 1]
+  const rootPosition = after ? (original.position + after.position) / 2 : original.position + 1
+
+  const copyRow = (p: Page) => {
+    const tabs = Array.isArray(p.tabs) && p.tabs.length ? p.tabs.map((t) => remapTab(t, idMap, noPlugins)) : null
+    return {
+      id: idMap.get(p.id)!,
+      project_id: p.project_id,
+      parent_id: p.id === original.id ? p.parent_id : remap(p.parent_id),
+      position: p.id === original.id ? rootPosition : p.position,
+      title: p.id === original.id ? `${p.title || 'Untitled'} copy` : p.title,
+      icon: p.icon,
+      kind: p.kind,
+      is_secret: p.is_secret,
+      // keeps the invariant content = tabs[0].content
+      content: tabs ? tabs[0].content : remapDocIds(p.content, idMap, noPlugins),
+      tabs,
+      map_image_path: p.map_image_path,
+      map_w: p.map_w,
+      map_h: p.map_h,
+      tags: Array.isArray(p.tags) ? p.tags : [],
+    }
+  }
+
+  const created: Page[] = []
+  const mapIds = levels.flat().filter((p) => p.kind === 'map').map((p) => p.id)
+  const timelineIds = levels.flat().filter((p) => p.kind === 'timeline').map((p) => p.id)
+  try {
+    for (const level of levels) {
+      for (const part of chunks(level, 500)) {
+        const { data, error } = await supabase.from('pages').insert(part.map(copyRow)).select()
+        created.push(...(ok(data, error) as Page[]))
+      }
+    }
+
+    // outgoing mentions, as syncMentions would record them for each copy
+    const contentsOf = (p: Page) => (Array.isArray(p.tabs) && p.tabs.length ? p.tabs.map((t) => t.content) : [p.content])
+    const wanted = new Map(created.map((p) => [p.id, extractMentionIds(contentsOf(p))]))
+    const allIds = [...new Set([...wanted.values()].flat())]
+    const known = new Set(allIds.length
+      ? (await selectIn<Pick<Page, 'id'>>('pages', 'id', allIds, 'id')).map((p) => p.id)
+      : [])
+    await insertBatched('mentions', [...wanted].flatMap(([from, tos]) =>
+      tos.filter((to) => known.has(to)).map((to) => ({ from_page_id: from, to_page_id: to }))))
+
+    const [pins, regions, events] = await Promise.all([
+      mapIds.length ? selectIn<Pin>('pins', 'map_page_id', mapIds) : [],
+      mapIds.length ? selectIn<Region>('regions', 'map_page_id', mapIds) : [],
+      timelineIds.length ? selectIn<WorldEvent>('events', 'timeline_page_id', timelineIds) : [],
+    ])
+    await insertBatched('pins', pins.map((p) => ({
+      map_page_id: remap(p.map_page_id), x: p.x, y: p.y, target_page_id: remap(p.target_page_id),
+      label: p.label, color: p.color, icon: p.icon,
+    })))
+    await insertBatched('regions', regions.map((r) => ({
+      map_page_id: remap(r.map_page_id), points: r.points, target_page_id: remap(r.target_page_id),
+      label: r.label, color: r.color, opacity: r.opacity,
+    })))
+    await insertBatched('events', events.map((e) => ({
+      timeline_page_id: remap(e.timeline_page_id), position: e.position, sort_key: e.sort_key,
+      display_date: e.display_date, era: e.era, title: e.title,
+      content: remapDocIds(e.content, idMap, noPlugins), target_page_id: remap(e.target_page_id),
+    })))
+  } catch (e) {
+    if (created.length) {
+      // roll back: deleting the root copy cascades to everything made under it
+      const { error } = await supabase.from('pages').delete().eq('id', created[0].id)
+      if (error) notify('pages', created.map((p) => p.id))
+    }
+    const msg = e instanceof Error ? e.message : String(e)
+    if (REFUSED.test(msg)) throw new Error(`Permission denied by the server: you can't duplicate ${label}`)
+    throw e
+  }
+
+  notify('pages', created.map((p) => p.id))
+  return created
+}
+
 // ---------- page tabs ----------
 
 /**

@@ -93,6 +93,8 @@ export interface Note {
   hide(): Promise<Note>
   /** Clears the page's secret flag. */
   show(): Promise<Note>
+  /** Copies the page AND everything under it, next to it; resolves to the copy ("<title> copy"). */
+  duplicate(): Promise<Note>
   /** Deletes the page AND everything under it. */
   delete(): Promise<void>
   /** Re-reads the page's metadata. */
@@ -473,6 +475,12 @@ export function createArchivarius(host: ArchivariusHost): Archivarius {
 
     show(): Promise<Note> {
       return this.patch(`show ${quote(this.title)}`, { is_secret: false })
+    }
+
+    async duplicate(): Promise<Note> {
+      const copies = await write(`duplicate ${quote(this.title)}`, () => db.duplicatePage(this.id))
+      await report({ worldId: this.worldId, kind: 'pages', pageIds: copies.map((p) => p.id), pages: copies })
+      return new NoteImpl(copies[0])
     }
 
     async delete(): Promise<void> {

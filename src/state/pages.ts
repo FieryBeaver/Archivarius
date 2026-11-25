@@ -44,6 +44,8 @@ interface PagesState {
   /** Local-only patch, for state already persisted elsewhere (e.g. editor autosave). */
   patchLocal(id: string, attrs: Partial<Page>): void
   remove(id: string): Promise<void>
+  /** Copies the page and its subpages (as a sibling right after it); resolves to the root copy. */
+  duplicate(id: string): Promise<Page>
   toggle(id: string, open?: boolean): void
   expandTo(id: string): void
 }
@@ -130,6 +132,24 @@ export const usePages = create<PagesState>((set, get) => ({
     // Children are removed by ON DELETE CASCADE; reload to mirror that.
     const projectId = get().projectId
     if (projectId) await get().load(projectId)
+  },
+
+  async duplicate(id) {
+    let copies: Page[]
+    try {
+      copies = await db.duplicatePage(id)
+    } catch (e) {
+      // the partial copy was rolled back (best-effort): mirror whatever the server has now
+      const projectId = get().projectId
+      if (projectId) void get().load(projectId)
+      throw e
+    }
+    const root = copies[0]
+    set((s) => ({
+      pages: [...s.pages.filter((p) => !copies.some((c) => c.id === p.id)), ...copies],
+      expanded: root.parent_id ? { ...s.expanded, [root.parent_id]: true } : s.expanded,
+    }))
+    return root
   },
 
   toggle(id, open) {

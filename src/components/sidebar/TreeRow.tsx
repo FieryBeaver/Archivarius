@@ -29,6 +29,7 @@ interface Props {
   /** Present on doc pages for people who can edit: snapshot as a template. */
   onSaveTemplate?: () => void
   onRename: (title: string) => void
+  onDuplicate: () => void
   onToggleSecret: () => void
   onDelete: () => void
 }
@@ -112,7 +113,7 @@ export default function TreeRow(props: Props) {
         <RowMenu anchor={popup.anchor} isSecret={row.page.is_secret} canSecret={props.canSecret} onClose={closePopup}
           onAddChild={() => setPopup({ kind: 'add', anchor: popup.anchor })}
           onSaveTemplate={props.onSaveTemplate}
-          onRename={() => setRenaming(true)} onToggleSecret={props.onToggleSecret} onDelete={props.onDelete} />
+          onRename={() => setRenaming(true)} onDuplicate={props.onDuplicate} onToggleSecret={props.onToggleSecret} onDelete={props.onDelete} />
       )}
     </div>
   )
