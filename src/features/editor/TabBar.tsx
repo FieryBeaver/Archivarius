@@ -1,4 +1,8 @@
-import { useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
+import {
+  DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import Popover from '../../components/Popover'
 import { EyeGlyph, EyeOffGlyph } from '../../components/UiIcons'
 import { VISIBILITIES, VISIBILITY_LABELS, asVisibility, type Visibility } from '../../lib/visibility'
@@ -29,6 +33,8 @@ interface TabBarProps {
   onSetVisibility(id: string, visibleTo: Visibility): void
   /** Map tabs: navigate to the linked map page. */
   onOpenMap?(id: string): void
+  /** Reorder: put tab `id` right before / after tab `targetId` (both in `tabs`). */
+  onMove(id: string, targetId: string, side: 'before' | 'after'): void
 }
 
 const MAX_TITLE = 60
@@ -58,15 +64,51 @@ function RenameInput({ tab, onDone }: { tab: TabItem; onDone(title: string | nul
   )
 }
 
+/** One draggable tab (horizontal only); click/double-click/right-click keep working below the 5px threshold. */
+function SortableTab({ id, disabled, className, onContextMenu, children }: {
+  id: string; disabled: boolean; className: string; onContextMenu(e: MouseEvent): void; children: ReactNode
+}) {
+  const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled })
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, 0, 0)` : undefined,
+    transition,
+  } as CSSProperties
+  // Only the pointer listeners: dnd-kit's `attributes` would turn the wrapper into a role="button".
+  return (
+    <div ref={setNodeRef} style={style} {...listeners} onContextMenu={onContextMenu}
+      className={`${className}${isDragging ? ' dragging' : ''}`}>
+      {children}
+    </div>
+  )
+}
+
 /** Document tab strip between the page header and the editor. */
 export default function TabBar({
   tabs, activeId, canEdit, canOwnerOnly, renamingId, onSelect, onAdd, onStartRename, onRename, onDelete,
-  onSetVisibility, onOpenMap,
+  onSetVisibility, onOpenMap, onMove,
 }: TabBarProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ id: string; anchor: DOMRect } | null>(null)
   const deletable = canEdit && tabs.length > 1
   const menuTab = menu ? tabs.find((t) => t.id === menu.id) ?? null : null
+  const menuIndex = menuTab ? tabs.indexOf(menuTab) : -1
+  // Same activation as the sidebar tree: mouse after a 5px move, touch after a 250ms press
+  // (so swiping the strip still scrolls it).
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  )
+  // The click that ends a drag must not also select the dropped tab.
+  const dragging = useRef(false)
+
+  function onDragEnd({ active, over }: DragEndEvent) {
+    setTimeout(() => { dragging.current = false }, 0)
+    if (!over || active.id === over.id) return
+    const from = tabs.findIndex((t) => t.id === active.id)
+    const to = tabs.findIndex((t) => t.id === over.id)
+    if (from < 0 || to < 0) return
+    onMove(String(active.id), String(over.id), from < to ? 'after' : 'before')
+  }
 
   function openMenu(e: MouseEvent, id: string) {
     if (!canEdit) return
@@ -77,6 +119,11 @@ export default function TabBar({
 
   return (
     <div className={`doc-tabs${tabs.length ? '' : ' doc-tabs-empty'}`}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter}
+        onDragStart={() => { dragging.current = true; setConfirmId(null) }}
+        onDragEnd={onDragEnd}
+        onDragCancel={() => { setTimeout(() => { dragging.current = false }, 0) }}>
+      <SortableContext items={tabs.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
       <div className="doc-tabs-list" role="tablist" aria-label="Document tabs">
         {tabs.map((tab) => {
           const active = tab.id === activeId
@@ -85,14 +132,15 @@ export default function TabBar({
           const vis = asVisibility(tab.visibleTo)
           const restricted = vis !== 'all'
           return (
-            <div key={tab.id} onContextMenu={(e) => openMenu(e, tab.id)}
+            <SortableTab key={tab.id} id={tab.id} disabled={!canEdit || renaming || confirming || tabs.length < 2}
+              onContextMenu={(e) => openMenu(e, tab.id)}
               className={`doc-tab${active ? ' active' : ''}${confirming ? ' confirming' : ''}${restricted ? ' restricted' : ''}`}>
               {renaming ? (
                 <RenameInput tab={tab} onDone={(title) => onRename(tab.id, title)} />
               ) : (
                 <button type="button" role="tab" aria-selected={active} className="doc-tab-btn"
-                  title={canEdit ? `${tab.title} — double-click to rename, right-click for options` : tab.title}
-                  onClick={() => { setConfirmId(null); onSelect(tab.id) }}
+                  title={canEdit ? `${tab.title} — double-click to rename, drag to move, right-click for options` : tab.title}
+                  onClick={() => { if (dragging.current) return; setConfirmId(null); onSelect(tab.id) }}
                   onDoubleClick={() => { if (canEdit) onStartRename(tab.id) }}>
                   {tab.title}
                 </button>
@@ -121,10 +169,12 @@ export default function TabBar({
                 <button type="button" className="doc-tab-close" aria-label={`Delete tab ${tab.title}`}
                   title="Delete tab" onClick={() => setConfirmId(tab.id)}>×</button>
               )}
-            </div>
+            </SortableTab>
           )
         })}
       </div>
+      </SortableContext>
+      </DndContext>
       {canEdit && (
         <button type="button" className="doc-tab-add" title="Add tab" aria-label="Add tab"
           onClick={(e) => onAdd(e.currentTarget.getBoundingClientRect())}>
@@ -142,6 +192,18 @@ export default function TabBar({
               onClick={() => { setMenu(null); onOpenMap(menuTab.id) }}>
               <span aria-hidden>🗺</span><span>Open map page</span>
             </button>
+          )}
+          {tabs.length > 1 && (
+            <>
+              <button className="popover-item" role="menuitem" disabled={menuIndex <= 0}
+                onClick={() => { setMenu(null); onMove(menuTab.id, tabs[menuIndex - 1].id, 'before') }}>
+                <span aria-hidden>←</span><span>Move left</span>
+              </button>
+              <button className="popover-item" role="menuitem" disabled={menuIndex >= tabs.length - 1}
+                onClick={() => { setMenu(null); onMove(menuTab.id, tabs[menuIndex + 1].id, 'after') }}>
+                <span aria-hidden>→</span><span>Move right</span>
+              </button>
+            </>
           )}
           <div className="popover-sep" role="separator" />
           <div className="popover-heading">Visible to</div>

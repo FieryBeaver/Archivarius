@@ -58,6 +58,7 @@
 }
 
 .popover-item { cursor: pointer; }
+.popover-item:disabled { cursor: default; opacity: 0.45; background: none; color: var(--muted); }
 .popover-grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .popover-heading {

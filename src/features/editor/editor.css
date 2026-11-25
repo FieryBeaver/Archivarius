@@ -837,6 +837,16 @@
   transition: background-color var(--t-fast) var(--ease);
 }
 .doc-tab.active::after { background: var(--accent); }
+/* Being dragged along the strip (the other tabs slide aside to show where it lands). */
+.doc-tab.dragging {
+  z-index: 1;
+  background: var(--surface-float);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  opacity: 0.9;
+  box-shadow: var(--shadow-1);
+  cursor: grabbing;
+}
+.doc-tab.dragging .doc-tab-btn { cursor: grabbing; }
 
 .doc-tab-btn {
   max-width: 200px;

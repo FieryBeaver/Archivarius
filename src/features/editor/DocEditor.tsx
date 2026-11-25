@@ -22,6 +22,7 @@ import PluginTabView from './PluginTabView'
 import { selectionContextMenu } from './SelectionMenu'
 import { SlashCommand } from './slashCommand'
 import TabBar from './TabBar'
+import { moveTab } from './tabOrder'
 import Toolbar from './Toolbar'
 import { useAutosave, type SaveStatus } from './useAutosave'
 import './editor.css'
@@ -313,6 +314,18 @@ function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorI
     }
   }
 
+  /**
+   * Reorder. Works on the in-memory tabs (they already hold the open tab's unsaved text), so
+   * the save that follows carries those edits too; savePageTabs re-mirrors content = tabs[0].
+   * The active tab is tracked by id, so it stays open and its editor isn't remounted.
+   */
+  function move(id: string, targetId: string, side: 'before' | 'after') {
+    const current = tabsRef.current
+    if (!current) return
+    const next = moveTab(current, id, targetId, side)
+    if (next !== current) commit(next)
+  }
+
   function remove(id: string) {
     const current = tabsRef.current
     if (!current || current.length <= 1) return
@@ -343,7 +356,7 @@ function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorI
           canOwnerOnly={vRole === 'owner'}
           onSelect={select} onAdd={(anchor) => setAddMenu({ anchor, mode: 'menu' })}
           onStartRename={setRenamingId} onRename={rename} onDelete={remove}
-          onSetVisibility={setVisibility}
+          onSetVisibility={setVisibility} onMove={move}
           onOpenMap={(id) => {
             const mapPageId = tabsRef.current?.find((t) => t.id === id)?.map?.mapPageId
             if (mapPageId) navigate(pagePath(page.project_id, mapPageId))
