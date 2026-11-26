@@ -103,10 +103,53 @@ export async function updateProjectPrefs(projectId: string, prefs: ProjectPrefs 
   return row
 }
 
-/** Owner only (RLS). Cascades to members, pages and everything under them. */
-export async function deleteProject(id: string): Promise<void> {
+/**
+ * Owner only (RLS). Cascades to members, pages and everything under them. The world's
+ * storage objects (map / document / cover images in `maps`, plugin HTML in `plugins`, all
+ * under `<projectId>/`) are removed first, while we are still a member (storage RLS needs
+ * it). Best-effort: a storage failure doesn't block the deletion; it comes back as
+ * `storageError` (orphaned objects are harmless but take space).
+ */
+export async function deleteProject(id: string): Promise<{ storageError: string | null }> {
+  if ((await getMyRole(id)) !== 'owner') throw new Error('Only the owner can delete this world.')
+  let storageError: string | null = null
+  for (const bucket of ['maps', 'plugins'] as const) {
+    try {
+      await removeStorageObjects(bucket, await listStorageTree(bucket, id))
+    } catch (e) {
+      console.warn(`Could not remove the world's files from ${bucket}:`, e)
+      storageError ??= (e as Error).message || 'unknown error'
+    }
+  }
   const { error } = await supabase.from('projects').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  return { storageError }
+}
+
+/** Every object path under `prefix` in a bucket (recursing into folders, all pages). */
+async function listStorageTree(bucket: string, prefix: string): Promise<string[]> {
+  const PAGE = 100
+  const out: string[] = []
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase.storage.from(bucket).list(prefix, { limit: PAGE, offset })
+    if (error) throw new Error(error.message)
+    const entries = data ?? []
+    for (const f of entries) {
+      const path = `${prefix}/${f.name}`
+      // Folders come back with a null id.
+      if (f.id) out.push(path)
+      else out.push(...(await listStorageTree(bucket, path)))
+    }
+    if (entries.length < PAGE) return out
+  }
+}
+
+/** Removes objects from a bucket, 100 per request. */
+async function removeStorageObjects(bucket: string, paths: string[]): Promise<void> {
+  for (const part of chunks(paths, 100)) {
+    const { error } = await supabase.storage.from(bucket).remove(part)
+    if (error) throw new Error(error.message)
+  }
 }
 
 // ---------- members ----------
@@ -668,10 +711,7 @@ export async function downloadMapsObject(path: string): Promise<Uint8Array> {
 
 /** Removes objects from the `maps` bucket (owner/editor of their world, RLS). */
 export async function removeMapsObjects(paths: string[]): Promise<void> {
-  for (const part of chunks(paths, 100)) {
-    const { error } = await supabase.storage.from('maps').remove(part)
-    if (error) throw new Error(error.message)
-  }
+  await removeStorageObjects('maps', paths)
 }
 
 /** Removes an image from storage. Documents that use it keep the node (it renders as missing). */

@@ -6,6 +6,7 @@ import type { ProjectPrefs } from '../../lib/types'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../state/auth'
 import { prefsFor, useProjectPrefs } from '../../state/project'
+import { showImageNote } from '../editor/imageBlock'
 import type { SettingsContext } from './SettingsDialog'
 import { ROLE_LABEL } from './roles'
 
@@ -292,10 +293,11 @@ function DeleteWorld({ ctx }: { ctx: SettingsContext }) {
     setBusy(true)
     setError(null)
     try {
-      await db.deleteProject(project.id)
+      const { storageError } = await db.deleteProject(project.id)
       setBusy(false)
       close()
       navigate('/')
+      if (storageError) showImageNote(`World deleted, but some of its files couldn't be removed (${storageError}).`)
     } catch (e) {
       setBusy(false)
       setLocalBusy(false)
