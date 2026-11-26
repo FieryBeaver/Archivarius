@@ -101,8 +101,12 @@ function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorI
   const [addMenu, setAddMenu] = useState<{ anchor: DOMRect; mode: 'menu' | 'plugin' | 'map' } | null>(null)
   const navigate = useNavigate()
   // addNewMapTab awaits a page insert: don't touch a remounted/closed editor's tabs afterwards.
+  // Set in the effect body too: StrictMode's probe unmount would otherwise leave it false.
   const alive = useRef(true)
-  useEffect(() => () => { alive.current = false }, [])
+  useEffect(() => {
+    alive.current = true
+    return () => { alive.current = false }
+  }, [])
 
   // ---------- v0.11 live updates from other members ----------
   // The open tab's TipTap instance (null while a plugin tab / nothing is shown).

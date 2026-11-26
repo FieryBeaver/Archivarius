@@ -1142,6 +1142,8 @@
 .map-tab-open { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
 .map-tab-frame {
   position: relative;
+  /* Keeps the embedded map's Leaflet z-indexes from escaping over menus / dialogs. */
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   height: 70vh;

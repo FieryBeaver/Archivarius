@@ -4,6 +4,9 @@
 
 .wk-map {
   position: relative;
+  /* Own stacking context: Leaflet's panes/controls (z-index 400-1000) and our overlays
+     (1000) stay inside the map, below the app's popovers (50+), dialogs (100+) and toasts. */
+  isolation: isolate;
   width: 100%;
   height: 100%;
   min-height: 320px;
