@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 import { remapDocIds, remapTab } from './transferFormat'
+import { uniqueImportName } from './importName'
+import { rankByTitle } from './titleRank'
 import type {
   AnyProjectExport, Member, MemberWithProfile, Mention, Page, PageKind, PageTab, PageTemplate,
   Pin, Plugin, PluginExport, Project, ProjectExport, ProjectPrefs, ProjectRole, Region, Role, ThemeOverrides, WorldEvent,
@@ -501,12 +503,16 @@ export async function removePageEditor(pageId: string, userId: string): Promise<
   notify('page_editors', [pageId])
 }
 
-/** Lightweight page list for @mention autocomplete. */
+/**
+ * Lightweight page list for @mention autocomplete: up to 10 titles containing `query`,
+ * best first (exact match, then prefix, then substring — see titleRank.ts). Fetches a wider
+ * candidate set so an exact match isn't cut off by the limit.
+ */
 export async function searchPages(projectId: string, query: string): Promise<Pick<Page, 'id' | 'title' | 'kind'>[]> {
   const { data, error } = await supabase
     .from('pages').select('id,title,kind')
-    .eq('project_id', projectId).ilike('title', `%${query}%`).limit(10)
-  return ok(data, error)
+    .eq('project_id', projectId).ilike('title', `%${query}%`).limit(100)
+  return rankByTitle(ok(data, error), query, (p) => p.title ?? '').slice(0, 10)
 }
 
 // ---------- mentions / backlinks ----------
@@ -989,7 +995,9 @@ export async function importProject(
     project: { name: input.project?.name, theme: null },
     pages: (input.pages ?? []).map((p) => ({ ...p, edit_access: 'inherit', tabs: null })),
   }
-  let project = await createProject(name?.trim() || data.project?.name || 'Imported world')
+  // No explicit name: the export's, disambiguated from the worlds already listed.
+  const existing = name?.trim() ? [] : await listProjects().then((ps) => ps.map((p) => p.name), () => [])
+  let project = await createProject(name?.trim() || uniqueImportName(data.project?.name || 'Imported world', existing))
   // first thing after the row exists, so a failing caller always learns which world to clean up
   const images = opts?.prepare ? await opts.prepare(project) : null
   if (data.project?.theme) project = await updateProjectTheme(project.id, data.project.theme)

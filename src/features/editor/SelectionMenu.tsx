@@ -1,8 +1,9 @@
 import { TextSelection } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import { useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { pageIcon } from '../../components/pageIcon'
 import type { Page } from '../../lib/types'
+import { rankByTitle } from '../../lib/titleRank'
 import { useVisiblePages, usePages } from '../../state/pages'
 import { BLOCK_ICONS } from './blockIcons'
 import { showImageNote } from './imageBlock'
@@ -75,13 +76,20 @@ interface MenuProps {
 function SelectionMenu({ view, target, link, currentPageId, close }: MenuProps) {
   const [mode, setMode] = useState<'menu' | 'page' | 'url'>('menu')
   const [query, setQuery] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
+  // "Link to existing page…" opens with the selected text as the search, selected so typing replaces it.
+  useEffect(() => {
+    if (mode !== 'page') return
+    searchRef.current?.focus()
+    searchRef.current?.select()
+  }, [mode])
   const [index, setIndex] = useState(0)
   const pages = useVisiblePages()
 
   const q = query.trim().toLowerCase()
-  const items = mode === 'page'
-    ? pages.filter((p) => p.id !== currentPageId && (!q || (p.title || 'Untitled').toLowerCase().includes(q))).slice(0, 8)
-    : []
+  const others = mode === 'page' ? pages.filter((p) => p.id !== currentPageId) : []
+  // Best matches first (exact title, then prefix, then substring); no query: tree order.
+  const items = (q ? rankByTitle(others, q, (p) => p.title || 'Untitled') : others).slice(0, 8)
   // "+ Create “query”" row after the matches (only when selection text can be linked).
   const newTitle = mode === 'page' && target ? createTitleFor(query, pages.map((p) => p.title)) : null
   const count = items.length + (newTitle ? 1 : 0)
@@ -138,7 +146,11 @@ function SelectionMenu({ view, target, link, currentPageId, close }: MenuProps) 
     return (
       <div className="mention-list selection-menu" role="menu" aria-label="Selection actions">
         {target && item('pagePlus', 'New subpage from selection', () => { close(); void newSubpage(target) })}
-        {target && item('link', 'Link to existing page…', () => setMode('page'))}
+        {target && item('link', 'Link to existing page…', () => {
+          setQuery(target.text.replace(/\s+/g, ' ').trim().slice(0, 120))
+          setIndex(0)
+          setMode('page')
+        })}
         {target && !link && item('link', 'Add link…', () => setMode('url'))}
         {link && item('link', 'Edit link…', () => setMode('url'))}
         {link && item('unlink', 'Remove link', () => { close(); applyLink(view, link.from, link.to, null) }, true)}
@@ -148,7 +160,7 @@ function SelectionMenu({ view, target, link, currentPageId, close }: MenuProps) 
 
   return (
     <div className="mention-list slash-list plugin-picker selection-menu" role="dialog" aria-label="Link to page">
-      <input className="plugin-picker-search" autoFocus placeholder="Search pages…" value={query}
+      <input ref={searchRef} className="plugin-picker-search" autoFocus placeholder="Search pages…" value={query}
         onChange={(e) => { setQuery(e.target.value); setIndex(0) }} onKeyDown={onKeyDown} />
       <div role="listbox" className="plugin-picker-items">
         {!count && <div className="mention-empty plugin-picker-empty">No matching pages</div>}

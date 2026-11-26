@@ -50,7 +50,12 @@ export default function SettingsDialog(props: { project: Project; onClose: () =>
   const [busy, setBusy] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const busyRef = useRef(false)
-  busyRef.current = busy
+  // The ref updates at once: a tab that calls setBusy(false) and then close() in the same
+  // handler (e.g. opening a just-imported world) must not be refused by a stale busy flag.
+  const updateBusy = useCallback((b: boolean) => {
+    busyRef.current = b
+    setBusy(b)
+  }, [])
 
   const close = useCallback(() => {
     if (!busyRef.current) onClose()
@@ -100,7 +105,7 @@ export default function SettingsDialog(props: { project: Project; onClose: () =>
   }
 
   const ctx: SettingsContext = {
-    project, name, setName, theme, setTheme, role, roleLoading, setRole, setBusy, close,
+    project, name, setName, theme, setTheme, role, roleLoading, setRole, setBusy: updateBusy, close,
   }
 
   let body: ReactNode
