@@ -447,7 +447,7 @@ function TabDoc({ page, canEdit, secretsVisible, status, initialContent, onChang
     editable: canEdit,
     extensions: [
       StarterKit.configure({ link: LINK_OPTIONS }),
-      pageMention(page.project_id, page.id),
+      pageMention(page.project_id, page.id, canEdit),
       Callout,
       secretBlock(secretsVisible),
       PluginBlock.configure({ projectId: page.project_id, canEdit }),

@@ -7,23 +7,16 @@ import { useVisiblePages, usePages } from '../../state/pages'
 import { BLOCK_ICONS } from './blockIcons'
 import { showImageNote } from './imageBlock'
 import { LinkField, applyLink, linkElementAt, linkRangeAt, openFloating } from './linkUi'
+import { createTitleFor, titleFromText } from './newPageTitle'
 
 /*
  * Right-click on a text selection in an editable doc: "New subpage from selection" (creates a
  * child doc page titled with the text and replaces the text with a mention of it) and
- * "Link to existing page…" (replaces the text with a mention of a picked page).
+ * "Link to existing page…" (replaces the text with a mention of a picked page — or, via its
+ * "+ Create “query”" row when no page has that exact title, of a new child page titled with the query).
  * Mentions are { type: 'mention', attrs: { id, label } } (CONTRACT) — the same node the "@"
  * suggestion inserts — so autosave's extractMentionIds/replaceMentions sync backlinks as usual.
  */
-
-const TITLE_MAX = 80
-
-/** Selected text → page title: whitespace collapsed, trimmed, capped; "Untitled" if empty. */
-export function titleFromSelection(text: string): string {
-  const clean = text.replace(/\s+/g, ' ').trim()
-  if (!clean) return 'Untitled'
-  return clean.length > TITLE_MAX ? `${clean.slice(0, TITLE_MAX - 1).trimEnd()}…` : clean
-}
 
 interface Target {
   view: EditorView
@@ -53,10 +46,11 @@ function replaceWithMention(t: Target, page: Pick<Page, 'id' | 'title'>): boolea
   return true
 }
 
-async function newSubpage(t: Target): Promise<void> {
+/** Creates a child doc page of the edited page (titled with the selection by default) and links the selection to it. */
+async function newSubpage(t: Target, title = titleFromText(t.text)): Promise<void> {
   let page: Page
   try {
-    page = await usePages.getState().create(t.pageId, 'doc', undefined, { title: titleFromSelection(t.text) })
+    page = await usePages.getState().create(t.pageId, 'doc', undefined, { title })
   } catch (e) {
     showImageNote(`Couldn’t create the page: ${(e as Error).message}`)
     return
@@ -88,23 +82,34 @@ function SelectionMenu({ view, target, link, currentPageId, close }: MenuProps) 
   const items = mode === 'page'
     ? pages.filter((p) => p.id !== currentPageId && (!q || (p.title || 'Untitled').toLowerCase().includes(q))).slice(0, 8)
     : []
-  const active = Math.min(index, Math.max(0, items.length - 1))
+  // "+ Create “query”" row after the matches (only when selection text can be linked).
+  const newTitle = mode === 'page' && target ? createTitleFor(query, pages.map((p) => p.title)) : null
+  const count = items.length + (newTitle ? 1 : 0)
+  const active = Math.min(index, Math.max(0, count - 1))
 
   function linkPage(page: Page) {
     close()
     if (target && !replaceWithMention(target, page)) showImageNote('The text changed meanwhile — nothing was linked.')
   }
 
+  function createAndLink(title: string) {
+    close()
+    if (target) void newSubpage(target, title)
+  }
+
   function onKeyDown(e: KeyboardEvent) {
-    if (e.key === 'ArrowDown' && items.length) {
+    if (e.key === 'ArrowDown' && count) {
       e.preventDefault()
-      setIndex((active + 1) % items.length)
-    } else if (e.key === 'ArrowUp' && items.length) {
+      setIndex((active + 1) % count)
+    } else if (e.key === 'ArrowUp' && count) {
       e.preventDefault()
-      setIndex((active - 1 + items.length) % items.length)
+      setIndex((active - 1 + count) % count)
     } else if (e.key === 'Enter' && items[active]) {
       e.preventDefault()
       linkPage(items[active])
+    } else if (e.key === 'Enter' && newTitle && active === items.length) {
+      e.preventDefault()
+      createAndLink(newTitle)
     }
   }
 
@@ -146,7 +151,7 @@ function SelectionMenu({ view, target, link, currentPageId, close }: MenuProps) 
       <input className="plugin-picker-search" autoFocus placeholder="Search pages…" value={query}
         onChange={(e) => { setQuery(e.target.value); setIndex(0) }} onKeyDown={onKeyDown} />
       <div role="listbox" className="plugin-picker-items">
-        {!items.length && <div className="mention-empty plugin-picker-empty">No matching pages</div>}
+        {!count && <div className="mention-empty plugin-picker-empty">No matching pages</div>}
         {items.map((p, i) => (
           <button key={p.id} type="button" role="option" aria-selected={i === active}
             className={`mention-option${i === active ? ' active' : ''}`}
@@ -156,6 +161,15 @@ function SelectionMenu({ view, target, link, currentPageId, close }: MenuProps) 
             <span className="mention-option-title">{p.title || 'Untitled'}</span>
           </button>
         ))}
+        {newTitle && (
+          <button type="button" role="option" aria-selected={active === items.length}
+            className={`mention-option slash-option mention-create${active === items.length ? ' active' : ''}`}
+            onMouseEnter={() => setIndex(items.length)}
+            onMouseDown={(e) => { e.preventDefault(); createAndLink(newTitle) }}>
+            <span className="slash-glyph" aria-hidden dangerouslySetInnerHTML={{ __html: BLOCK_ICONS.pagePlus }} />
+            <span className="mention-option-title">Create “{newTitle}”</span>
+          </button>
+        )}
       </div>
     </div>
   )
