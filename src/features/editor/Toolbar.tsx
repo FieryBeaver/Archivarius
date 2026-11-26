@@ -11,6 +11,7 @@ const STATUS_TEXT: Record<SaveStatus, string> = {
   saving: 'Saving…',
   saved: 'Saved',
   error: "Couldn't save",
+  held: 'Not saved',
 }
 
 interface Tool {

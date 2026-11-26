@@ -1,11 +1,13 @@
 import type { JSONContent } from '@tiptap/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as db from '../../lib/db'
 import type { PageTab } from '../../lib/types'
 import { usePages } from '../../state/pages'
+import { useLive } from '../../state/realtime'
+import { createAutosaver, type SaveStatus } from './autosaveCore'
 import { extractMentionIds } from './mentions'
 
-export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+export type { SaveStatus }
 
 /**
  * What to save: a legacy single document (page.tabs === null) or the full tab array.
@@ -40,55 +42,45 @@ async function persist(pageId: string, payload: SavePayload): Promise<string> {
 }
 
 /**
- * Debounced autosave. Pending changes are flushed on unmount and on demand via `flush`.
- * v0.11: `getSavedAt()` is the updated_at of the newest row this editor knows it matches
- * (seeded with the page's, advanced by every save of ours), so live updates can tell a
- * foreign change from an echo (`setSavedAt` after adopting a newer row); `settled()` waits for in-flight saves, `hasPending()`
- * reports unsaved (debounced) edits and `discard()` drops them.
+ * Debounced autosave (logic in autosaveCore.ts). Pending changes are flushed on unmount and
+ * on demand via `flush`. v0.11: `getSavedAt()` is the updated_at of the newest row this
+ * editor knows it matches (seeded with the page's, advanced by every save of ours), so live
+ * updates can tell a foreign change from an echo (`setSavedAt` after adopting a newer row);
+ * `settled()` waits for in-flight saves, `hasPending()` reports unsaved (debounced) edits and
+ * `discard()` drops them. `hold()` / `release(save)` suspend all writes while the
+ * "updated by someone else" banner is up; unmounting while held drops the edits (with a notice)
+ * instead of overwriting the other member's version.
+ * Mount with a stable pageId (DocEditor is keyed by page id).
  */
 export function useAutosave(pageId: string, initialSavedAt?: string) {
   const [status, setStatus] = useState<SaveStatus>('idle')
-  const pending = useRef<SavePayload | null>(null)
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  // Saves run one after another so an older write can never land last.
-  const queue = useRef<Promise<void>>(Promise.resolve())
-  const savedAt = useRef<string | undefined>(initialSavedAt)
+  const [saver] = useState(() => createAutosaver<SavePayload>({
+    persist: (payload) => persist(pageId, payload),
+    onFlush: (payload) => patchCache(pageId, payload),
+    onStatus: setStatus,
+    debounceMs: DEBOUNCE_MS,
+    initialSavedAt,
+  }))
 
-  const flush = useCallback(() => {
-    clearTimeout(timer.current)
-    const payload = pending.current
-    if (!payload) return
-    pending.current = null
-    patchCache(pageId, payload)
-    queue.current = queue.current
-      .then(() => persist(pageId, payload))
-      .then(
-        (at) => {
-          savedAt.current = at
-          if (!pending.current) setStatus('saved')
-        },
-        () => setStatus('error'),
-      )
-  }, [pageId])
+  useEffect(() => () => {
+    if (saver.dispose()) {
+      useLive.getState().setNotice('Your unsaved edits were discarded: someone else changed the page meanwhile.')
+    }
+  }, [saver])
 
-  const schedule = useCallback((payload: SavePayload) => {
-    pending.current = payload
-    setStatus('saving')
-    clearTimeout(timer.current)
-    timer.current = setTimeout(flush, DEBOUNCE_MS)
-  }, [flush])
-
-  useEffect(() => flush, [flush])
-
-  const getSavedAt = useCallback(() => savedAt.current, [])
-  const setSavedAt = useCallback((at: string) => { savedAt.current = at }, [])
-  const settled = useCallback(() => queue.current, [])
-  const hasPending = useCallback(() => pending.current !== null, [])
-  const discard = useCallback(() => {
-    clearTimeout(timer.current)
-    pending.current = null
-    setStatus('idle')
-  }, [])
-
-  return { status, schedule, flush, getSavedAt, setSavedAt, settled, hasPending, discard }
+  return {
+    status,
+    schedule: saver.schedule,
+    flush: saver.flush,
+    getSavedAt: saver.getSavedAt,
+    setSavedAt: saver.setSavedAt,
+    settled: saver.settled,
+    hasPending: saver.hasPending,
+    discard: saver.discard,
+    pause: saver.pause,
+    resume: saver.resume,
+    hold: saver.hold,
+    release: saver.release,
+    isHeld: saver.isHeld,
+  }
 }

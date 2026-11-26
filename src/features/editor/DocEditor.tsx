@@ -81,7 +81,9 @@ export default function DocEditor({ page, canEdit }: DocEditorProps) {
  * mutating tab action (adding a tab), so untouched pages are never rewritten.
  */
 function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorInnerProps) {
-  const { status, schedule, flush, getSavedAt, setSavedAt, settled, hasPending, discard } = useAutosave(page.id, page.updated_at)
+  const {
+    status, schedule, flush, getSavedAt, setSavedAt, settled, hasPending, pause, resume, hold, release,
+  } = useAutosave(page.id, page.updated_at)
   // Secret blocks and restricted tabs: gone while secrets are hidden or previewing
   // (visibilityRole demotes; the outer component remounts this on those switches).
   const vRole = usePages(visibilityRole)
@@ -163,29 +165,60 @@ function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorI
     }
   }
 
+  // Also fired by window.archivarius writes (api/browser.ts bumpPages), so script appends
+  // while this editor is dirty get the same protection.
   useEffect(() => {
     if (!bump) return
     let alive = true
+    // No writes while we look at the newer version: a debounced save landing mid-check
+    // would silently replace it. Ends in finish() (or in hold() on a conflict).
+    pause()
+    let done = false
+    const finish = () => { if (!done) { done = true; resume() } }
     void (async () => {
-      await settled() // our own in-flight save first: its echo is not a foreign change
-      const row = await db.getPage(page.id).catch(() => null)
-      if (!alive || !row) return
-      const seen = getSavedAt()
-      if (seen && row.updated_at <= seen) return
-      if (matchesLocal(row)) { setSavedAt(row.updated_at); setRemote(false); return }
-      if (hasPending()) { setRemote(true); return }
-      applyRemote(row)
+      try {
+        await settled() // our own in-flight save first: its echo is not a foreign change
+        const row = await db.getPage(page.id).catch(() => null)
+        if (!alive || !row) return
+        const seen = getSavedAt()
+        if (seen && row.updated_at <= seen) return
+        if (matchesLocal(row)) {
+          setSavedAt(row.updated_at)
+          setRemote(false)
+          release(true)
+          return
+        }
+        if (hasPending()) {
+          // Unsaved edits vs. a newer version: write nothing until Reload / Keep mine.
+          hold()
+          setRemote(true)
+          return
+        }
+        applyRemote(row)
+      } finally {
+        finish()
+      }
     })()
-    return () => { alive = false }
+    return () => { alive = false; finish() }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on a new live signal; the handlers read refs
   }, [bump])
 
+  /** "Reload": drop our unsaved edits and show the other version. */
   async function reloadRemote() {
-    discard() // drop our unsaved edits — the user chose the other version
     await settled()
     const row = await db.getPage(page.id).catch(() => null)
-    if (row) applyRemote(row)
-    else setRemote(false)
+    if (!row) {
+      showImageNote("Couldn't load the other version. Check your connection and try again.")
+      return
+    }
+    release(false) // discard our pending edits — the user chose the other version
+    applyRemote(row)
+  }
+
+  /** "Keep mine": resume saving; the next write replaces the other version. */
+  function keepMine() {
+    setRemote(false)
+    release(true)
   }
 
   /** Structural change: re-render the strip and save the full array right away. */
@@ -397,7 +430,7 @@ function DocEditorInner({ page, canEdit, initialActiveId, onReload }: DocEditorI
           <span>This page was updated by someone else.</span>
           <button type="button" className="btn-ghost" onClick={() => void reloadRemote()}>Reload</button>
           <button type="button" className="btn-ghost" title="Keep editing; saving will replace their version"
-            onClick={() => setRemote(false)}>Keep mine</button>
+            onClick={keepMine}>Keep mine</button>
         </div>
       )}
       {nothingShown ? (
